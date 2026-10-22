@@ -143,6 +143,17 @@ class OpenRouterProvider(Provider):
     name = "openrouter"
     base_url = "https://openrouter.ai/api/v1"
     api_key_env = "OPENROUTER_API_KEY"
+    #: request field carrying the probe's completion budget
+    max_tokens_param = "max_tokens"
+
+    # Hooks for OpenAI-compatible subclasses with other error/header conventions.
+    @staticmethod
+    def _classify(status_code: Optional[int], error_obj: Dict[str, Any]) -> str:
+        return _classify(status_code, error_obj)
+
+    @staticmethod
+    def _rate_limit_hints(headers: Any) -> Tuple[Optional[float], Optional[int]]:
+        return _rate_limit_hints(headers)
 
     def __init__(
         self,
@@ -251,7 +262,7 @@ class OpenRouterProvider(Provider):
         payload = {
             "model": model.id,
             "messages": [{"role": "user", "content": "Reply with OK."}],
-            "max_tokens": max_tokens,
+            self.max_tokens_param: max_tokens,
             "stream": True,
         }
         headers = self._auth_headers()
@@ -272,7 +283,7 @@ class OpenRouterProvider(Provider):
                 "POST", url, headers=headers, json=payload, timeout=timeout
             ) as response:
                 status_code = response.status_code
-                retry_after_s, rl_remaining = _rate_limit_hints(response.headers)
+                retry_after_s, rl_remaining = self._rate_limit_hints(response.headers)
                 if status_code != 200:
                     try:
                         body = response.read()
@@ -290,7 +301,7 @@ class OpenRouterProvider(Provider):
                         error=error,
                         status_code=status_code,
                         tested_at=time.time(),
-                        failure_kind=_classify(status_code, error_obj),
+                        failure_kind=self._classify(status_code, error_obj),
                         retry_after_s=retry_after_s,
                         rate_limit_remaining=rl_remaining,
                     )
@@ -320,7 +331,7 @@ class OpenRouterProvider(Provider):
                         if isinstance(err, dict):
                             error = str(err.get("message") or err.get("code") or err)
                             code = err.get("code")
-                            failure_kind = _classify(code if isinstance(code, int) else None, err)
+                            failure_kind = self._classify(code if isinstance(code, int) else None, err)
                         else:
                             error = str(err)
                             failure_kind = "model"
