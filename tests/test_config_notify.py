@@ -122,3 +122,31 @@ def test_example_config_is_valid():
     example = Path(__file__).resolve().parents[1] / "examples" / "config.example.yml"
     cfg = load_config(example)
     assert {t.adapter for t in cfg.targets} == {"openai-env", "openai-yaml", "dsh", "astrbot"}
+
+
+def test_inline_webhook_url_warns_and_checks_permissions(tmp_path, caplog):
+    """Review P2-5: a tokenized webhook URL in a group/world-readable config file."""
+    import os
+
+    from freemodel_sync.config import load_config
+
+    cfg = tmp_path / "config.yml"
+    cfg.write_text("notify:\n  webhook:\n    url: https://hooks.example.com/T0KEN\n")
+    os.chmod(cfg, 0o644)
+    with caplog.at_level("WARNING"):
+        load_config(cfg)
+    assert "prefer notify.webhook.url_env" in caplog.text
+    assert "chmod 600" in caplog.text and "T0KEN" not in caplog.text
+
+    caplog.clear()
+    os.chmod(cfg, 0o600)
+    with caplog.at_level("WARNING"):
+        load_config(cfg)
+    assert "url_env" in caplog.text and "chmod" not in caplog.text
+
+    caplog.clear()
+    cfg.write_text("notify:\n  webhook:\n    url_env: MY_HOOK\n")
+    os.chmod(cfg, 0o644)
+    with caplog.at_level("WARNING"):
+        load_config(cfg)
+    assert caplog.text == ""

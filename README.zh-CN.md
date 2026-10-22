@@ -92,7 +92,7 @@ freemodel-sync sync                      # 写配置，有变化时通知
 ## 通知
 
 - **Telegram**：配置 `notify.telegram`，并设置环境变量 `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID`。
-- **Webhook**（例如 QQ 机器人桥接）：配置 `notify.webhook.url_env`（默认 `FREEMODEL_SYNC_WEBHOOK_URL`）。POST 内容为 `{"event": "primary_changed", "old", "new", "fallbacks", "text"}`。
+- **Webhook**（例如 QQ 机器人桥接）：配置 `notify.webhook.url_env`（默认 `FREEMODEL_SYNC_WEBHOOK_URL`）。webhook URL 通常带 token，请放在环境变量里：直接写 `notify.webhook.url` 也能用，但会给出警告；配置文件对其他用户可读时还会再警告一次。POST 内容为 `{"event": "primary_changed", "old", "new", "fallbacks", "text"}`。
 
 通知失败只记日志（不含 token 和完整 URL），不会导致同步失败。
 

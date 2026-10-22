@@ -90,4 +90,4 @@ notify:
   # Generic webhook (e.g. a QQ bot bridge). JSON body:
   # {"event": "primary_changed", "old": ..., "new": ..., "fallbacks": [...], "text": ...}
   webhook:
-    url_env: FREEMODEL_SYNC_WEBHOOK_URL
+    url_env: FREEMODEL_SYNC_WEBHOOK_URL   # keep the URL (it usually has a token) out of this file

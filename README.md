@@ -133,6 +133,8 @@ Example `dsh` result:
 
 - **Telegram:** set `notify.telegram` and export `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID`.
 - **Webhook** (e.g. a QQ bot bridge): set `notify.webhook.url_env` (default `FREEMODEL_SYNC_WEBHOOK_URL`).
+  Webhook URLs usually contain a token, so keep them in the environment: an inline `notify.webhook.url`
+  works but logs a warning, plus another if the config file is readable by other users.
   The POST body is `{"event": "primary_changed", "old", "new", "fallbacks", "text"}`.
 
 Notification failures are logged (without tokens or full URLs) and never fail a sync.

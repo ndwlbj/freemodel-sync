@@ -37,6 +37,7 @@ Example::
 from __future__ import annotations
 
 import copy
+import logging
 import os
 from collections.abc import Iterator
 from dataclasses import dataclass, field
@@ -46,6 +47,8 @@ from typing import Any, Dict, List, Mapping, Optional, Union
 import yaml
 
 from .ranking import RankWeights
+
+LOG = logging.getLogger(__name__)
 
 DEFAULT_CONFIG_PATH = "~/.config/freemodel-sync/config.yml"
 DEFAULT_CACHE_PATH = "~/.cache/freemodel-sync/results.json"
@@ -535,6 +538,10 @@ def load_config(
         ranking_json = _expand_path(_require_str(ranking_json, "output.ranking_json"))
     state_path = _require_str(merged.get("state_path", DEFAULT_STATE_PATH), "state_path")
 
+    notify = _parse_notify(merged.get("notify", {}))
+    if config_path.exists():
+        _warn_inline_secrets(config_path, notify)
+
     return Config(
         providers=_parse_providers(merged.get("providers", {})),
         filters=_parse_filters(merged.get("filters", {})),
@@ -544,5 +551,29 @@ def load_config(
         backups=_parse_backups(merged.get("backups", {})),
         state_path=_expand_path(state_path),
         targets=_parse_targets(merged.get("targets", [])),
-        notify=_parse_notify(merged.get("notify", {})),
+        notify=notify,
     )
+
+
+def _warn_inline_secrets(config_path: Path, notify: NotifyConfig) -> None:
+    """Warn when a webhook URL (which usually embeds a token) sits in the config file."""
+
+    webhook = notify.webhook or {}
+    if not webhook.get("url"):
+        return
+    LOG.warning(
+        "notify.webhook.url is set in the config file; webhook URLs usually contain a "
+        "token, so prefer notify.webhook.url_env and keep the URL in the environment"
+    )
+    try:
+        mode = config_path.stat().st_mode & 0o777
+    except OSError:
+        return
+    if os.name == "posix" and mode & 0o077:
+        LOG.warning(
+            "config file %s is readable by other users (mode %s) and contains a webhook "
+            "URL; run: chmod 600 %s",
+            config_path,
+            oct(mode),
+            config_path,
+        )
