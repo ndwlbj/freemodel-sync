@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import time
+from pathlib import Path
 
 import pytest
 import yaml
@@ -269,3 +270,10 @@ def test_overlapping_runs_are_serialized(capsys, setup):
     assert provider.tested == [] and target.read_text() == before
     assert run(cfg, provider, "sync", "--no-notify") == 0  # lock released
     assert oct((tmp / "state.json.lock").stat().st_mode & 0o777) == "0o600"
+
+
+def test_package_ships_py_typed():
+    """Review P2-6: PEP 561 marker for type checkers."""
+    import freemodel_sync
+
+    assert (Path(freemodel_sync.__file__).parent / "py.typed").exists()

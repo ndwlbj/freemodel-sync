@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling>=1.18"]
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [project]
@@ -7,15 +7,16 @@ name = "freemodel-sync"
 dynamic = ["version"]
 description = "Discover, test and rank free LLMs, then sync a primary model + fallbacks into the configs of tools you already use. Not a proxy."
 readme = "README.md"
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.9"
-authors = [{ name = "freemodel-sync contributors" }]
+authors = [{ name = "ghwghw19" }]
+maintainers = [{ name = "ghwghw19" }]
 keywords = ["llm", "openrouter", "free-models", "model-routing", "config", "cli"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Environment :: Console",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
@@ -26,6 +27,7 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
   "Topic :: Utilities",
+  "Typing :: Typed",
 ]
 dependencies = [
   "httpx>=0.24",
@@ -40,10 +42,27 @@ freemodel-sync = "freemodel_sync.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/ghwghw19/freemodel-sync"
+Repository = "https://github.com/ghwghw19/freemodel-sync"
 Issues = "https://github.com/ghwghw19/freemodel-sync/issues"
+Changelog = "https://github.com/ghwghw19/freemodel-sync/blob/main/CHANGELOG.md"
 
 [tool.hatch.version]
 path = "src/freemodel_sync/__init__.py"
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "src",
+  "tests",
+  "docs",
+  "examples",
+  "scripts",
+  "README.md",
+  "README.zh-CN.md",
+  "CHANGELOG.md",
+  "CONTRIBUTING.md",
+  "SECURITY.md",
+  "LICENSE",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/freemodel_sync"]

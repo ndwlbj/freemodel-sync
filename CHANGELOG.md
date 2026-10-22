@@ -30,6 +30,8 @@ All notable changes to this project are documented here. The format follows
 
 ### Deprecated
 
+- **Python 3.9** reached end of life in October 2025. 0.2.x still supports it; 0.3.0 is
+  planned to require Python 3.10 or newer.
 - dsh `fallback_entry_id`: dsh rejects unknown patch ids, so the option is ignored with a
   warning. Remove any `freemodel-fallbacks` entry left in your `cordis.patch.yml`.
 

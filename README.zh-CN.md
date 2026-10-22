@@ -37,7 +37,7 @@ uvx --from git+https://github.com/ghwghw19/freemodel-sync freemodel-sync --help
 pipx install .
 ```
 
-需要 Python 3.9+，运行依赖只有 `httpx` 和 `PyYAML`。
+需要 Python 3.9+（Python 3.9 已停止维护，计划从 0.3.0 起要求 3.10+），运行依赖只有 `httpx` 和 `PyYAML`。
 
 ## 快速开始
 
