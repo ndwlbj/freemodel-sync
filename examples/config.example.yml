@@ -26,6 +26,7 @@ testing:
 
 ranking:
   fallback_count: 3
+  fallbacks_allow_untested: false   # true: fill empty fallback slots with never-probed models (flagged)
   weights:
     availability: 100
     latency: 30

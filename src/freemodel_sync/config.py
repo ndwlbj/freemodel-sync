@@ -86,6 +86,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
             "untested_penalty": 40.0,
         },
         "fallback_count": 3,
+        "fallbacks_allow_untested": False,
     },
     "output": {"ranking_json": None},
     "backups": {"keep": 5, "dir": None},
@@ -173,6 +174,8 @@ class TestingConfig(_Section):
 class RankingConfig(_Section):
     weights: RankWeights = field(default_factory=RankWeights)
     fallback_count: int = 3
+    #: fill empty fallback slots with models that were never probed
+    fallbacks_allow_untested: bool = False
 
 
 @dataclass
@@ -252,6 +255,7 @@ class Config(_Section):
             self.ranking = RankingConfig(
                 weights=weights or RankWeights(),
                 fallback_count=int(dict(self.ranking).get("fallback_count", 3)),
+                fallbacks_allow_untested=bool(dict(self.ranking).get("fallbacks_allow_untested", False)),
             )
         if not isinstance(self.output, OutputConfig):
             self.output = OutputConfig(**dict(self.output))
@@ -420,6 +424,9 @@ def _parse_ranking(raw: Any) -> RankingConfig:
         weights=RankWeights(**weight_values),
         fallback_count=_require_int(
             section.get("fallback_count", 3), "ranking.fallback_count", minimum=0
+        ),
+        fallbacks_allow_untested=_require_bool(
+            section.get("fallbacks_allow_untested", False), "ranking.fallbacks_allow_untested"
         ),
     )
 

@@ -131,3 +131,21 @@ def test_bad_config_returns_1(tmp_path, capsys):
     p.write_text("targets: [{adapter: nope, path: x}]")
     assert main(["-c", str(p), "discover"]) == 1
     assert "unknown adapter" in capsys.readouterr().err
+
+
+def test_untested_fallbacks_are_opt_in_and_flagged(capsys, setup):
+    """Review P1-4: untested models only become fallbacks when explicitly allowed."""
+    tmp, cfg, target = setup
+    data = yaml.safe_load(cfg.read_text())
+    data["testing"]["max_tests"] = 1  # only big/tools gets probed
+    cfg.write_text(yaml.safe_dump(data))
+    provider = StubProvider({"big/tools:free"})
+    assert run(cfg, provider, "rank", "--json") == 0
+    sel = json.loads(capsys.readouterr().out)["selection"]
+    assert sel["fallbacks"] == [] and sel["untested_fallbacks"] == []
+
+    data["ranking"]["fallbacks_allow_untested"] = True
+    cfg.write_text(yaml.safe_dump(data))
+    assert run(cfg, provider, "sync", "--no-notify") == 0
+    out = capsys.readouterr().out
+    assert "(untested)" in out

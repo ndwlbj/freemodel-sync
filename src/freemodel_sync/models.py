@@ -139,3 +139,8 @@ class Selection:
     @property
     def model_ids(self) -> List[str]:
         return [self.primary.model.id] + [f.model.id for f in self.fallbacks]
+
+    @property
+    def untested_fallbacks(self) -> List[str]:
+        """Ids of fallbacks that were never probed (only with allow_untested)."""
+        return [f.model.id for f in self.fallbacks if f.test is None]

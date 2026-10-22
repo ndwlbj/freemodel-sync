@@ -105,7 +105,14 @@ def test_scoring_and_selection():
     assert sel.primary.model.id == "fast:free"
     fb = [f.model.id for f in sel.fallbacks]
     assert "broken:free" not in fb
-    assert fb[-1] == "untested:free"  # untested only fills remaining slots
+    # Review P1-4: untested models never leak into fallbacks by default
+    assert "untested:free" not in fb and sel.untested_fallbacks == []
+    assert len(fb) == 2  # only the two other working models
+
+    sel = select(ranked, fallback_count=3, allow_untested=True)
+    fb = [f.model.id for f in sel.fallbacks]
+    assert fb[-1] == "untested:free"  # opt-in: untested only fills remaining slots
+    assert sel.untested_fallbacks == ["untested:free"]
 
 
 def test_select_none_when_nothing_works():

@@ -120,12 +120,18 @@ def rank(
     return ranked
 
 
-def select(ranked: Sequence[RankedModel], fallback_count: int = 3) -> Optional[Selection]:
+def select(
+    ranked: Sequence[RankedModel],
+    fallback_count: int = 3,
+    *,
+    allow_untested: bool = False,
+) -> Optional[Selection]:
     """Pick the best usable model plus fallbacks.
 
     Returns ``None`` when no tested-and-working model exists.  Fallbacks are the
-    next working models, filled up with untested models when needed; failed
-    models are never selected.
+    next working models.  Only when ``allow_untested`` is true are remaining
+    slots filled with untested models (callers should flag them); failed models
+    are never selected.
     """
 
     primary: Optional[RankedModel] = None
@@ -149,7 +155,7 @@ def select(ranked: Sequence[RankedModel], fallback_count: int = 3) -> Optional[S
             fallbacks.append(item)
             chosen.add(id(item))
 
-    if len(fallbacks) < limit:
+    if allow_untested and len(fallbacks) < limit:
         for item in ranked:
             if len(fallbacks) >= limit:
                 break

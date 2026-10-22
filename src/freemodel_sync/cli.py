@@ -202,6 +202,7 @@ def _selection_dict(selection: Optional[Selection]) -> Optional[Dict[str, Any]]:
         "primary": selection.primary.model.id,
         "primary_key": selection.primary.model.key,
         "fallbacks": [fallback.model.id for fallback in selection.fallbacks],
+        "untested_fallbacks": selection.untested_fallbacks,
         "model_ids": selection.model_ids,
         "primary_model": selection.primary.to_dict(),
         "fallback_models": [fallback.to_dict() for fallback in selection.fallbacks],
@@ -253,6 +254,15 @@ def _print_table(headers: Sequence[str], rows: Sequence[Sequence[Any]]) -> None:
     print("  ".join("-" * width for width in widths))
     for row in text_rows:
         print("  ".join(cell.ljust(widths[i]) for i, cell in enumerate(row)).rstrip())
+
+
+def _fallback_list(selection: Selection) -> str:
+    """Comma-separated fallbacks; untested ones are flagged."""
+
+    parts = [
+        f"{f.model.id} (untested)" if f.test is None else f.model.id for f in selection.fallbacks
+    ]
+    return ", ".join(parts) or "none"
 
 
 def _status(test: Optional[TestResult]) -> str:
@@ -341,7 +351,11 @@ def _cmd_rank(args: argparse.Namespace, config: Config, provider_name: str, prov
     models = _static_order(models, config.ranking.weights)
     results, quota = _probe(config, provider_name, provider, models)
     ranked = rank(models, results, config.ranking.weights, today=date.today())
-    selection = select(ranked, config.ranking.fallback_count)
+    selection = select(
+        ranked,
+        config.ranking.fallback_count,
+        allow_untested=config.ranking.fallbacks_allow_untested,
+    )
     payload = _ranking_payload(provider_name, ranked, selection, quota)
 
     output = args.output or config.output.ranking_json
@@ -376,7 +390,7 @@ def _cmd_rank(args: argparse.Namespace, config: Config, provider_name: str, prov
     if selection is not None:
         print(
             f"selection: {selection.primary.model.key} "
-            f"(fallbacks: {', '.join(f.model.id for f in selection.fallbacks) or 'none'})"
+            f"(fallbacks: {_fallback_list(selection)})"
         )
     else:
         print("selection: none (no working model)")
@@ -416,7 +430,11 @@ def _cmd_sync(args: argparse.Namespace, config: Config, provider_name: str, prov
     models = _static_order(models, config.ranking.weights)
     results, _quota = _probe(config, provider_name, provider, models)
     ranked = rank(models, results, config.ranking.weights, today=date.today())
-    selection = select(ranked, config.ranking.fallback_count)
+    selection = select(
+        ranked,
+        config.ranking.fallback_count,
+        allow_untested=config.ranking.fallbacks_allow_untested,
+    )
 
     if selection is None:
         if results.account_problem:
@@ -428,6 +446,8 @@ def _cmd_sync(args: argparse.Namespace, config: Config, provider_name: str, prov
             return EXIT_ACCOUNT_ERROR
         print("no usable model found; no config was written", file=sys.stderr)
         return 2
+
+    print(f"selection: {selection.primary.model.key} (fallbacks: {_fallback_list(selection)})")
 
     failures = 0
     if not config.targets:
