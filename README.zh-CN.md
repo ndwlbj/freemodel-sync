@@ -66,6 +66,25 @@ freemodel-sync sync                      # 写配置，有变化时通知
 
 默认路径 `~/.config/freemodel-sync/config.yml`（可用 `-c FILE` 或 `$FREEMODEL_SYNC_CONFIG` 指定）。所有字段都是可选的，完整带注释的示例见 [`examples/config.example.yml`](https://github.com/ndwlbj/freemodel-sync/blob/main/examples/config.example.yml)。
 
+## Provider
+
+| provider | key 环境变量 | 什么算免费 | 说明 |
+| --- | --- | --- | --- |
+| `openrouter`（默认） | `OPENROUTER_API_KEY` | id 以 `:free` 结尾且所有价格（包括 `pricing.overrides`）为 0 | 模型列表公开，额度来自 `/api/v1/key` |
+| `groq` | `GROQ_API_KEY` | 你的 Groq 组织处于 **Free 计划**，需用 `plan: free` 确认 | Groq 的 API 不返回价格；获取模型列表需要 key |
+
+所有启用的 provider 会合并成一个排名。`providers` 配置段会**替换**默认值（只有 OpenRouter），所以可以不写 OpenRouter，或者设 `enabled: false`。每个 provider 使用各自的 key 环境变量、缓存文件、每日计数和限流暂停，某个 provider 出现额度问题只会停止它自己的探测。备用模型总是和主模型来自同一个 provider。用 `options.providers: [openrouter]` 把目标限制在它的工具有 key 的 provider 上，否则它的 base URL 可能换成别的 provider。细节和资料来源见 [docs/providers.md](https://github.com/ndwlbj/freemodel-sync/blob/main/docs/providers.md)。
+
+```yaml
+providers:
+  openrouter: {}
+  groq: {plan: free}          # 只有 Groq 组织在 Free 计划时才这样写
+targets:
+  - adapter: openai-env
+    path: ~/bot/.env
+    options: {providers: [openrouter]}   # 这个机器人只有 OpenRouter 的 key
+```
+
 ## 配置目标（适配器）
 
 | 适配器 | 文件 | 写入内容 |
@@ -88,7 +107,7 @@ freemodel-sync sync                      # 写配置，有变化时通知
 - **YAML 注释**：`openai-yaml` 使用 PyYAML，值发生变化时注释会丢失（值没变时不会重写文件）。`dsh` 适配器会保留注释。
 - **分时段价格**：`:free` 模型的 `pricing.overrides` 里只要有非零价格（比如高峰时段或长上下文），就会被跳过并给出警告。
 - **免费额度**：每日预算来自 `free_model_daily_requests`，不再根据 `is_free_tier` 推断；可用 `testing.daily_free_limit` 覆盖（按 UTC 日计数）。
-- 本版本只实现了 OpenRouter（见下文）。
+- **Provider**：支持 OpenRouter 和 Groq。评估过硅基流动，但它的 API 无法判断哪些模型免费，详见 [docs/providers.md](https://github.com/ndwlbj/freemodel-sync/blob/main/docs/providers.md)。
 
 ## 通知
 
@@ -114,7 +133,7 @@ class MyProvider(Provider):
     def test(self, model, timeout=30.0): ...
 ```
 
-以后可能支持（尚未实现，没有时间表）：硅基流动、智谱 GLM Flash、Groq、Google Gemini。适配器也是同样的插件方式（`freemodel_sync.adapters.base.Adapter` + `register_adapter`）。
+以后可能支持（尚未实现，没有时间表）：智谱 GLM Flash、Google Gemini。适配器也是同样的插件方式（`freemodel_sync.adapters.base.Adapter` + `register_adapter`）。
 
 ## 开发
 

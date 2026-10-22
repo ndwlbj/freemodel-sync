@@ -6,7 +6,27 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **Multiple providers (P2-3):** every enabled provider now feeds one ranking; previously
+  only the first enabled provider was used. A `providers` section in your config *replaces*
+  the default instead of being merged into it, so OpenRouter can be omitted or disabled.
+  Each provider defaults to its own API key variable, and gets its own cache file
+  (`<cache>.<provider>.json` for all but the first), daily counter and rate-limit pause.
+  Fallbacks come from the primary's provider only.
+- **Ranking JSON:** `provider` is replaced by `providers` (a list), and `quota` is now a
+  mapping from provider name to quota. `discover`, `test` and `rank` tables gain a
+  PROVIDER column.
+
 ### Added
+
+- **Groq provider** (`groq`, `GROQ_API_KEY`). Groq's API has no prices, so it is used only
+  after you confirm a Free-plan organization with `providers.groq.plan: free`. Handles
+  Groq's RPD rate-limit headers and error codes. SiliconFlow was evaluated and not added
+  because its API cannot show which models are free (see `docs/providers.md`).
+- Target option `options.providers` limits a target to the providers its tool has a key
+  for; a warning is logged when several providers are enabled and a target has none.
+- Per-provider `daily_free_limit` override.
 
 - Release workflow (`.github/workflows/release.yml`) that publishes to PyPI with Trusted
   Publishing (no API token) when a GitHub release is published, or on demand for an existing

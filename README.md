@@ -100,6 +100,30 @@ Default location: `~/.config/freemodel-sync/config.yml` (override with `-c FILE`
 `$FREEMODEL_SYNC_CONFIG`). Every key is optional; see
 [`examples/config.example.yml`](https://github.com/ndwlbj/freemodel-sync/blob/main/examples/config.example.yml) for the full annotated file.
 
+## Providers
+
+| provider | key variable | free when | notes |
+| --- | --- | --- | --- |
+| `openrouter` (default) | `OPENROUTER_API_KEY` | `:free` id and every price (including `pricing.overrides`) is 0 | public model list, quota from `/api/v1/key` |
+| `groq` | `GROQ_API_KEY` | your Groq organization is on the **Free plan**; confirm with `plan: free` | Groq's API has no prices; the model list needs the key |
+
+All enabled providers feed one ranking. The `providers` section replaces the default
+(OpenRouter only), so you can drop OpenRouter or set `enabled: false`. Each provider uses its own
+key variable, cache file, daily counter and rate-limit pause, and a quota problem stops probing only
+for that provider. Fallbacks always come from the primary's provider. Restrict a target to the
+providers its tool has a key for with `options.providers: [openrouter]`; otherwise its base URL may
+switch provider. Details and sources are in [docs/providers.md](https://github.com/ndwlbj/freemodel-sync/blob/main/docs/providers.md).
+
+```yaml
+providers:
+  openrouter: {}
+  groq: {plan: free}          # only if your Groq org is on the Free plan
+targets:
+  - adapter: openai-env
+    path: ~/bot/.env
+    options: {providers: [openrouter]}   # this bot only has an OpenRouter key
+```
+
 ## Targets (adapters)
 
 | adapter | file | what it writes |
@@ -129,7 +153,8 @@ Example `dsh` result:
   example at peak hours or for long contexts) is skipped with a warning.
 - **Free quota:** the daily budget comes from `free_model_daily_requests` (never inferred from
   `is_free_tier`); `testing.daily_free_limit` overrides it, counted per UTC day.
-- Only OpenRouter is implemented in this release (see below).
+- **Providers:** OpenRouter and Groq. SiliconFlow was evaluated but its API does not say which
+  models are free; see [docs/providers.md](https://github.com/ndwlbj/freemodel-sync/blob/main/docs/providers.md).
 
 ## Notifications
 
@@ -159,7 +184,7 @@ class MyProvider(Provider):
     def test(self, model, timeout=30.0): ...
 ```
 
-Possible future providers (not implemented, no timeline): SiliconFlow, Zhipu GLM Flash, Groq, Google Gemini. Adapters follow the same pattern
+Possible future providers (not implemented, no timeline): Zhipu GLM Flash, Google Gemini. Adapters follow the same pattern
 (`freemodel_sync.adapters.base.Adapter` + `register_adapter`).
 
 ## Development
