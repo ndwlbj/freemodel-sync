@@ -15,3 +15,14 @@ def test_dependabot_updates_pip_and_actions_weekly():
     for update in updates.values():
         assert update["directory"] == "/"
         assert update["schedule"]["interval"] == "weekly"
+
+
+def test_python39_jobs_run_on_ubuntu_24_04():
+    """setup-python has no 3.9 build for Ubuntu 26.04, so these jobs must not use ubuntu-latest."""
+    jobs = yaml.safe_load((ROOT / ".github" / "workflows" / "ci.yml").read_text())["jobs"]
+    assert "3.9" in jobs["test"]["strategy"]["matrix"]["python-version"]
+    assert jobs["test"]["runs-on"] == "ubuntu-24.04"
+    assert jobs["minimum-deps"]["runs-on"] == "ubuntu-24.04"
+    assert jobs["minimum-deps"]["name"] == "test (minimum dependency versions)"
+    snapshot = yaml.safe_load((ROOT / ".github" / "workflows" / "daily-snapshot.yml").read_text())
+    assert snapshot["jobs"]["snapshot"]["runs-on"] == "ubuntu-24.04"
