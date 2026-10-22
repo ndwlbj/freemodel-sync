@@ -4,13 +4,13 @@
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 
-[English](README.md) | [简体中文](README.zh-CN.md)
+[English](https://github.com/ghwghw19/freemodel-sync/blob/main/README.md) | [简体中文](https://github.com/ghwghw19/freemodel-sync/blob/main/README.zh-CN.md)
 
-**Discover, test and rank free LLMs — then write the best one (plus fallbacks) into the configs of tools you already use.**
+**Discover, test and rank free LLMs, then write the top-ranked working one (plus fallbacks) into the configs of tools you already use.**
 
 Free LLM endpoints come and go: models get added, rate-limited, deprecated or quietly start
-costing money. `freemodel-sync` keeps your bots and scripts pointed at a free model that
-actually works today.
+costing money. `freemodel-sync` points your bots and scripts at a free model that passed a
+recent probe. It cannot guarantee the model keeps working between runs.
 
 > **Not a proxy.** freemodel-sync never sees or forwards your traffic. It only edits config
 > files (with a backup) and then gets out of the way. Your tools keep talking to the provider directly.
@@ -33,8 +33,8 @@ discover ──► filter ──► probe (tiny, cached, budgeted) ──► ran
    candidates are tried in order of promise, results are cached (6 h by default), at most
    `max_tests` new probes are made per run, and the round stops while keeping
    `reserve_requests` of the free requests left today, as reported by
-   `free_model_daily_requests.remaining` in `GET /api/v1/key` (UTC day; 50/day below 10
-   purchased credits, 1000/day above). If the key endpoint reports nothing, a conservative
+   `free_model_daily_requests.remaining` in `GET /api/v1/key` (UTC day; per OpenRouter's documentation at the time of writing, 50/day below 10
+   purchased credits and 1000/day above). If the key endpoint reports nothing, a conservative
    50/day is assumed against a local UTC-day counter.
    - **Account problems are not model failures.** A 401/402/403 or an OpenRouter platform 429
      (free-model per-minute/per-day cap) stops the round after that single request; the model is
@@ -43,10 +43,16 @@ discover ──► filter ──► probe (tiny, cached, budgeted) ──► ran
      after `transient_ttl_minutes` (30 by default).
    - Without an API key, `test`, `rank` and `sync` exit with an error and send nothing.
 4. **Rank** with an explainable score (availability ≫ latency, context, tools, expiry).
+   Fallbacks are models that passed their probe; untested models are used only if you set
+   `ranking.fallbacks_allow_untested: true`, and are then marked `(untested)`. Non-chat models
+   (safety classifiers, embedding, rerank, speech) are excluded by default.
 5. **Write** the primary model and fallback list into each configured target. Every write is
    idempotent (unchanged → untouched), supports `--dry-run` with a diff, makes a timestamped
-   `*.bak-*` backup and replaces the file atomically. If no model passes its probe, **nothing is written**.
-6. **Notify** (optional) via Telegram or a generic webhook when the primary model changes.
+   `*.bak-*` backup (mode 0600 or stricter, the newest 5 kept by default; see `backups`) and
+   replaces the file atomically. If no model passes its probe, **nothing is written**.
+6. **Notify** (optional) via Telegram or a generic webhook when the primary model changes. If any
+   target fails to write, the run exits `1`, the recorded state is not advanced and no notification
+   is sent; the next run retries.
 
 ## Install
 
@@ -90,13 +96,13 @@ or missing credits (no file written, no model marked as failed).
 
 Default location: `~/.config/freemodel-sync/config.yml` (override with `-c FILE` or
 `$FREEMODEL_SYNC_CONFIG`). Every key is optional; see
-[`examples/config.example.yml`](examples/config.example.yml) for the full annotated file.
+[`examples/config.example.yml`](https://github.com/ghwghw19/freemodel-sync/blob/main/examples/config.example.yml) for the full annotated file.
 
 ## Targets (adapters)
 
 | adapter | file | what it writes |
 | --- | --- | --- |
-| `openai-env` | `KEY=VALUE` env file | `OPENAI_BASE_URL`, `OPENAI_MODEL`, `OPENAI_FALLBACK_MODELS` (names configurable). Other lines, comments and your API key are left untouched. |
+| `openai-env` | `KEY=VALUE` env file | `OPENAI_BASE_URL`, `OPENAI_MODEL`, `OPENAI_FALLBACK_MODELS` (names configurable). `OPENAI_FALLBACK_MODELS` is not a standard variable: your tool must read it itself. Other lines, comments and your API key are left untouched. |
 | `openai-yaml` | any YAML file | `base_url`, `model`, `fallback_models` under a dotted `key_path` (default `llm`). |
 | `dsh` | dsh (DeepSeek Harness) `cordis.patch.yml`-style list | Replaces only the `agent-default-model` entry with `config: {provider: <p>, model: '<m>'}`; other entries and comments are kept byte-for-byte. Use `provider_map` to map `openrouter` to your dsh provider id. Other keys already in that entry's `config` (e.g. `reasoningEffort`) and its `name` are kept; `entry_name` sets the name. dsh has no fallback-list entry, so fallbacks are not written (`fallback_entry_id` is deprecated and ignored). |
 | `astrbot` (experimental) | AstrBot `data/cmd_config.json` | Updates the model of an **existing** provider entry (`provider_id`): the top-level `model` field for AstrBot ≥ 4.10 (`provider_sources` layout), `model_config.model` for older versions. Never creates providers or touches keys or provider sources. |
@@ -147,7 +153,7 @@ class MyProvider(Provider):
     def test(self, model, timeout=30.0): ...
 ```
 
-Planned: SiliconFlow, Zhipu GLM Flash, Groq, Google Gemini. Adapters follow the same pattern
+Possible future providers (not implemented, no timeline): SiliconFlow, Zhipu GLM Flash, Groq, Google Gemini. Adapters follow the same pattern
 (`freemodel_sync.adapters.base.Adapter` + `register_adapter`).
 
 ## Development
@@ -158,11 +164,15 @@ ruff check src tests
 pytest
 ```
 
-Tests never touch the network (HTTP is mocked with `httpx.MockTransport`).
+Tests never touch the network (HTTP is mocked with `httpx.MockTransport`). See
+[CONTRIBUTING.md](https://github.com/ghwghw19/freemodel-sync/blob/main/CONTRIBUTING.md).
 
 ## Security
 
-- Keys are read only from environment variables and are never written to config files or printed.
+To report a vulnerability privately, see [SECURITY.md](https://github.com/ghwghw19/freemodel-sync/blob/main/SECURITY.md).
+
+- Keys are read only from environment variables; freemodel-sync does not write them to config files
+  or print them.
   Log output (including `-v`) redacts Telegram bot tokens, Bearer tokens and `sk-` style keys, and
   HTTP request logging (`--debug-http`) is off by default.
 - Symlinked targets are followed: the real file is backed up and replaced, the link is kept.
@@ -170,4 +180,4 @@ Tests never touch the network (HTTP is mocked with `httpx.MockTransport`).
 
 ## License
 
-[MIT](LICENSE) © freemodel-sync contributors
+[MIT](https://github.com/ghwghw19/freemodel-sync/blob/main/LICENSE) © freemodel-sync contributors

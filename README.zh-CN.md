@@ -1,10 +1,14 @@
 # freemodel-sync
 
-[English](README.md) | [简体中文](README.zh-CN.md)
+[![CI](https://github.com/ghwghw19/freemodel-sync/actions/workflows/ci.yml/badge.svg)](https://github.com/ghwghw19/freemodel-sync/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/python-3.9%2B-blue)
+![License: MIT](https://img.shields.io/badge/license-MIT-green)
 
-**自动发现、测试、排名免费大模型，再把最好的那个（加上备用列表）写进你正在用的工具配置里。**
+[English](https://github.com/ghwghw19/freemodel-sync/blob/main/README.md) | [简体中文](https://github.com/ghwghw19/freemodel-sync/blob/main/README.zh-CN.md)
 
-免费模型变化很快：新增、限流、下线，或者悄悄开始收费。`freemodel-sync` 让你的机器人和脚本始终指向一个今天真的能用的免费模型。
+**自动发现、测试、排名免费大模型，再把排名最高且能用的那个（加上备用列表）写进你正在用的工具配置里。**
+
+免费模型变化很快：新增、限流、下线，或者悄悄开始收费。`freemodel-sync` 把你的机器人和脚本指向一个最近探测通过的免费模型，但无法保证两次运行之间它一直可用。
 
 > **不是代理。** freemodel-sync 不经手、不转发你的任何请求，只负责修改配置文件（先备份），然后就退出。你的工具仍然直接连接模型服务商。
 
@@ -16,12 +20,12 @@
 
 1. **发现**：从 OpenRouter 公开模型列表（`GET /api/v1/models`，无需 key）拉取。只有同时满足以下条件才算免费：id 以 `:free` 结尾、输入和输出价格都是 `0`、支持文本输入输出。排除 `openrouter/free` 这类路由器。
 2. **过滤**：按是否支持工具调用、最小上下文长度、id 通配符、到期时间过滤。`expiration_date` 在 N 天内的模型直接排除，30 天内到期的会被扣分。
-3. **探测**：用**你自己的** OpenRouter key 给每个候选发一条极小的流式请求（`max_tokens: 8`），测可用性和首字延迟。非常节省：按潜力从高到低测；结果默认缓存 6 小时；每次最多新测 `max_tests` 个；额度以 `GET /api/v1/key` 返回的 `free_model_daily_requests.remaining`（按 UTC 日计；累计购买不足 10 credits 每天 50 次，以上 1000 次）为准，并预留 `reserve_requests` 次给你的日常使用。接口没返回额度时，按保守的每天 50 次、用本地 UTC 日计数。
+3. **探测**：用**你自己的** OpenRouter key 给每个候选发一条极小的流式请求（`max_tokens: 8`），测可用性和首字延迟。非常节省：按潜力从高到低测；结果默认缓存 6 小时；每次最多新测 `max_tests` 个；额度以 `GET /api/v1/key` 返回的 `free_model_daily_requests.remaining`（按 UTC 日计；按撰写时 OpenRouter 文档，累计购买不足 10 credits 每天 50 次，以上 1000 次）为准，并预留 `reserve_requests` 次给你的日常使用。接口没返回额度时，按保守的每天 50 次、用本地 UTC 日计数。
    - **账号问题不算模型故障。** 遇到 401/402/403 或 OpenRouter 平台级 429（免费模型每分钟/每日上限），这一次请求后立即停止本轮，不会把模型记成失败；`Retry-After` / `X-RateLimit-Reset` 会让之后的运行等到重置时间再探测。上游服务商的 429、5xx 和超时算临时失败，`transient_ttl_minutes`（默认 30 分钟）后重试。
    - 没有 API key 时，`test`、`rank`、`sync` 直接报错退出，不发任何请求。
-4. **排名**：可解释的打分（可用性 ≫ 延迟、上下文、工具支持、到期时间）。
-5. **写入**：把主模型和备用列表写进每个配置目标。每次写入都是幂等的（没变化就不动文件），支持 `--dry-run` 显示 diff，写前生成带时间戳的 `*.bak-*` 备份，并原子替换文件。如果没有任何模型通过探测，**不会写任何文件**。
-6. **通知**（可选）：主模型变化时通过 Telegram 或通用 webhook 通知。
+4. **排名**：可解释的打分（可用性 ≫ 延迟、上下文、工具支持、到期时间）。备用模型只取探测通过的；只有设置 `ranking.fallbacks_allow_untested: true` 才会用未测试的模型补位，并标注 `(untested)`。非对话模型（安全分类器、embedding、rerank、语音）默认排除。
+5. **写入**：把主模型和备用列表写进每个配置目标。每次写入都是幂等的（没变化就不动文件），支持 `--dry-run` 显示 diff，写前生成带时间戳的 `*.bak-*` 备份（权限 0600 或更严，默认只保留最新 5 份，见 `backups`），并原子替换文件。如果没有任何模型通过探测，**不会写任何文件**。
+6. **通知**（可选）：主模型变化时通过 Telegram 或通用 webhook 通知。只要有一个目标写入失败，就以退出码 `1` 结束，不更新记录的状态，也不发通知；下次运行会重试。
 
 ## 安装
 
@@ -59,13 +63,13 @@ freemodel-sync sync                      # 写配置，有变化时通知
 
 ## 配置
 
-默认路径 `~/.config/freemodel-sync/config.yml`（可用 `-c FILE` 或 `$FREEMODEL_SYNC_CONFIG` 指定）。所有字段都是可选的，完整带注释的示例见 [`examples/config.example.yml`](examples/config.example.yml)。
+默认路径 `~/.config/freemodel-sync/config.yml`（可用 `-c FILE` 或 `$FREEMODEL_SYNC_CONFIG` 指定）。所有字段都是可选的，完整带注释的示例见 [`examples/config.example.yml`](https://github.com/ghwghw19/freemodel-sync/blob/main/examples/config.example.yml)。
 
 ## 配置目标（适配器）
 
 | 适配器 | 文件 | 写入内容 |
 | --- | --- | --- |
-| `openai-env` | `KEY=VALUE` 环境变量文件 | `OPENAI_BASE_URL`、`OPENAI_MODEL`、`OPENAI_FALLBACK_MODELS`（变量名可配置）。其他行、注释和你的 API key 都不动。 |
+| `openai-env` | `KEY=VALUE` 环境变量文件 | `OPENAI_BASE_URL`、`OPENAI_MODEL`、`OPENAI_FALLBACK_MODELS`（变量名可配置）。`OPENAI_FALLBACK_MODELS` 不是通用变量，需要你的工具自己去读。其他行、注释和你的 API key 都不动。 |
 | `openai-yaml` | 任意 YAML 文件 | 在点分路径 `key_path`（默认 `llm`）下写 `base_url`、`model`、`fallback_models`。 |
 | `dsh` | dsh（DeepSeek Harness）`cordis.patch.yml` 风格的列表 | 只替换 `agent-default-model` 这一项为 `config: {provider: <p>, model: '<m>'}`，其他条目和注释原样保留。用 `provider_map` 把 `openrouter` 映射成你 dsh 里的 provider id。该条目 `config` 里已有的其他键（如 `reasoningEffort`）和 `name` 会保留；`entry_name` 可指定 name。dsh 没有备用列表条目，所以不写备用模型（`fallback_entry_id` 已废弃并被忽略）。 |
 | `astrbot`（实验性） | AstrBot 的 `data/cmd_config.json` | 只更新**已存在**的 provider（`provider_id`）的模型：AstrBot ≥ 4.10（`provider_sources` 结构）写条目顶层的 `model`，旧版本写 `model_config.model`。不会新建 provider，也不碰 key 和 provider source。 |
@@ -108,7 +112,7 @@ class MyProvider(Provider):
     def test(self, model, timeout=30.0): ...
 ```
 
-计划支持：硅基流动、智谱 GLM Flash、Groq、Google Gemini。适配器也是同样的插件方式（`freemodel_sync.adapters.base.Adapter` + `register_adapter`）。
+以后可能支持（尚未实现，没有时间表）：硅基流动、智谱 GLM Flash、Groq、Google Gemini。适配器也是同样的插件方式（`freemodel_sync.adapters.base.Adapter` + `register_adapter`）。
 
 ## 开发
 
@@ -118,14 +122,16 @@ ruff check src tests
 pytest
 ```
 
-测试完全不联网（HTTP 用 `httpx.MockTransport` 模拟）。
+测试完全不联网（HTTP 用 `httpx.MockTransport` 模拟）。贡献指南见 [CONTRIBUTING.md](https://github.com/ghwghw19/freemodel-sync/blob/main/CONTRIBUTING.md)。
 
 ## 安全
 
-- key 只从环境变量读取，不会写进配置文件，也不会打印。日志（包括 `-v`）会遮蔽 Telegram bot token、Bearer token 和 `sk-` 形式的 key；HTTP 请求日志（`--debug-http`）默认关闭。
+私下报告漏洞的方式见 [SECURITY.md](https://github.com/ghwghw19/freemodel-sync/blob/main/SECURITY.md)。
+
+- key 只从环境变量读取，freemodel-sync 不会把它写进配置文件，也不会打印。日志（包括 `-v`）会遮蔽 Telegram bot token、Bearer token 和 `sk-` 形式的 key；HTTP 请求日志（`--debug-http`）默认关闭。
 - 目标文件是符号链接时会写入真实文件（先备份），链接本身保留。
 - 不要提交你的 `config.yml`、`.env`、备份文件或缓存；`.gitignore` 已覆盖默认文件名。
 
 ## 许可证
 
-[MIT](LICENSE) © freemodel-sync contributors
+[MIT](https://github.com/ghwghw19/freemodel-sync/blob/main/LICENSE) © freemodel-sync contributors
