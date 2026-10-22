@@ -6,6 +6,16 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **OpenRouter 403 that only affects one model** (for example a free endpoint "only available
+  on agentic harnesses", or a moderation flag) is now a failure of that model. It is cached like
+  other model failures, and probing continues. In 0.3.0 every 403 counted as an account error, so
+  probing stopped at that model on every run and the models after it were never tested. A 403
+  with a budget `limit_source`, a guardrail block or no metadata is still an account error.
+- `test`/`rank` tables show upstream 429/5xx/timeout failures as `transient` ("temporarily
+  unavailable ... (retried later)") instead of `failed`.
+
 ## [0.3.0] - 2026-10-22
 
 ### Changed

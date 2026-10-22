@@ -110,6 +110,9 @@ def score_model(
     reasons: List[str] = []
 
     if test is not None and not test.ok:
+        if test.failure_kind == "transient":
+            code = f" {test.status_code}" if test.status_code else ""
+            return -1000.0, [f"temporarily unavailable{code}: {test.error or 'unknown error'} (retried later)"]
         return -1000.0, [f"failed: {test.error or 'unknown error'}"]
 
     if test is None:

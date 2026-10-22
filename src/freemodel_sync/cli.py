@@ -398,7 +398,9 @@ def _fallback_list(selection: Selection) -> str:
 def _status(test: Optional[TestResult]) -> str:
     if test is None:
         return "untested"
-    return "ok" if test.ok else "failed"
+    if test.ok:
+        return "ok"
+    return "transient" if test.failure_kind == "transient" else "failed"
 
 
 def _read_state(path: Path) -> Dict[str, Any]:

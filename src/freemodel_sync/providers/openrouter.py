@@ -438,11 +438,45 @@ def _error_object(body: str) -> Dict[str, Any]:
     return {}
 
 
-def _classify(status_code: Optional[int], error_obj: Dict[str, Any]) -> str:
-    """Classify a failed probe as ``"account"``, ``"transient"`` or ``"model"``."""
+#: ``error.metadata`` keys that mark a 403 as specific to the requested model
+#: (routing gates such as "only available on agentic harnesses", moderation
+#: flags) rather than to the key or account.
+_MODEL_SPECIFIC_403_KEYS = (
+    "failed_routing_step",
+    "routing_funnel",
+    "reasons",
+    "flagged_input",
+    "model_slug",
+    "provider_name",
+)
+_MODEL_SPECIFIC_403_TYPES = ("content_policy_violation", "refusal")
 
-    if status_code in (401, 402, 403):
+
+def _is_model_specific_403(error_obj: Dict[str, Any]) -> bool:
+    metadata = error_obj.get("metadata") if isinstance(error_obj, dict) else None
+    if not isinstance(metadata, dict):
+        return False
+    if metadata.get("limit_source"):
+        # key / guardrail / workspace budget: blocks every model
+        return False
+    if metadata.get("error_type") in _MODEL_SPECIFIC_403_TYPES:
+        return True
+    return any(metadata.get(key) for key in _MODEL_SPECIFIC_403_KEYS)
+
+
+def _classify(status_code: Optional[int], error_obj: Dict[str, Any]) -> str:
+    """Classify a failed probe as ``"account"``, ``"transient"`` or ``"model"``.
+
+    OpenRouter's 403 covers both account problems (budget limits, guardrails,
+    key permissions) and model-specific refusals (a free endpoint gated to
+    agentic harnesses, moderation flags). Only the latter carry routing or
+    moderation metadata; a bare 403 stays an account error to be safe.
+    """
+
+    if status_code in (401, 402):
         return "account"
+    if status_code == 403:
+        return "model" if _is_model_specific_403(error_obj) else "account"
     if status_code == 429:
         metadata = error_obj.get("metadata") if isinstance(error_obj, dict) else None
         metadata = metadata if isinstance(metadata, dict) else {}
