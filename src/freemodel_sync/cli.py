@@ -20,6 +20,7 @@ import argparse
 import json
 import logging
 import os
+import re
 import sys
 import tempfile
 import time
@@ -473,6 +474,58 @@ def _cmd_adapters(args: argparse.Namespace, config: Config) -> int:
 # ---------------------------------------------------------------------------
 # parser / entry point
 # ---------------------------------------------------------------------------
+class RedactingFilter(logging.Filter):
+    """Mask secrets that can appear in log messages (e.g. Telegram bot URLs)."""
+
+    _PATTERNS = (
+        (re.compile(r"(api\.telegram\.org/bot)[^/\s\"']+"), r"\1<redacted>"),
+        (re.compile(r"(?i)(bearer\s+)[^\s\"']+"), r"\1<redacted>"),
+        (re.compile(r"\bsk-[A-Za-z0-9_-]{8,}"), "sk-<redacted>"),
+    )
+
+    @classmethod
+    def redact(cls, text: str) -> str:
+        for pattern, replacement in cls._PATTERNS:
+            text = pattern.sub(replacement, text)
+        return text
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        try:
+            message = record.getMessage()
+        except Exception:  # pragma: no cover - defensive
+            return True
+        redacted = self.redact(message)
+        if redacted != message:
+            record.msg, record.args = redacted, None
+        return True
+
+
+_LOG_HANDLER: Optional[logging.Handler] = None
+
+
+def _configure_logging(verbose: bool, debug_http: bool = False) -> None:
+    """Install one stderr handler with secret redaction.
+
+    ``httpx``/``httpcore`` log full request URLs at INFO/DEBUG, and Telegram
+    puts the bot token in the URL, so they stay at WARNING unless
+    ``--debug-http`` is given (and even then messages are redacted).
+    """
+
+    global _LOG_HANDLER
+    root = logging.getLogger()
+    if _LOG_HANDLER is not None:
+        root.removeHandler(_LOG_HANDLER)
+    handler = logging.StreamHandler(sys.stderr)
+    handler.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
+    handler.addFilter(RedactingFilter())
+    root.addHandler(handler)
+    _LOG_HANDLER = handler
+    root.setLevel(logging.DEBUG if verbose else logging.WARNING)
+    http_level = logging.DEBUG if (verbose and debug_http) else logging.WARNING
+    for name in ("httpx", "httpcore"):
+        logging.getLogger(name).setLevel(http_level)
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Create the argument parser (exposed for tests and ``--help``)."""
 
@@ -488,6 +541,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "-v", "--verbose", action="store_true", help="enable verbose logging"
+    )
+    parser.add_argument(
+        "--debug-http",
+        action="store_true",
+        help="also log HTTP requests (secrets in URLs are redacted)",
     )
     parser.add_argument(
         "--version", action="version", version=f"%(prog)s {__version__}"
@@ -533,10 +591,7 @@ def main(
     parser = build_parser()
     args = parser.parse_args(argv)
 
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.WARNING,
-        format="%(levelname)s %(name)s: %(message)s",
-    )
+    _configure_logging(args.verbose, args.debug_http)
 
     if not args.command:
         parser.print_help()
