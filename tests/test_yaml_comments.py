@@ -102,3 +102,71 @@ def test_both_paths_reject_bad_documents(tmp_path, monkeypatch, use_ruamel):
         apply(tmp_path, "a: [1, 2\n")
     with pytest.raises(ValueError, match="not a mapping"):
         apply(tmp_path, "app: 3\n")
+
+
+# --- together with the multi-provider pipeline (P2-3) -------------------------
+
+
+class _StubProvider:
+    def __init__(self, name, model_ids, api_key):
+        self.name, self.api_key, self.model_ids = name, api_key, model_ids
+
+    def discover(self):
+        return [ModelInfo(self.name, mid, context_length=32768) for mid in self.model_ids]
+
+    def test(self, model, timeout=30.0):
+        import time
+
+        return TestResult(model.key, True, ttft_ms=100.0, tested_at=time.time())
+
+    def quota(self):
+        return None
+
+
+@pytest.mark.parametrize("use_ruamel", [True, False])
+def test_per_provider_yaml_targets_in_one_sync(tmp_path, monkeypatch, use_ruamel):
+    """``options.providers`` and ``preserve_comments`` work side by side: each
+    openai-yaml target gets its provider's model and base URL, comments are kept
+    with ruamel.yaml, and neither option leaks into the written file."""
+
+    from freemodel_sync.cli import main
+
+    if use_ruamel:
+        pytest.importorskip("ruamel.yaml")
+    else:
+        monkeypatch.setattr(openai_yaml, "_load_ruamel", lambda: None)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "fake-or")
+    monkeypatch.setenv("GROQ_API_KEY", "fake-gq")
+    models = {"openrouter": ["vendor/a:free", "vendor/b:free"], "groq": ["llama-big", "llama-small"]}
+    groq_file, or_file = tmp_path / "groq.yml", tmp_path / "or.yml"
+    groq_file.write_text(DOC)
+    or_file.write_text(DOC)
+    cfg = tmp_path / "config.yml"
+    cfg.write_text(yaml.safe_dump({
+        "providers": {"openrouter": {}, "groq": {"plan": "free"}},
+        "testing": {"cache_path": str(tmp_path / "cache.json"), "max_tests": 10},
+        "state_path": str(tmp_path / "state.json"),
+        "ranking": {"fallback_count": 1},
+        "targets": [
+            {"adapter": "openai-yaml", "path": str(groq_file),
+             "options": {"key_path": "app.llm", "providers": ["groq"], "preserve_comments": "auto"}},
+            {"adapter": "openai-yaml", "path": str(or_file),
+             "options": {"key_path": "app.llm", "providers": ["openrouter"]}},
+        ],
+    }, sort_keys=False))
+
+    def factory(name, api_key=None, **options):
+        return _StubProvider(name, models[name], api_key)
+
+    assert main(["-c", str(cfg), "sync", "--no-notify"], provider_factory=factory) == 0
+
+    groq_llm = yaml.safe_load(groq_file.read_text())["app"]["llm"]
+    or_llm = yaml.safe_load(or_file.read_text())["app"]["llm"]
+    assert groq_llm["base_url"] == "https://api.groq.com/openai/v1"
+    assert groq_llm["model"] in models["groq"] and set(groq_llm["fallback_models"]) <= set(models["groq"])
+    assert or_llm["base_url"] == "https://openrouter.ai/api/v1"
+    assert or_llm["model"] in models["openrouter"]
+    for path in (groq_file, or_file):
+        text = path.read_text()
+        assert "providers" not in text and "preserve_comments" not in text
+        assert ("# keep me" in text) is use_ruamel
