@@ -27,6 +27,11 @@ All notable changes to this project are documented here. The format follows
 - Target option `options.providers` limits a target to the providers its tool has a key
   for; a warning is logged when several providers are enabled and a target has none.
 - Per-provider `daily_free_limit` override.
+- **Comment-preserving YAML (P2-8):** with the optional extra
+  `freemodel-sync[yaml-comments]` (ruamel.yaml) the `openai-yaml` adapter keeps comments,
+  key order and quoting when it changes a value. Behaviour without the extra is unchanged.
+  New target option `preserve_comments` (`auto` by default, `true` to require ruamel.yaml,
+  `false` to always use PyYAML). CI installs the extra in the main test matrix.
 
 - Release workflow (`.github/workflows/release.yml`) that publishes to PyPI with Trusted
   Publishing (no API token) when a GitHub release is published, or on demand for an existing

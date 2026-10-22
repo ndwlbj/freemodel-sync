@@ -147,8 +147,11 @@ Example `dsh` result:
   the file when you save in the WebUI, so **restart AstrBot after a sync** (and avoid editing in
   the WebUI at the same time). Provider entries have no fallback list, so only the primary model is
   written; mapping fallbacks to AstrBot's `fallback_provider_ids` is not implemented yet.
-- **YAML comments:** `openai-yaml` uses PyYAML, which drops comments *when a value changes*
-  (an unchanged file is never rewritten). The `dsh` adapter preserves comments.
+- **YAML comments:** install the optional extra (`pipx install "freemodel-sync[yaml-comments]"`) and
+  `openai-yaml` edits the file with ruamel.yaml, keeping comments, key order and quoting. Without it,
+  PyYAML is used and comments are dropped *when a value changes* (an unchanged file is never
+  rewritten). Target option `preserve_comments: auto|true|false` (default `auto`). The `dsh` adapter
+  always preserves comments.
 - **Time-based pricing:** a `:free` model whose `pricing.overrides` has a non-zero price (for
   example at peak hours or for long contexts) is skipped with a warning.
 - **Free quota:** the daily budget comes from `free_model_daily_requests` (never inferred from
