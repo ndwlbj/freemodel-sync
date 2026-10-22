@@ -190,3 +190,53 @@ def test_rank_no_probe(capsys, setup):
     assert run(cfg, provider, "rank", "--no-probe", "--json") == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["selection"] is None and provider.tested == []
+
+
+def test_failed_target_blocks_state_and_notification(capsys, setup, monkeypatch):
+    """Review P1-7: a failed target write must not advance state or notify."""
+    tmp, cfg, target = setup
+    bad = tmp / "missing-dir" / "nested" / "bot.yml"
+    data = yaml.safe_load(cfg.read_text())
+    data["targets"].append({"adapter": "dsh", "path": str(bad)})
+    cfg.write_text(yaml.safe_dump(data))
+    calls = []
+    monkeypatch.setattr("freemodel_sync.cli.notify_switch", lambda *a, **k: calls.append(a) or ["webhook"])
+    real_apply = __import__("freemodel_sync.cli", fromlist=["_apply_target"])._apply_target
+
+    def flaky(target_cfg, selection, **kw):
+        if str(target_cfg.path) == str(bad):
+            raise OSError("disk full")
+        return real_apply(target_cfg, selection, **kw)
+
+    monkeypatch.setattr("freemodel_sync.cli._apply_target", flaky)
+    provider = StubProvider({"big/tools:free"})
+    assert run(cfg, provider, "sync") == 1
+    err = capsys.readouterr().err
+    assert "disk full" in err and "state not advanced" in err
+    assert calls == []
+    assert "model: 'big/tools:free'" in target.read_text()  # the good target was written
+    state = json.loads((tmp / "state.json").read_text())
+    assert "primary" not in state
+    assert state["targets"] == {f"dsh:{target}": "openrouter|big/tools:free"}
+
+    # once every target succeeds the switch is recorded and announced once
+    monkeypatch.setattr("freemodel_sync.cli._apply_target", real_apply)
+    bad.parent.mkdir(parents=True)
+    assert run(cfg, provider, "sync") == 0
+    state = json.loads((tmp / "state.json").read_text())
+    assert state["primary"] == "openrouter|big/tools:free" and len(calls) == 1
+    assert set(state["targets"]) == {f"dsh:{target}", f"dsh:{bad}"}
+
+
+def test_all_targets_failed_keeps_previous_state(capsys, setup, monkeypatch):
+    tmp, cfg, _ = setup
+    (tmp / "state.json").write_text(json.dumps({"primary": "openrouter|old:free"}))
+    calls = []
+    monkeypatch.setattr("freemodel_sync.cli.notify_switch", lambda *a, **k: calls.append(a) or ["webhook"])
+    monkeypatch.setattr(
+        "freemodel_sync.cli._apply_target",
+        lambda *a, **k: (_ for _ in ()).throw(PermissionError("read-only")),
+    )
+    assert run(cfg, StubProvider({"big/tools:free"}), "sync") == 1
+    assert json.loads((tmp / "state.json").read_text()) == {"primary": "openrouter|old:free"}
+    assert calls == []

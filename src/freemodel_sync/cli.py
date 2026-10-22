@@ -299,14 +299,25 @@ def _read_state(path: Path) -> Dict[str, Any]:
     return data if isinstance(data, dict) else {}
 
 
-def _write_state(path: Path, selection: Selection) -> None:
-    payload = {
+def _write_state(path: Path, selection: Selection, targets: Optional[Dict[str, str]] = None) -> None:
+    payload: Dict[str, Any] = {
         "primary": selection.primary.model.key,
         "provider": selection.provider,
         "model": selection.primary.model.id,
         "fallbacks": [fallback.model.id for fallback in selection.fallbacks],
         "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     }
+    if targets:
+        payload["targets"] = dict(targets)
+    _write_json(Path(path), payload)
+
+
+def _write_partial_state(path: Path, previous: Dict[str, Any], targets: Dict[str, str]) -> None:
+    """Record per-target successes without moving the global ``primary``."""
+
+    payload = dict(previous)
+    payload["targets"] = {**(previous.get("targets") or {}), **targets}
+    payload["partial_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     _write_json(Path(path), payload)
 
 
@@ -470,16 +481,18 @@ def _cmd_sync(args: argparse.Namespace, config: Config, provider_name: str, prov
 
     print(f"selection: {selection.primary.model.key} (fallbacks: {_fallback_list(selection)})")
 
-    failures = 0
+    failed_targets: List[str] = []
+    succeeded: Dict[str, str] = {}
     if not config.targets:
         print("no targets configured; nothing to write")
     for target in config.targets:
         try:
             result = _apply_target(target, selection, dry_run=args.dry_run, config=config)
         except Exception as exc:  # noqa: BLE001 - report and continue other targets
-            failures += 1
+            failed_targets.append(f"{target.adapter}:{target.path}")
             print(f"error: {target.adapter} ({target.path}): {exc}", file=sys.stderr)
             continue
+        succeeded[f"{target.adapter}:{target.path}"] = selection.primary.model.key
         action = "would update" if args.dry_run and result.changed else (
             "updated" if result.written else "unchanged"
         )
@@ -493,6 +506,23 @@ def _cmd_sync(args: argparse.Namespace, config: Config, provider_name: str, prov
     new_key = selection.primary.model.key
     changed = old_key != new_key
 
+    if failed_targets:
+        # Do not advance the recorded primary or announce a switch that did
+        # not fully happen: the next run retries and notifies once all
+        # targets are written.
+        print(
+            f"error: {len(failed_targets)} target(s) failed; state not advanced, "
+            "no notification sent",
+            file=sys.stderr,
+        )
+        if not args.dry_run and succeeded:
+            try:
+                _write_partial_state(state_path, previous, succeeded)
+            except OSError as exc:
+                print(f"error: could not write state file {state_path}: {exc}", file=sys.stderr)
+        return 1
+
+    failures = 0
     if changed and not args.dry_run and not args.no_notify:
         channels = notify_switch(
             old_key if isinstance(old_key, str) else None,
@@ -505,7 +535,7 @@ def _cmd_sync(args: argparse.Namespace, config: Config, provider_name: str, prov
 
     if not args.dry_run:
         try:
-            _write_state(state_path, selection)
+            _write_state(state_path, selection, succeeded)
         except OSError as exc:
             print(f"error: could not write state file {state_path}: {exc}", file=sys.stderr)
             failures += 1
