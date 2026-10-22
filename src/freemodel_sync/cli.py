@@ -31,6 +31,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 from . import __version__
 from .adapters import available_adapters, get_adapter_class
 from .config import Config, ConfigError, TargetConfig, load_config
+from .lock import LockedError, RunLock
 from .models import ModelInfo, QuotaInfo, Selection, TestResult
 from .notify import notify_switch
 from .providers import ProviderError, available_providers, get_provider_class
@@ -135,6 +136,8 @@ FALLBACK_DAILY_FREE_LIMIT = 50
 
 #: exit code when probing was stopped by an account/quota problem
 EXIT_ACCOUNT_ERROR = 3
+#: another run holds the lock (nothing was probed or written)
+EXIT_LOCKED = 4
 
 
 class MissingKeyError(RuntimeError):
@@ -717,12 +720,13 @@ def main(
     try:
         if args.command == "discover":
             return _cmd_discover(args, config, provider_name, provider)
-        if args.command == "test":
-            return _cmd_test(args, config, provider_name, provider)
-        if args.command == "rank":
-            return _cmd_rank(args, config, provider_name, provider)
-        if args.command == "sync":
-            return _cmd_sync(args, config, provider_name, provider)
+        commands = {"test": _cmd_test, "rank": _cmd_rank, "sync": _cmd_sync}
+        if args.command in commands:
+            with RunLock(Path(str(config.state_path) + ".lock")):
+                return commands[args.command](args, config, provider_name, provider)
+    except LockedError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_LOCKED
     except (ConfigError, ProviderError, ValueError, OSError, MissingKeyError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1

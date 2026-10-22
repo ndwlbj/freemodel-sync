@@ -251,3 +251,21 @@ def test_discover_without_key_prints_no_key_warning(capsys, caplog, setup):
     captured = capsys.readouterr()
     text = (captured.out + captured.err + caplog.text).lower()
     assert "api key" not in text and "api_key" not in text and "not set" not in text
+
+
+def test_overlapping_runs_are_serialized(capsys, setup):
+    """Review P2-1: a second run while one holds the lock probes and writes nothing."""
+    from freemodel_sync.cli import EXIT_LOCKED
+    from freemodel_sync.lock import RunLock
+
+    tmp, cfg, target = setup
+    before = target.read_text()
+    provider = StubProvider({"big/tools:free"})
+    with RunLock(tmp / "state.json.lock"):
+        for command in ("sync", "test", "rank"):
+            assert run(cfg, provider, command) == EXIT_LOCKED
+        assert "another freemodel-sync run is in progress" in capsys.readouterr().err
+        assert run(cfg, provider, "discover") == 0  # read-only, not locked
+    assert provider.tested == [] and target.read_text() == before
+    assert run(cfg, provider, "sync", "--no-notify") == 0  # lock released
+    assert oct((tmp / "state.json.lock").stat().st_mode & 0o777) == "0o600"
