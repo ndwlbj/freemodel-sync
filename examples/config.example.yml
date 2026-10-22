@@ -18,9 +18,10 @@ filters:
 testing:
   max_tests: 5                  # new probe requests per run (cached results are reused)
   cache_ttl_hours: 6
+  transient_ttl_minutes: 30     # retry models that hit upstream 429/5xx/timeouts after this
   timeout_s: 30
   reserve_requests: 10          # leave this many free requests/day for your real usage
-  daily_free_limit: null        # override the provider's free requests/day (50 or 1000 on OpenRouter)
+  daily_free_limit: null        # override free requests/day; default: OpenRouter's free_model_daily_requests
   cache_path: ~/.cache/freemodel-sync/results.json
 
 ranking:
@@ -63,8 +64,9 @@ targets:
       provider_map:
         openrouter: openrouter
 
-  # AstrBot (experimental): updates model_config.model of an EXISTING provider
-  # entry in data/cmd_config.json. Create the provider in AstrBot first.
+  # AstrBot (experimental): updates the model of an EXISTING provider entry in
+  # data/cmd_config.json (top-level `model` on AstrBot >= 4.10, model_config.model
+  # on older versions). Create the provider in AstrBot first; restart AstrBot after a sync.
   - adapter: astrbot
     path: ~/AstrBot/data/cmd_config.json
     options:

@@ -31,8 +31,17 @@ discover ──► filter ──► probe (tiny, cached, budgeted) ──► ran
 3. **Probe** each candidate with one tiny streaming request (`max_tokens: 8`) using *your own*
    OpenRouter key, measuring availability and time-to-first-token. Probing is frugal:
    candidates are tried in order of promise, results are cached (6 h by default), at most
-   `max_tests` new probes are made per run, and a daily counter keeps a reserve below the
-   free-tier limit reported by `GET /api/v1/key` (50 requests/day, or 1000 after buying ≥10 credits).
+   `max_tests` new probes are made per run, and the round stops while keeping
+   `reserve_requests` of the free requests left today, as reported by
+   `free_model_daily_requests.remaining` in `GET /api/v1/key` (UTC day; 50/day below 10
+   purchased credits, 1000/day above). If the key endpoint reports nothing, a conservative
+   50/day is assumed against a local UTC-day counter.
+   - **Account problems are not model failures.** A 401/402/403 or an OpenRouter platform 429
+     (free-model per-minute/per-day cap) stops the round after that single request; the model is
+     *not* cached as failed, and `Retry-After` / `X-RateLimit-Reset` pause later runs until the
+     reset. Upstream-provider 429s, 5xx and timeouts count as transient failures and are retried
+     after `transient_ttl_minutes` (30 by default).
+   - Without an API key, `test`, `rank` and `sync` exit with an error and send nothing.
 4. **Rank** with an explainable score (availability ≫ latency, context, tools, expiry).
 5. **Write** the primary model and fallback list into each configured target. Every write is
    idempotent (unchanged → untouched), supports `--dry-run` with a diff, makes a timestamped
@@ -63,13 +72,19 @@ freemodel-sync sync --dry-run            # show the diffs
 freemodel-sync sync                      # write configs, notify on change
 ```
 
-Run `sync` from cron or a systemd timer, e.g. every 3 hours:
+Run `sync` from cron or a systemd timer, e.g. every 3 hours. Keep the key out of the crontab:
+put `export OPENROUTER_API_KEY=...` in a file only you can read (`chmod 600 ~/.config/freemodel-sync/env`)
+and source it, or use `EnvironmentFile=` in a systemd unit.
 
 ```cron
-0 */3 * * * OPENROUTER_API_KEY=... freemodel-sync sync >> ~/.cache/freemodel-sync/sync.log 2>&1
+0 */3 * * * . "$HOME/.config/freemodel-sync/env" && freemodel-sync sync >> "$HOME/.cache/freemodel-sync/sync.log" 2>&1
 ```
 
-Exit codes: `0` success, `1` error (bad config, a target failed), `2` no usable model (no file written).
+Exit codes: `0` success, `1` error (bad config, missing key, a target failed), `2` no usable model
+(no file written), `3` probing was stopped by an account/quota problem such as a platform rate limit
+or missing credits (no file written, no model marked as failed).
+
+`sync --dry-run` does not write target files or state, but it still probes (and caches) like a normal run.
 
 ## Configuration
 
@@ -84,7 +99,7 @@ Default location: `~/.config/freemodel-sync/config.yml` (override with `-c FILE`
 | `openai-env` | `KEY=VALUE` env file | `OPENAI_BASE_URL`, `OPENAI_MODEL`, `OPENAI_FALLBACK_MODELS` (names configurable). Other lines, comments and your API key are left untouched. |
 | `openai-yaml` | any YAML file | `base_url`, `model`, `fallback_models` under a dotted `key_path` (default `llm`). |
 | `dsh` | dsh (DeepSeek Harness) `cordis.patch.yml`-style list | Replaces only the `agent-default-model` entry with `config: {provider: <p>, model: '<m>'}`; other entries and comments are kept byte-for-byte. Use `provider_map` to map `openrouter` to your dsh provider id. Optional `fallback_entry_id` writes the fallback list as a separate entry. |
-| `astrbot` (experimental) | AstrBot `data/cmd_config.json` | Updates `model_config.model` of an **existing** provider entry (`provider_id`). Never creates providers or touches keys. |
+| `astrbot` (experimental) | AstrBot `data/cmd_config.json` | Updates the model of an **existing** provider entry (`provider_id`): the top-level `model` field for AstrBot ≥ 4.10 (`provider_sources` layout), `model_config.model` for older versions. Never creates providers or touches keys or provider sources. |
 
 Example `dsh` result:
 
@@ -95,15 +110,15 @@ Example `dsh` result:
 
 ### Known limitations
 
-- **AstrBot:** the adapter follows the documented `provider` list in `data/cmd_config.json`
-  (`type: openai_chat_completion`, `model_config.model`). Newer AstrBot releases (v4.x) manage
-  providers through the WebUI and may store them differently; please verify on your version and
-  restart AstrBot after a change. AstrBot provider entries have no fallback list, so only the
-  primary model is written.
+- **AstrBot:** both layouts were checked against AstrBot source (v4.29.1); an entry matching
+  neither raises an error instead of being skipped. AstrBot keeps its config in memory and rewrites
+  the file when you save in the WebUI, so **restart AstrBot after a sync** (and avoid editing in
+  the WebUI at the same time). Provider entries have no fallback list, so only the primary model is
+  written; mapping fallbacks to AstrBot's `fallback_provider_ids` is not implemented yet.
 - **YAML comments:** `openai-yaml` uses PyYAML, which drops comments *when a value changes*
   (an unchanged file is never rewritten). The `dsh` adapter preserves comments.
-- **Free-tier detection:** OpenRouter's `is_free_tier` flag does not say whether ≥10 credits were
-  bought; set `testing.daily_free_limit` if the heuristic is wrong for your account.
+- **Free quota:** the daily budget comes from `free_model_daily_requests` (never inferred from
+  `is_free_tier`); `testing.daily_free_limit` overrides it, counted per UTC day.
 - Only OpenRouter is implemented in this release (see below).
 
 ## Notifications
@@ -147,7 +162,10 @@ Tests never touch the network (HTTP is mocked with `httpx.MockTransport`).
 
 ## Security
 
-- Keys are read only from environment variables and are never written, logged or printed.
+- Keys are read only from environment variables and are never written to config files or printed.
+  Log output (including `-v`) redacts Telegram bot tokens, Bearer tokens and `sk-` style keys, and
+  HTTP request logging (`--debug-http`) is off by default.
+- Symlinked targets are followed: the real file is backed up and replaced, the link is kept.
 - Never commit your `config.yml`, `.env` files, backups or cache; the `.gitignore` covers the defaults.
 
 ## License
