@@ -6,6 +6,13 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Release workflow (`.github/workflows/release.yml`) that publishes to PyPI with Trusted
+  Publishing (no API token) when a GitHub release is published, or on demand for an existing
+  tag. It fails if the tag does not match `__version__` and runs `twine check --strict`
+  first. The maintainer steps are in `CONTRIBUTING.md`.
+
 ## [0.2.0] - 2026-10-22
 
 ### Changed

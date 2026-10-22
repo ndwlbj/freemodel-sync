@@ -53,3 +53,44 @@ version you checked.
 Fill in the pull request template. CI runs ruff, the test suite on Python
 3.9-3.13 and with the minimum dependency versions, and a package build with
 `twine check`.
+
+## Releasing (maintainers)
+
+Releases go to PyPI through `.github/workflows/release.yml` using
+[Trusted Publishing](https://docs.pypi.org/trusted-publishers/): GitHub Actions
+authenticates to PyPI with a short-lived OIDC token, so no PyPI API token is
+stored anywhere.
+
+**One-time setup**
+
+1. On PyPI, add a *pending publisher* (Account settings → Publishing →
+   Add a new pending publisher → GitHub) with:
+   - PyPI project name: `freemodel-sync`
+   - Owner: `ghwghw19`
+   - Repository name: `freemodel-sync`
+   - Workflow name: `release.yml`
+   - Environment name: `pypi`
+
+   After the first successful upload the pending publisher becomes a normal
+   trusted publisher of the project.
+2. In the GitHub repository settings, create an environment named `pypi`.
+   Adding yourself as a required reviewer is recommended, so every upload
+   needs a manual approval.
+
+**Each release**
+
+1. Bump `__version__` in `src/freemodel_sync/__init__.py`.
+2. Move the *Unreleased* entries in `CHANGELOG.md` under a new
+   `## [X.Y.Z] - YYYY-MM-DD` heading and update the compare links.
+3. Merge to `main`, then create a GitHub release with the tag `vX.Y.Z`
+   pointing at that commit and publish it. Publishing the release starts the
+   workflow.
+4. The build job checks out the tag, fails unless the tag without its
+   leading `v` equals `__version__`, builds the sdist and wheel and runs
+   `twine check --strict`. The publish job then uploads to PyPI, after the
+   `pypi` environment approval if one is configured.
+
+**Publishing an existing tag** (for example `v0.2.0`, released before this
+workflow existed): Actions → *Release* → *Run workflow*, and enter the tag.
+The same checks apply. PyPI never accepts the same version twice, so a
+version that is already on PyPI cannot be re-uploaded.

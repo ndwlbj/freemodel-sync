@@ -30,6 +30,7 @@
 ## 安装
 
 ```bash
+pipx install freemodel-sync              # 从 PyPI 安装（需要已有版本发布到 PyPI）
 pipx install git+https://github.com/ghwghw19/freemodel-sync
 # 或者免安装直接运行
 uvx --from git+https://github.com/ghwghw19/freemodel-sync freemodel-sync --help
