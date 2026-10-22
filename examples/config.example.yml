@@ -13,7 +13,8 @@ filters:
   min_context: 32000            # minimum context window (tokens)
   exclude_expiring_within_days: 3
   include: []                   # fnmatch globs on model ids, e.g. ["deepseek/*", "*qwen*"]
-  exclude: ["*content-safety*"]
+  exclude: []                   # extra globs to drop
+  exclude_non_chat: true        # drop safety classifiers, embedding/rerank and speech models
 
 testing:
   max_tests: 5                  # new probe requests per run (cached results are reused)

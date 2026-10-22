@@ -126,3 +126,31 @@ def test_weights_are_configurable():
     s1, _ = score_model(m, TestResult(m.key, True), RankWeights(tools=0))
     s2, _ = score_model(m, TestResult(m.key, True), RankWeights(tools=50))
     assert s2 - s1 == 50
+
+
+def test_non_chat_models_are_excluded_by_default():
+    """Review P1-5: the default config must not pick classifiers/embeddings."""
+
+    models = [
+        ModelInfo("p", "nvidia/nemotron-3.5-content-safety:free"),
+        ModelInfo("p", "meta-llama/llama-guard-4-12b:free"),
+        ModelInfo("p", "openai/gpt-oss-safeguard-20b:free"),
+        ModelInfo("p", "vendor/text-embedding-3:free"),
+        ModelInfo("p", "vendor/Rerank-v2:free"),
+        ModelInfo("p", "vendor/chat-model:free", name="Vendor: Chat"),
+        ModelInfo("p", "vendor/plain:free", name="Vendor: Moderation Classifier"),
+    ]
+    ids = [m.id for m in filter_models(models)]
+    assert ids == ["vendor/chat-model:free"]
+    assert len(filter_models(models, exclude_non_chat=False)) == len(models)
+    # an explicit include wins over the built-in list
+    ids = [m.id for m in filter_models(models, include=["*llama-guard*", "vendor/chat*"])]
+    assert ids == ["meta-llama/llama-guard-4-12b:free", "vendor/chat-model:free"]
+
+
+def test_default_config_enables_non_chat_filter(tmp_path, monkeypatch):
+    from freemodel_sync.config import load_config
+
+    monkeypatch.setenv("FREEMODEL_SYNC_CONFIG", str(tmp_path / "none.yml"))
+    assert load_config().filters.exclude_non_chat is True
+

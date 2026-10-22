@@ -105,6 +105,7 @@ def _discover(config: Config, provider: Any) -> List[ModelInfo]:
         exclude_expiring_within_days=filters.exclude_expiring_within_days,
         include=filters.include,
         exclude=filters.exclude,
+        exclude_non_chat=filters.exclude_non_chat,
         today=date.today(),
     )
 

@@ -66,6 +66,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "exclude_expiring_within_days": 3,
         "include": [],
         "exclude": [],
+        "exclude_non_chat": True,
     },
     "testing": {
         "max_tests": 5,
@@ -142,6 +143,8 @@ class FilterConfig(_Section):
     exclude_expiring_within_days: Optional[int] = 3
     include: List[str] = field(default_factory=list)
     exclude: List[str] = field(default_factory=list)
+    #: drop safety classifiers, embedding/rerank and speech models (ranking.NON_CHAT_PATTERNS)
+    exclude_non_chat: bool = True
 
 
 @dataclass
@@ -381,6 +384,9 @@ def _parse_filters(raw: Any) -> FilterConfig:
         exclude_expiring_within_days=expiring,
         include=_optional_str_list(section.get("include", []), "filters.include"),
         exclude=_optional_str_list(section.get("exclude", []), "filters.exclude"),
+        exclude_non_chat=_require_bool(
+            section.get("exclude_non_chat", True), "filters.exclude_non_chat"
+        ),
     )
 
 

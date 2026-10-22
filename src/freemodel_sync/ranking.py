@@ -30,6 +30,29 @@ class RankWeights:
     untested_penalty: float = 40.0
 
 
+#: id/name globs (case-insensitive) of free models that are not chat models:
+#: safety classifiers, moderation, embedding, reranking and speech models.
+NON_CHAT_PATTERNS = (
+    "*content-safety*",
+    "*safeguard*",
+    "*guard*",
+    "*moderation*",
+    "*classifier*",
+    "*embed*",
+    "*rerank*",
+    "*whisper*",
+    "*transcrib*",
+    "*-tts*",
+)
+
+
+def is_non_chat(model: ModelInfo) -> bool:
+    """True if *model* looks like a classifier/embedding/speech model, not a chat model."""
+
+    haystacks = (model.id.lower(), (model.name or "").lower())
+    return any(fnmatch.fnmatchcase(h, pattern) for h in haystacks for pattern in NON_CHAT_PATTERNS)
+
+
 def _matches_any(model_id: str, patterns: Optional[Sequence[str]]) -> bool:
     if not patterns:
         return False
@@ -45,11 +68,19 @@ def filter_models(
     include: Optional[Sequence[str]] = None,
     exclude: Optional[Sequence[str]] = None,
     today: Optional[date] = None,
+    exclude_non_chat: bool = True,
 ) -> List[ModelInfo]:
-    """Return models passing the configured filters, preserving input order."""
+    """Return models passing the configured filters, preserving input order.
+
+    ``exclude_non_chat`` drops models matching :data:`NON_CHAT_PATTERNS`
+    (safety classifiers, embedding, rerank, speech) unless they are matched
+    explicitly by ``include``.
+    """
 
     kept: List[ModelInfo] = []
     for model in models:
+        if exclude_non_chat and is_non_chat(model) and not _matches_any(model.id, include):
+            continue
         if require_tools and not model.supports_tools:
             continue
         if model.context_length < min_context:
