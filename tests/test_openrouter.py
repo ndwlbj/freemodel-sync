@@ -93,7 +93,7 @@ def test_probe_success_measures_ttft():
     assert result.ok is True
     assert result.ttft_ms is not None and result.total_ms >= result.ttft_ms
     assert captured["body"]["stream"] is True
-    assert captured["body"]["max_tokens"] == 8
+    assert captured["body"]["max_tokens"] == 16  # review P2-9: 8 may be below upstream minimums
     assert captured["auth"] == "Bearer test-key"
 
 
@@ -154,3 +154,40 @@ def test_quota_without_free_model_daily_requests_reports_unknown():
 def test_quota_without_key_or_on_error():
     assert provider_with(lambda r: httpx.Response(200, json={}), api_key=None).quota() is None
     assert provider_with(lambda r: httpx.Response(401, json={})).quota() is None
+
+
+@pytest.mark.parametrize("option, expected", [(32, 32), ("24", 24), ("bad", 16), (0, 1)])
+def test_probe_max_tokens_is_configurable(option, expected):
+    """Review P2-9: providers.openrouter.probe_max_tokens."""
+    captured = {}
+
+    def handler(request):
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(200, content=sse({"choices": [{"delta": {"content": "OK"}}]}, "[DONE]"),
+                              headers={"content-type": "text/event-stream"})
+
+    provider_with(handler, probe_max_tokens=option).test(ModelInfo("openrouter", "x/y:free"))
+    assert captured["body"]["max_tokens"] == expected
+
+
+def test_pricing_overrides_with_prices_are_not_free(caplog):
+    """Review P2-4: time-of-day / long-context overrides can make a :free model cost money."""
+    def model(mid, overrides):
+        pricing = {"prompt": "0", "completion": "0"}
+        if overrides is not ...:
+            pricing["overrides"] = overrides
+        return {"id": mid, "name": mid, "pricing": pricing, "context_length": 1000,
+                "architecture": {"input_modalities": ["text"], "output_modalities": ["text"]}}
+
+    payload = {"data": [
+        model("a/plain:free", ...),
+        model("b/zero-overrides:free", [{"utc_days": ["monday"], "prompt": "0", "completion": "0"}]),
+        model("c/peak-priced:free", [{"utc_start": 100, "utc_end": 400, "prompt": "0.0000003", "completion": "0"}]),
+        model("d/odd-format:free", {"prompt": "0"}),
+        model("e/empty:free", []),
+    ]}
+    provider = provider_with(lambda request: httpx.Response(200, json=payload))
+    with caplog.at_level("WARNING"):
+        ids = [m.id for m in provider.discover()]
+    assert ids == ["a/plain:free", "b/zero-overrides:free", "e/empty:free"]
+    assert "c/peak-priced:free" in caplog.text and "pricing.overrides" in caplog.text

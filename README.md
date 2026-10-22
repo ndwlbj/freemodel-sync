@@ -28,7 +28,7 @@ discover ──► filter ──► probe (tiny, cached, budgeted) ──► ran
 2. **Filter** by tool-calling support, minimum context window, id globs, and expiry:
    models whose `expiration_date` is within N days are dropped, and models expiring within
    30 days are penalised.
-3. **Probe** each candidate with one tiny streaming request (`max_tokens: 8`) using *your own*
+3. **Probe** each candidate with one tiny streaming request (`max_tokens: 16` by default, `providers.openrouter.probe_max_tokens`) using *your own*
    OpenRouter key, measuring availability and time-to-first-token. Probing is frugal:
    candidates are tried in order of promise, results are cached (6 h by default), at most
    `max_tests` new probes are made per run, and the round stops while keeping
@@ -123,6 +123,8 @@ Example `dsh` result:
   written; mapping fallbacks to AstrBot's `fallback_provider_ids` is not implemented yet.
 - **YAML comments:** `openai-yaml` uses PyYAML, which drops comments *when a value changes*
   (an unchanged file is never rewritten). The `dsh` adapter preserves comments.
+- **Time-based pricing:** a `:free` model whose `pricing.overrides` has a non-zero price (for
+  example at peak hours or for long contexts) is skipped with a warning.
 - **Free quota:** the daily budget comes from `free_model_daily_requests` (never inferred from
   `is_free_tier`); `testing.daily_free_limit` overrides it, counted per UTC day.
 - Only OpenRouter is implemented in this release (see below).

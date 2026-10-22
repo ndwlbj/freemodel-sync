@@ -7,6 +7,7 @@ providers:
   openrouter:
     enabled: true
     api_key_env: OPENROUTER_API_KEY
+    probe_max_tokens: 16          # completion budget of each probe request
 
 filters:
   require_tools: false          # only keep models that support tool calling

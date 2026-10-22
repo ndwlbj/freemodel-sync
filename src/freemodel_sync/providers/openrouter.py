@@ -20,6 +20,9 @@ from .base import Provider, ProviderError, register_provider
 
 logger = logging.getLogger(__name__)
 
+#: completion budget of a probe; some upstreams reject very small values
+DEFAULT_PROBE_MAX_TOKENS = 16
+
 _DEFAULT_TIMEOUT = 30.0
 
 
@@ -61,7 +64,32 @@ def _is_free_pricing(pricing: Any) -> bool:
         return False
     prompt = _as_float(pricing.get("prompt"))
     completion = _as_float(pricing.get("completion"))
-    return prompt == 0.0 and completion == 0.0
+    return prompt == 0.0 and completion == 0.0 and not _priced_overrides(pricing)
+
+
+def _priced_overrides(pricing: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Return ``pricing.overrides`` entries (time-of-day or long-context prices) that cost money.
+
+    A malformed ``overrides`` value counts as priced, so an unexpected change in
+    the format never makes a paid model look free.
+    """
+
+    overrides = pricing.get("overrides")
+    if overrides is None:
+        return []
+    if not isinstance(overrides, list):
+        return [{"overrides": overrides}]
+    priced = []
+    for entry in overrides:
+        if not isinstance(entry, dict):
+            priced.append({"override": entry})
+            continue
+        for key in ("prompt", "completion", "request"):
+            value = _as_float(entry.get(key)) if key in entry else 0.0
+            if value is None or value != 0.0:
+                priced.append(entry)
+                break
+    return priced
 
 
 def _supports_text(architecture: Any) -> bool:
@@ -161,6 +189,17 @@ class OpenRouterProvider(Provider):
         models: List[ModelInfo] = []
         for raw in payload["data"]:
             if not _is_free_model(raw):
+                pricing = raw.get("pricing") if isinstance(raw, dict) else None
+                if (
+                    isinstance(pricing, dict)
+                    and str(raw.get("id", "")).endswith(":free")
+                    and _priced_overrides(pricing)
+                ):
+                    logger.warning(
+                        "skipping %s: pricing.overrides has non-zero prices "
+                        "(it is not free at some times or context lengths)",
+                        raw.get("id"),
+                    )
                 continue
             supported = raw.get("supported_parameters") or []
             if not isinstance(supported, list):
@@ -203,9 +242,10 @@ class OpenRouterProvider(Provider):
             )
 
         try:
-            max_tokens = int(self.options.get("probe_max_tokens", 8))
+            max_tokens = int(self.options.get("probe_max_tokens", DEFAULT_PROBE_MAX_TOKENS))
         except (TypeError, ValueError):
-            max_tokens = 8
+            max_tokens = DEFAULT_PROBE_MAX_TOKENS
+        max_tokens = max(1, max_tokens)
 
         url = f"{self.base_url}/chat/completions"
         payload = {
