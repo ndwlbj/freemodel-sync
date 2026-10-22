@@ -57,8 +57,8 @@ discover ──► filter ──► probe (tiny, cached, budgeted) ──► ran
 ## Install
 
 ```bash
-pipx install freemodel-sync              # from PyPI, once a release has been published there
-pipx install git+https://github.com/ndwlbj/freemodel-sync
+pipx install freemodel-sync              # latest release from PyPI
+pipx install git+https://github.com/ndwlbj/freemodel-sync   # unreleased changes from main
 # or run without installing
 uvx --from git+https://github.com/ndwlbj/freemodel-sync freemodel-sync --help
 # from a local checkout
