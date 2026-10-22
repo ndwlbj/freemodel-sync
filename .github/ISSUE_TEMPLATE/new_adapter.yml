@@ -1,0 +1,32 @@
+name: New adapter
+description: Propose writing the selected model into another tool's config
+labels: [adapter]
+body:
+  - type: input
+    id: tool
+    attributes:
+      label: Tool and version
+    validations:
+      required: true
+  - type: textarea
+    id: format
+    attributes:
+      label: Config file and format
+      description: File path, format, and where the model / base URL / fallbacks live. Link the tool's docs or source.
+    validations:
+      required: true
+  - type: textarea
+    id: example
+    attributes:
+      label: Minimal example config (redacted)
+      render: text
+  - type: textarea
+    id: reload
+    attributes:
+      label: Does the tool need a restart or reload to pick up changes?
+  - type: checkboxes
+    id: help
+    attributes:
+      label: Contribution
+      options:
+        - label: I would like to implement this myself

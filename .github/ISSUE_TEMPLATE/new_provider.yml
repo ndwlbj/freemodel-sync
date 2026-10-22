@@ -1,0 +1,29 @@
+name: New provider
+description: Propose support for another free-model provider
+labels: [provider]
+body:
+  - type: input
+    id: name
+    attributes:
+      label: Provider
+      description: Name and website
+    validations:
+      required: true
+  - type: textarea
+    id: free
+    attributes:
+      label: How are free models identified?
+      description: Model-list endpoint, pricing fields, id conventions. Link the official docs.
+    validations:
+      required: true
+  - type: textarea
+    id: limits
+    attributes:
+      label: Free-tier limits and quota reporting
+      description: Request limits, how they are reported (endpoint or headers), and which errors mean "quota exhausted".
+  - type: checkboxes
+    id: help
+    attributes:
+      label: Contribution
+      options:
+        - label: I would like to implement this myself

@@ -1,0 +1,39 @@
+name: Bug report
+description: Something does not work as documented
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Remove API keys, tokens, webhook URLs, IP addresses and personal paths** from anything you paste.
+        Security problems: please use the private report described in SECURITY.md instead.
+  - type: input
+    id: version
+    attributes:
+      label: freemodel-sync version
+      description: Output of `freemodel-sync --version`
+    validations:
+      required: true
+  - type: input
+    id: python
+    attributes:
+      label: Python version and OS
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Commands you ran and the relevant (redacted) part of your config.
+      render: shell
+  - type: textarea
+    id: logs
+    attributes:
+      label: Output with `-v` (redacted)
+      render: text
