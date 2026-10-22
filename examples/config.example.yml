@@ -3,11 +3,19 @@
 # API keys are NEVER stored here: they are read from the environment
 # variables named below (e.g. export OPENROUTER_API_KEY=...).
 
+# Every enabled provider below feeds one ranking. This section replaces the
+# default (OpenRouter only): list the providers you want, or set enabled: false.
 providers:
   openrouter:
     enabled: true
     api_key_env: OPENROUTER_API_KEY
     probe_max_tokens: 16          # completion budget of each probe request
+  groq:
+    enabled: false                # set to true to use Groq as well
+    api_key_env: GROQ_API_KEY
+    # Groq's API has no prices: models are free only on Groq's Free plan.
+    # Nothing is listed or probed until you confirm your plan here.
+    plan: free
 
 filters:
   require_tools: false          # only keep models that support tool calling

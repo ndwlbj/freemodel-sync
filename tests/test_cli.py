@@ -85,7 +85,8 @@ def test_rank_json_and_output(capsys, setup):
     assert run(cfg, provider, "rank", "--json", "--output", str(out)) == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["selection"]["primary"] == "mid/model:free"
-    assert payload["quota"]["daily_free_limit"] == 50
+    assert payload["quota"]["openrouter"]["daily_free_limit"] == 50
+    assert payload["providers"] == ["openrouter"]
     assert json.loads(out.read_text())["ranking"][0]["id"] == "mid/model:free"
     # the most promising model (largest context + tools) is probed first
     assert provider.tested[0] == "big/tools:free"

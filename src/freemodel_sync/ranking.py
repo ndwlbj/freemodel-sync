@@ -43,6 +43,8 @@ NON_CHAT_PATTERNS = (
     "*whisper*",
     "*transcrib*",
     "*-tts*",
+    "*orpheus*",
+    "*playai-tts*",
 )
 
 
@@ -160,7 +162,9 @@ def select(
     """Pick the best usable model plus fallbacks.
 
     Returns ``None`` when no tested-and-working model exists.  Fallbacks are the
-    next working models.  Only when ``allow_untested`` is true are remaining
+    next working models *of the primary's provider*: a target config has
+    one base URL and one key, so a fallback from another provider could not
+    be used.  Only when ``allow_untested`` is true are remaining
     slots filled with untested models (callers should flag them); failed models
     are never selected.
     """
@@ -177,6 +181,7 @@ def select(
     fallbacks: List[RankedModel] = []
     chosen = {id(primary)}
 
+    ranked = [item for item in ranked if item.model.provider == primary.model.provider]
     for item in ranked:
         if len(fallbacks) >= limit:
             break

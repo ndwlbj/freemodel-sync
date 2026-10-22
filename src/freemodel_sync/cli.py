@@ -63,20 +63,49 @@ def _build_provider(
     return provider_factory(name, api_key=api_key, **options)
 
 
-def _resolve_provider(
+#: ``[(name, provider), ...]`` for every enabled provider, in config order
+Providers = List[Tuple[str, Any]]
+
+
+def _resolve_providers(
     config: Config,
     provider_factory: Optional[ProviderFactory] = None,
-) -> Tuple[str, Any]:
-    """Return ``(name, provider)`` for the first enabled provider."""
+) -> Providers:
+    """Instantiate every enabled provider, in config order."""
 
     names = config.enabled_providers()
     if not names:
         raise ConfigError("no providers are enabled in the config")
-    name = names[0]
-    settings = config.providers[name]
-    api_key = os.environ.get(settings.api_key_env) if settings.api_key_env else None
-    provider = _build_provider(name, api_key or None, dict(settings.options), provider_factory)
-    return name, provider
+    providers: Providers = []
+    for name in names:
+        settings = config.providers[name]
+        api_key = os.environ.get(settings.api_key_env) if settings.api_key_env else None
+        provider = _build_provider(name, api_key or None, dict(settings.options), provider_factory)
+        providers.append((name, provider))
+    return providers
+
+
+def _resolve_provider(
+    config: Config,
+    provider_factory: Optional[ProviderFactory] = None,
+) -> Tuple[str, Any]:
+    """Return ``(name, provider)`` for the first enabled provider (kept for API users)."""
+
+    return _resolve_providers(config, provider_factory)[0]
+
+
+def _cache_path(config: Config, provider_name: str, first: bool) -> Path:
+    """Probe cache file for one provider.
+
+    The first enabled provider keeps ``testing.cache_path`` (so existing caches
+    stay valid); others get ``<stem>.<provider><suffix>`` next to it. Separate
+    files keep each provider's daily counter and rate-limit block apart.
+    """
+
+    path = Path(config.testing.cache_path)
+    if first:
+        return path
+    return path.with_name(f"{path.stem}.{provider_name}{path.suffix or '.json'}")
 
 
 def _safe_quota(provider: Any) -> Optional[QuotaInfo]:
@@ -92,9 +121,39 @@ def _safe_quota(provider: Any) -> Optional[QuotaInfo]:
         return None
 
 
-def _discover(config: Config, provider: Any) -> List[ModelInfo]:
-    """Discover and filter free models."""
+def _discover_by_provider(config: Config, providers: Providers) -> Dict[str, List[ModelInfo]]:
+    """Discover and filter free models of every provider.
 
+    With several providers, one that fails (network error, missing key for a
+    provider whose model list needs one) is reported and skipped; the command
+    fails only if every provider fails.
+    """
+
+    found: Dict[str, List[ModelInfo]] = {}
+    errors: List[str] = []
+    for name, provider in providers:
+        try:
+            found[name] = _discover_one(config, provider)
+        except ProviderError as exc:
+            if len(providers) == 1:
+                raise
+            errors.append(f"{name}: {exc}")
+            print(f"warning: skipping provider {name}: {exc}", file=sys.stderr)
+    if errors and not found:
+        raise ProviderError("every provider failed: " + "; ".join(errors))
+    return found
+
+
+def _discover(config: Config, providers: Any) -> List[ModelInfo]:
+    """Discover and filter free models of all providers (or of one provider object)."""
+
+    if not isinstance(providers, list):
+        return _discover_one(config, providers)
+    by_provider = _discover_by_provider(config, providers)
+    return [model for models in by_provider.values() for model in models]
+
+
+def _discover_one(config: Config, provider: Any) -> List[ModelInfo]:
     models = provider.discover()
     if not isinstance(models, list):
         models = list(models)
@@ -144,6 +203,64 @@ class MissingKeyError(RuntimeError):
     """Probing was requested but the provider has no API key."""
 
 
+def _probe_all(
+    config: Config,
+    providers: Providers,
+    by_provider: Dict[str, List[ModelInfo]],
+    *,
+    max_tests: Optional[int] = None,
+    no_probe: bool = False,
+) -> Tuple[TestRun, Dict[str, Optional[QuotaInfo]]]:
+    """Probe every provider's models with that provider's own cache and budget.
+
+    ``max_tests`` applies per provider. A provider without an API key is
+    skipped with a warning; only when no provider has a key is that an error.
+    An account/quota problem stops probing for that provider only.
+    """
+
+    merged = TestRun()
+    quotas: Dict[str, Optional[QuotaInfo]] = {}
+    reasons: List[str] = []
+    missing: List[str] = []
+    first_name = config.enabled_providers()[0] if config.enabled_providers() else None
+    for name, provider in providers:
+        models = by_provider.get(name)
+        if models is None:
+            continue
+        try:
+            run, quota = _probe(
+                config, name, provider, models,
+                max_tests=max_tests, no_probe=no_probe,
+                cache_path=_cache_path(config, name, first=name == first_name),
+                quiet=len(providers) > 1,
+            )
+        except MissingKeyError as exc:
+            if len(providers) == 1:
+                raise
+            missing.append(name)
+            print(f"warning: not probing {name}: {exc}", file=sys.stderr)
+            continue
+        quotas[name] = quota
+        merged.update(run)
+        merged.probes += run.probes
+        merged.rate_limited = merged.rate_limited or run.rate_limited
+        if run.account_error is not None and merged.account_error is None:
+            merged.account_error = run.account_error
+        if run.stop_reason:
+            reasons.append(f"{name}: {run.stop_reason}" if len(providers) > 1 else run.stop_reason)
+    if missing and len(missing) == len([n for n, _ in providers if n in by_provider]):
+        raise MissingKeyError(
+            "no enabled provider has an API key set ("
+            + ", ".join(f"{n}: {config.providers[n].api_key_env or '?'}" for n in missing)
+            + "). No requests were sent and nothing was cached."
+        )
+    if reasons:
+        merged.stop_reason = "; ".join(reasons)
+        if len(providers) > 1:
+            print(f"warning: probing stopped: {merged.stop_reason}", file=sys.stderr)
+    return merged, quotas
+
+
 def _probe(
     config: Config,
     provider_name: str,
@@ -152,6 +269,8 @@ def _probe(
     *,
     max_tests: Optional[int] = None,
     no_probe: bool = False,
+    cache_path: Optional[Path] = None,
+    quiet: bool = False,
 ) -> Tuple[TestRun, Optional[QuotaInfo]]:
     """Run probes with the configured cache, TTL and free-request budget.
 
@@ -164,8 +283,9 @@ def _probe(
     Without an API key nothing is probed, counted or cached.
     """
 
+    cache_file = cache_path if cache_path is not None else config.testing.cache_path
     if no_probe:
-        cache = ResultCache(config.testing.cache_path).load()
+        cache = ResultCache(cache_file).load()
         run = TestRun()
         for model in models:
             cached = cache.get(model.key, config.testing.cache_ttl_s, config.testing.transient_ttl_s)
@@ -183,8 +303,12 @@ def _probe(
     quota = _safe_quota(provider)
     daily_budget: Optional[int] = None
     remaining: Optional[int] = None
-    if config.testing.daily_free_limit is not None:
-        daily_budget = config.testing.daily_free_limit
+    override = config.providers[provider_name].options.get("daily_free_limit") \
+        if provider_name in config.providers else None
+    if override is None:
+        override = config.testing.daily_free_limit
+    if override is not None:
+        daily_budget = int(override)
     elif quota is not None and quota.daily_free_remaining is not None:
         remaining = quota.daily_free_remaining
     elif quota is not None and quota.daily_free_limit is not None:
@@ -192,7 +316,7 @@ def _probe(
     else:
         daily_budget = FALLBACK_DAILY_FREE_LIMIT
 
-    cache = ResultCache(config.testing.cache_path).load()
+    cache = ResultCache(cache_file).load()
     limit = config.testing.max_tests if max_tests is None else max_tests
     run = run_tests(
         provider,
@@ -206,7 +330,7 @@ def _probe(
         timeout=config.testing.timeout_s,
         reserve=config.testing.reserve_requests,
     )
-    if run.stop_reason:
+    if run.stop_reason and not quiet:
         print(f"warning: probing stopped: {run.stop_reason}", file=sys.stderr)
     return run, quota
 
@@ -227,15 +351,15 @@ def _selection_dict(selection: Optional[Selection]) -> Optional[Dict[str, Any]]:
 
 
 def _ranking_payload(
-    provider_name: str,
+    provider_names: Sequence[str],
     ranked: Sequence[Any],
     selection: Optional[Selection],
-    quota: Optional[QuotaInfo],
+    quotas: Dict[str, Optional[QuotaInfo]],
 ) -> Dict[str, Any]:
     return {
         "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "provider": provider_name,
-        "quota": quota.to_dict() if quota is not None else None,
+        "providers": list(provider_names),
+        "quota": {name: (q.to_dict() if q is not None else None) for name, q in quotas.items()},
         "ranking": [item.to_dict() for item in ranked],
         "selection": _selection_dict(selection),
     }
@@ -316,8 +440,9 @@ def _write_partial_state(path: Path, previous: Dict[str, Any], targets: Dict[str
 # ---------------------------------------------------------------------------
 # commands
 # ---------------------------------------------------------------------------
-def _cmd_discover(args: argparse.Namespace, config: Config, provider_name: str, provider: Any) -> int:
-    models = _discover(config, provider)
+def _cmd_discover(args: argparse.Namespace, config: Config, providers: Providers) -> int:
+    by_provider = _discover_by_provider(config, providers)
+    models = [model for found in by_provider.values() for model in found]
     if args.json:
         print(json.dumps([model.to_dict() for model in models], indent=2, ensure_ascii=False))
         return 0
@@ -329,21 +454,31 @@ def _cmd_discover(args: argparse.Namespace, config: Config, provider_name: str, 
         days = model.days_until_expiry(date.today())
         rows.append(
             [
+                model.provider,
                 model.id,
                 model.context_length,
                 "yes" if model.supports_tools else "no",
                 days if days is not None else "-",
             ]
         )
-    _print_table(["MODEL", "CONTEXT", "TOOLS", "EXPIRES_IN_DAYS"], rows)
-    print(f"\n{len(models)} free model(s) from {provider_name}")
+    _print_table(["PROVIDER", "MODEL", "CONTEXT", "TOOLS", "EXPIRES_IN_DAYS"], rows)
+    counts = ", ".join(f"{len(found)} from {name}" for name, found in by_provider.items())
+    print(f"\n{len(models)} free model(s): {counts}")
     return 0
 
 
-def _cmd_test(args: argparse.Namespace, config: Config, provider_name: str, provider: Any) -> int:
-    models = _discover(config, provider)
-    models = _static_order(models, config.ranking.weights)
-    results, _quota = _probe(config, provider_name, provider, models, max_tests=args.max_tests)
+def _ordered(config: Config, providers: Providers) -> Tuple[Dict[str, List[ModelInfo]], List[ModelInfo]]:
+    by_provider = {
+        name: _static_order(found, config.ranking.weights)
+        for name, found in _discover_by_provider(config, providers).items()
+    }
+    merged = _static_order([m for found in by_provider.values() for m in found], config.ranking.weights)
+    return by_provider, merged
+
+
+def _cmd_test(args: argparse.Namespace, config: Config, providers: Providers) -> int:
+    by_provider, models = _ordered(config, providers)
+    results, _quotas = _probe_all(config, providers, by_provider, max_tests=args.max_tests)
 
     rows = []
     for model in models:
@@ -351,29 +486,29 @@ def _cmd_test(args: argparse.Namespace, config: Config, provider_name: str, prov
         rows.append(
             [
                 _status(test),
+                model.provider,
                 model.id,
                 f"{test.ttft_ms:.0f}" if test is not None and test.ttft_ms else "-",
                 (test.error or "") if test is not None else "not probed (budget/cap)",
             ]
         )
     if rows:
-        _print_table(["STATUS", "MODEL", "TTFT_MS", "ERROR"], rows)
+        _print_table(["STATUS", "PROVIDER", "MODEL", "TTFT_MS", "ERROR"], rows)
     else:
         print("no free models matched the filters")
     return EXIT_ACCOUNT_ERROR if results.account_problem else 0
 
 
-def _cmd_rank(args: argparse.Namespace, config: Config, provider_name: str, provider: Any) -> int:
-    models = _discover(config, provider)
-    models = _static_order(models, config.ranking.weights)
-    results, quota = _probe(config, provider_name, provider, models, no_probe=args.no_probe)
+def _cmd_rank(args: argparse.Namespace, config: Config, providers: Providers) -> int:
+    by_provider, models = _ordered(config, providers)
+    results, quotas = _probe_all(config, providers, by_provider, no_probe=args.no_probe)
     ranked = rank(models, results, config.ranking.weights, today=date.today())
     selection = select(
         ranked,
         config.ranking.fallback_count,
         allow_untested=config.ranking.fallbacks_allow_untested,
     )
-    payload = _ranking_payload(provider_name, ranked, selection, quota)
+    payload = _ranking_payload([name for name, _ in providers], ranked, selection, quotas)
 
     output = args.output or config.output.ranking_json
     if output:
@@ -390,20 +525,22 @@ def _cmd_rank(args: argparse.Namespace, config: Config, provider_name: str, prov
                 [
                     index,
                     f"{item.score:.2f}",
+                    item.model.provider,
                     item.model.id,
                     _status(item.test),
                     "; ".join(item.reasons) or "-",
                 ]
             )
-        _print_table(["RANK", "SCORE", "MODEL", "STATUS", "REASONS"], rows)
+        _print_table(["RANK", "SCORE", "PROVIDER", "MODEL", "STATUS", "REASONS"], rows)
     else:
         print("no free models matched the filters")
 
-    if quota is not None:
-        print(
-            f"\nquota: free_tier={quota.is_free_tier} "
-            f"daily_free_limit={quota.daily_free_limit}"
-        )
+    for name, quota in quotas.items():
+        if quota is not None:
+            print(
+                f"\nquota ({name}): free_tier={quota.is_free_tier} "
+                f"daily_free_limit={quota.daily_free_limit}"
+            )
     if selection is not None:
         print(
             f"selection: {selection.primary.model.key} "
@@ -430,6 +567,7 @@ def _apply_target(
     """
 
     options = dict(target.options)
+    options.pop("providers", None)
     keep = options.pop("keep_backups", config.backups.keep if config else 5)
     backup_dir = options.pop("backup_dir", config.backups.dir if config else None)
     adapter_class = get_adapter_class(target.adapter)
@@ -442,11 +580,23 @@ def _apply_target(
     )
 
 
-def _cmd_sync(args: argparse.Namespace, config: Config, provider_name: str, provider: Any) -> int:
-    models = _discover(config, provider)
-    models = _static_order(models, config.ranking.weights)
+def _target_selection(config: Config, target: TargetConfig, ranked: Sequence[Any]) -> Optional[Selection]:
+    """Select within the providers a target allows (``options.providers``)."""
+
+    allowed = target.options.get("providers")
+    if allowed:
+        ranked = [item for item in ranked if item.model.provider in allowed]
+    return select(
+        ranked,
+        config.ranking.fallback_count,
+        allow_untested=config.ranking.fallbacks_allow_untested,
+    )
+
+
+def _cmd_sync(args: argparse.Namespace, config: Config, providers: Providers) -> int:
+    by_provider, models = _ordered(config, providers)
     no_probe = args.no_probe or (args.dry_run and not args.probe)
-    results, _quota = _probe(config, provider_name, provider, models, no_probe=no_probe)
+    results, _quotas = _probe_all(config, providers, by_provider, no_probe=no_probe)
     ranked = rank(models, results, config.ranking.weights, today=date.today())
     selection = select(
         ranked,
@@ -478,13 +628,24 @@ def _cmd_sync(args: argparse.Namespace, config: Config, provider_name: str, prov
     if not config.targets:
         print("no targets configured; nothing to write")
     for target in config.targets:
+        target_selection = _target_selection(config, target, ranked)
+        if target_selection is None:
+            failed_targets.append(f"{target.adapter}:{target.path}")
+            print(
+                f"error: {target.adapter} ({target.path}): no usable model from its providers "
+                f"{', '.join(target.options.get('providers') or [])}; not written",
+                file=sys.stderr,
+            )
+            continue
+        if target_selection.primary.model.key != selection.primary.model.key:
+            print(f"{target.adapter}: selection {target_selection.primary.model.key} (target providers)")
         try:
-            result = _apply_target(target, selection, dry_run=args.dry_run, config=config)
+            result = _apply_target(target, target_selection, dry_run=args.dry_run, config=config)
         except Exception as exc:  # noqa: BLE001 - report and continue other targets
             failed_targets.append(f"{target.adapter}:{target.path}")
             print(f"error: {target.adapter} ({target.path}): {exc}", file=sys.stderr)
             continue
-        succeeded[f"{target.adapter}:{target.path}"] = selection.primary.model.key
+        succeeded[f"{target.adapter}:{target.path}"] = target_selection.primary.model.key
         action = "would update" if args.dry_run and result.changed else (
             "updated" if result.written else "unchanged"
         )
@@ -701,18 +862,18 @@ def main(
         return _cmd_adapters(args, config)
 
     try:
-        provider_name, provider = _resolve_provider(config, provider_factory)
+        providers = _resolve_providers(config, provider_factory)
     except (ConfigError, ProviderError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
     try:
         if args.command == "discover":
-            return _cmd_discover(args, config, provider_name, provider)
+            return _cmd_discover(args, config, providers)
         commands = {"test": _cmd_test, "rank": _cmd_rank, "sync": _cmd_sync}
         if args.command in commands:
             with RunLock(Path(str(config.state_path) + ".lock")):
-                return commands[args.command](args, config, provider_name, provider)
+                return commands[args.command](args, config, providers)
     except LockedError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_LOCKED

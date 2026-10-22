@@ -350,12 +350,20 @@ def _optional_str_list(value: Any, where: str) -> List[str]:
 
 def _parse_providers(raw: Any) -> Dict[str, ProviderConfig]:
     mapping = _require_mapping(raw, "providers")
+    from .providers import available_providers, get_provider_class
+
+    known = set(available_providers())
     providers: Dict[str, ProviderConfig] = {}
     for name, value in mapping.items():
         where = f"providers.{name}"
-        section = _require_mapping(value, where)
+        if str(name) not in known:
+            raise ConfigError(
+                f"{where}: unknown provider {name!r}; available: {', '.join(sorted(known))}"
+            )
+        section = _require_mapping(value if value is not None else {}, where)
         enabled = _require_bool(section.get("enabled", True), f"{where}.enabled")
-        api_key_env = section.get("api_key_env", "OPENROUTER_API_KEY")
+        # Default to the provider's own variable: never send one provider's key to another.
+        api_key_env = section.get("api_key_env", get_provider_class(str(name)).api_key_env)
         if api_key_env is None:
             api_key_env = ""
         elif not isinstance(api_key_env, str):
@@ -461,6 +469,14 @@ def _parse_targets(raw: Any) -> List[TargetConfig]:
             )
         path = _require_str(section.get("path"), f"{where}.path")
         options = _require_mapping(section.get("options") or {}, f"{where}.options")
+        if "providers" in options:
+            allowed = options["providers"]
+            if (
+                not isinstance(allowed, list)
+                or not allowed
+                or not all(isinstance(item, str) and item for item in allowed)
+            ):
+                raise ConfigError(f"{where}.options.providers must be a non-empty list of provider names")
         targets.append(
             TargetConfig(adapter=adapter, path=_expand_path(path), options=dict(options))
         )
@@ -531,6 +547,11 @@ def load_config(
             raise ConfigError(f"unknown config key(s): {', '.join(unknown)}")
 
     merged = _deep_merge(DEFAULT_CONFIG, data)
+    if data.get("providers") is not None:
+        # A user's providers section *replaces* the default (OpenRouter only):
+        # listing providers means "use these", and OpenRouter can be dropped
+        # or disabled with ``enabled: false``.
+        merged["providers"] = copy.deepcopy(data["providers"])
 
     output_raw = _require_mapping(merged.get("output", {}), "output")
     ranking_json = output_raw.get("ranking_json")
@@ -539,18 +560,38 @@ def load_config(
     state_path = _require_str(merged.get("state_path", DEFAULT_STATE_PATH), "state_path")
 
     notify = _parse_notify(merged.get("notify", {}))
+    providers = _parse_providers(merged.get("providers", {}))
+    targets = _parse_targets(merged.get("targets", []))
+    enabled = [name for name, cfg in providers.items() if cfg.enabled]
+    for target in targets:
+        allowed = target.options.get("providers")
+        unknown = [name for name in allowed or [] if name not in providers]
+        if unknown:
+            raise ConfigError(
+                f"target {target.adapter} ({target.path}): options.providers lists "
+                f"provider(s) not in the providers section: {', '.join(unknown)}"
+            )
+        if len(enabled) > 1 and not allowed:
+            LOG.warning(
+                "target %s (%s) has no options.providers but %d providers are enabled: "
+                "its model may switch to another provider whose base URL needs a different "
+                "API key. Set options.providers to the provider(s) this tool has a key for.",
+                target.adapter,
+                target.path,
+                len(enabled),
+            )
     if config_path.exists():
         _warn_inline_secrets(config_path, notify)
 
     return Config(
-        providers=_parse_providers(merged.get("providers", {})),
+        providers=providers,
         filters=_parse_filters(merged.get("filters", {})),
         testing=_parse_testing(merged.get("testing", {})),
         ranking=_parse_ranking(merged.get("ranking", {})),
         output=OutputConfig(ranking_json=ranking_json),
         backups=_parse_backups(merged.get("backups", {})),
         state_path=_expand_path(state_path),
-        targets=_parse_targets(merged.get("targets", [])),
+        targets=targets,
         notify=notify,
     )
 
