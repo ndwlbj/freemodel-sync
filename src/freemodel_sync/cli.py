@@ -22,7 +22,6 @@ import logging
 import os
 import re
 import sys
-import tempfile
 import time
 from datetime import date
 from pathlib import Path
@@ -31,6 +30,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 from . import __version__
 from .adapters import available_adapters, get_adapter_class
 from .config import Config, ConfigError, TargetConfig, load_config
+from .fileio import atomic_write_text
 from .lock import LockedError, RunLock
 from .models import ModelInfo, QuotaInfo, Selection, TestResult
 from .notify import notify_switch
@@ -244,18 +244,7 @@ def _ranking_payload(
 def _write_json(path: Path, payload: Dict[str, Any]) -> None:
     """Atomically write *payload* as pretty JSON, creating parent directories."""
 
-    path = Path(path).expanduser()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp = tempfile.mkstemp(prefix=f".{path.name}.", dir=str(path.parent))
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            json.dump(payload, handle, indent=2, ensure_ascii=False)
-            handle.write("\n")
-        os.replace(tmp, path)
-    except BaseException:
-        if os.path.exists(tmp):
-            os.unlink(tmp)
-        raise
+    atomic_write_text(Path(path).expanduser(), json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
 
 
 def _print_table(headers: Sequence[str], rows: Sequence[Sequence[Any]]) -> None:

@@ -9,13 +9,12 @@ provider budget.
 from __future__ import annotations
 
 import json
-import os
-import tempfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, Optional, Union
 
+from .fileio import atomic_write_text
 from .models import ModelInfo, TestResult
 from .providers.base import Provider
 
@@ -104,17 +103,7 @@ class ResultCache:
         if self.blocked_until > time.time():
             payload["blocked_until"] = self.blocked_until
 
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        fd, tmp = tempfile.mkstemp(prefix=f".{self.path.name}.", dir=str(self.path.parent))
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as handle:
-                json.dump(payload, handle, indent=2, sort_keys=True)
-                handle.write("\n")
-            os.replace(tmp, self.path)
-        except BaseException:
-            if os.path.exists(tmp):
-                os.unlink(tmp)
-            raise
+        atomic_write_text(self.path, json.dumps(payload, indent=2, sort_keys=True) + "\n")
 
     # -- result access ---------------------------------------------------
     def get(

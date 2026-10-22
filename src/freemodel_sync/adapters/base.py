@@ -17,12 +17,12 @@ import abc
 import difflib
 import hashlib
 import os
-import tempfile
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Type
 
+from ..fileio import atomic_write_text
 from ..models import Selection
 
 
@@ -88,7 +88,10 @@ def _make_backup(real_path: Path, backup_dir: Optional[Path]) -> Path:
     data = real_path.read_bytes()
     fd = os.open(str(candidate), os.O_WRONLY | os.O_CREAT | os.O_EXCL, mode)
     try:
-        os.write(fd, data)
+        view = memoryview(data)
+        while view:
+            view = view[os.write(fd, view):]
+        os.fsync(fd)
     finally:
         os.close(fd)
     os.chmod(candidate, mode)  # umask may have narrowed it further; make it explicit
@@ -150,18 +153,7 @@ def write_if_changed(
     keep = max(0, int(keep_backups))
     if backup and keep > 0 and path.exists():
         backup_path = str(_make_backup(path, backup_dir))
-    mode = path.stat().st_mode & 0o777 if path.exists() else None
-    fd, tmp = tempfile.mkstemp(prefix=f".{path.name}.", dir=str(path.parent))
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as fh:
-            fh.write(new_text)
-        if mode is not None:
-            os.chmod(tmp, mode)
-        os.replace(tmp, path)
-    except BaseException:
-        if os.path.exists(tmp):
-            os.unlink(tmp)
-        raise
+    atomic_write_text(path, new_text)
     if backup and keep > 0:
         _rotate_backups(path, backup_dir, keep)
     return WriteResult(adapter, str(display_path), changed=True, written=True, backup=backup_path, diff=diff)
