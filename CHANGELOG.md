@@ -28,6 +28,11 @@ All notable changes to this project are documented here. The format follows
   other keys in the managed entry's `config` (such as `reasoningEffort`) and its `name`;
   new `entry_name` option.
 
+- **Probe size:** `max_tokens` defaults to 16 (was 8) and is configurable with
+  `providers.openrouter.probe_max_tokens`.
+- **Durable writes:** targets, cache and state are fsynced before being replaced and keep
+  the original file's mode and, where permitted, owner and group.
+
 ### Deprecated
 
 - **Python 3.9** reached end of life in October 2025. 0.2.x still supports it; 0.3.0 is
@@ -42,10 +47,17 @@ All notable changes to this project are documented here. The format follows
 - Daily `Catalog watch` workflow that checks OpenRouter's public model list without a key
   and opens a single deduplicated issue on anomalies.
 - Exit code `3`: probing was stopped by an account or quota problem.
+- Lock file next to the state file: overlapping `test`/`rank`/`sync` runs exit with the new
+  code `4` instead of probing and writing twice.
+- Warning when `notify.webhook.url` is stored in the config file, and a `chmod 600` hint
+  when that file is readable by others.
+- `py.typed` marker; PEP 639 license metadata, maintainer and Changelog URL.
 - `testing.transient_ttl_minutes` and the `--debug-http` flag.
 
 ### Fixed
 
+- **Time-based pricing:** a `:free` model with a non-zero price in `pricing.overrides` is
+  no longer treated as free.
 - README (English and Chinese): removed overclaims, absolute links for PyPI, documented
   `OPENAI_FALLBACK_MODELS` as non-standard.
 - **Free quota:** the probe budget now comes from `free_model_daily_requests`
