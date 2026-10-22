@@ -240,3 +240,14 @@ def test_all_targets_failed_keeps_previous_state(capsys, setup, monkeypatch):
     assert run(cfg, StubProvider({"big/tools:free"}), "sync") == 1
     assert json.loads((tmp / "state.json").read_text()) == {"primary": "openrouter|old:free"}
     assert calls == []
+
+
+def test_discover_without_key_prints_no_key_warning(capsys, caplog, setup):
+    """Review P2-7: discover needs no key and must not warn about a missing one."""
+    _, cfg, _ = setup
+    with caplog.at_level("DEBUG"):
+        factory = lambda name, **kw: StubProvider([], api_key=None)
+        assert main(["-c", str(cfg), "discover"], provider_factory=factory) == 0
+    captured = capsys.readouterr()
+    text = (captured.out + captured.err + caplog.text).lower()
+    assert "api key" not in text and "api_key" not in text and "not set" not in text
