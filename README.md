@@ -65,7 +65,7 @@ uvx --from git+https://github.com/ndwlbj/freemodel-sync freemodel-sync --help
 pipx install .
 ```
 
-Requires Python 3.9+ (Python 3.9 is end-of-life; 0.3.0 is planned to require 3.10+). Runtime dependencies: `httpx`, `PyYAML`.
+Requires Python 3.9+ (Python 3.9 is end-of-life; a future release is planned to require 3.10+). Runtime dependencies: `httpx`, `PyYAML`.
 
 ## Quick start
 
@@ -107,7 +107,7 @@ Default location: `~/.config/freemodel-sync/config.yml` (override with `-c FILE`
 | `openrouter` (default) | `OPENROUTER_API_KEY` | `:free` id and every price (including `pricing.overrides`) is 0 | public model list, quota from `/api/v1/key` |
 | `groq` | `GROQ_API_KEY` | your Groq organization is on the **Free plan**; confirm with `plan: free` | Groq's API has no prices; the model list needs the key |
 
-All enabled providers feed one ranking. The `providers` section replaces the default
+Groq and multi-provider ranking need freemodel-sync 0.3.0 or newer. All enabled providers feed one ranking. The `providers` section replaces the default
 (OpenRouter only), so you can drop OpenRouter or set `enabled: false`. Each provider uses its own
 key variable, cache file, daily counter and rate-limit pause, and a quota problem stops probing only
 for that provider. Fallbacks always come from the primary's provider. Restrict a target to the
@@ -147,7 +147,7 @@ Example `dsh` result:
   the file when you save in the WebUI, so **restart AstrBot after a sync** (and avoid editing in
   the WebUI at the same time). Provider entries have no fallback list, so only the primary model is
   written; mapping fallbacks to AstrBot's `fallback_provider_ids` is not implemented yet.
-- **YAML comments:** install the optional extra (`pipx install "freemodel-sync[yaml-comments]"`) and
+- **YAML comments (0.3.0+):** install the optional extra (`pipx install "freemodel-sync[yaml-comments]"`) and
   `openai-yaml` edits the file with ruamel.yaml, keeping comments, key order and quoting. Without it,
   PyYAML is used and comments are dropped *when a value changes* (an unchanged file is never
   rewritten). Target option `preserve_comments: auto|true|false` (default `auto`). The `dsh` adapter

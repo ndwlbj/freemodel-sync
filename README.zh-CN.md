@@ -38,7 +38,7 @@ uvx --from git+https://github.com/ndwlbj/freemodel-sync freemodel-sync --help
 pipx install .
 ```
 
-需要 Python 3.9+（Python 3.9 已停止维护，计划从 0.3.0 起要求 3.10+），运行依赖只有 `httpx` 和 `PyYAML`。
+需要 Python 3.9+（Python 3.9 已停止维护，计划在之后的版本中要求 3.10+），运行依赖只有 `httpx` 和 `PyYAML`。
 
 ## 快速开始
 
@@ -73,7 +73,7 @@ freemodel-sync sync                      # 写配置，有变化时通知
 | `openrouter`（默认） | `OPENROUTER_API_KEY` | id 以 `:free` 结尾且所有价格（包括 `pricing.overrides`）为 0 | 模型列表公开，额度来自 `/api/v1/key` |
 | `groq` | `GROQ_API_KEY` | 你的 Groq 组织处于 **Free 计划**，需用 `plan: free` 确认 | Groq 的 API 不返回价格；获取模型列表需要 key |
 
-所有启用的 provider 会合并成一个排名。`providers` 配置段会**替换**默认值（只有 OpenRouter），所以可以不写 OpenRouter，或者设 `enabled: false`。每个 provider 使用各自的 key 环境变量、缓存文件、每日计数和限流暂停，某个 provider 出现额度问题只会停止它自己的探测。备用模型总是和主模型来自同一个 provider。用 `options.providers: [openrouter]` 把目标限制在它的工具有 key 的 provider 上，否则它的 base URL 可能换成别的 provider。细节和资料来源见 [docs/providers.md](https://github.com/ndwlbj/freemodel-sync/blob/main/docs/providers.md)。
+Groq 和多 provider 合并排名需要 freemodel-sync 0.3.0 及以上版本。所有启用的 provider 会合并成一个排名。`providers` 配置段会**替换**默认值（只有 OpenRouter），所以可以不写 OpenRouter，或者设 `enabled: false`。每个 provider 使用各自的 key 环境变量、缓存文件、每日计数和限流暂停，某个 provider 出现额度问题只会停止它自己的探测。备用模型总是和主模型来自同一个 provider。用 `options.providers: [openrouter]` 把目标限制在它的工具有 key 的 provider 上，否则它的 base URL 可能换成别的 provider。细节和资料来源见 [docs/providers.md](https://github.com/ndwlbj/freemodel-sync/blob/main/docs/providers.md)。
 
 ```yaml
 providers:
@@ -104,7 +104,7 @@ targets:
 ### 已知限制
 
 - **AstrBot**：两种结构都对照 AstrBot 源码（v4.29.1）核对过；两种都不匹配时会直接报错，不会静默跳过。AstrBot 运行时把配置放在内存里，WebUI 保存时会覆盖文件，所以**同步后要重启 AstrBot**（也不要同时在 WebUI 里改）。provider 条目没有备用列表，只写主模型；对应到 AstrBot 的 `fallback_provider_ids` 还没实现。
-- **YAML 注释**：安装可选依赖（`pipx install "freemodel-sync[yaml-comments]"`）后，`openai-yaml` 会用 ruamel.yaml 修改文件，保留注释、键顺序和引号。不安装时使用 PyYAML，值发生变化时注释会丢失（值没变时不会重写文件）。目标选项 `preserve_comments: auto|true|false`（默认 `auto`）。`dsh` 适配器始终保留注释。
+- **YAML 注释（0.3.0+）**：安装可选依赖（`pipx install "freemodel-sync[yaml-comments]"`）后，`openai-yaml` 会用 ruamel.yaml 修改文件，保留注释、键顺序和引号。不安装时使用 PyYAML，值发生变化时注释会丢失（值没变时不会重写文件）。目标选项 `preserve_comments: auto|true|false`（默认 `auto`）。`dsh` 适配器始终保留注释。
 - **分时段价格**：`:free` 模型的 `pricing.overrides` 里只要有非零价格（比如高峰时段或长上下文），就会被跳过并给出警告。
 - **免费额度**：每日预算来自 `free_model_daily_requests`，不再根据 `is_free_tier` 推断；可用 `testing.daily_free_limit` 覆盖（按 UTC 日计数）。
 - **Provider**：支持 OpenRouter 和 Groq。评估过硅基流动，但它的 API 无法判断哪些模型免费，详见 [docs/providers.md](https://github.com/ndwlbj/freemodel-sync/blob/main/docs/providers.md)。

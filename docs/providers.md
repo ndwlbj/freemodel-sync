@@ -21,6 +21,8 @@ Sources were checked on 2026-10-22.
 
 ## Groq (`groq`)
 
+Available since freemodel-sync 0.3.0 (multi-provider ranking was added in the same release).
+
 Groq's model list has no prices, so freeness is decided by the **account
 plan**, not per model:
 

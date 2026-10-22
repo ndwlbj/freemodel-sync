@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-22
+
 ### Changed
 
 - **Multiple providers (P2-3):** every enabled provider now feeds one ranking; previously
@@ -34,7 +36,6 @@ All notable changes to this project are documented here. The format follows
   `false` to always use PyYAML). CI installs the extra in the main test matrix.
 - Dependabot (`.github/dependabot.yml`): weekly grouped update PRs for pip dependencies and
   for the SHA-pinned GitHub Actions.
-
 - Release workflow (`.github/workflows/release.yml`) that publishes to PyPI with Trusted
   Publishing (no API token) when a GitHub release is published, or on demand for an existing
   tag. It fails if the tag does not match `__version__` and runs `twine check --strict`
@@ -119,6 +120,7 @@ All notable changes to this project are documented here. The format follows
 - Initial release: OpenRouter discovery, budget-aware probing, ranking, and the
   `openai-env`, `openai-yaml`, `dsh` and `astrbot` adapters, plus Telegram/webhook notifications.
 
-[Unreleased]: https://github.com/ndwlbj/freemodel-sync/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/ndwlbj/freemodel-sync/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/ndwlbj/freemodel-sync/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/ndwlbj/freemodel-sync/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/ndwlbj/freemodel-sync/releases/tag/v0.1.0
