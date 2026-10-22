@@ -9,7 +9,7 @@ Only the latest release receives security fixes.
 Please **do not open a public issue** for security problems.
 
 Report privately through GitHub:
-[Security → Report a vulnerability](https://github.com/ghwghw19/freemodel-sync/security/advisories/new).
+[Security → Report a vulnerability](https://github.com/ndwlbj/freemodel-sync/security/advisories/new).
 Include the version, what you ran, what happened and, if possible, a minimal
 reproduction. Remove API keys, tokens, webhook URLs and personal paths from logs
 before sending them.

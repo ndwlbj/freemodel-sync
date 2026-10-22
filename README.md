@@ -1,10 +1,10 @@
 # freemodel-sync
 
-[![CI](https://github.com/ghwghw19/freemodel-sync/actions/workflows/ci.yml/badge.svg)](https://github.com/ghwghw19/freemodel-sync/actions/workflows/ci.yml)
+[![CI](https://github.com/ndwlbj/freemodel-sync/actions/workflows/ci.yml/badge.svg)](https://github.com/ndwlbj/freemodel-sync/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 
-[English](https://github.com/ghwghw19/freemodel-sync/blob/main/README.md) | [简体中文](https://github.com/ghwghw19/freemodel-sync/blob/main/README.zh-CN.md)
+[English](https://github.com/ndwlbj/freemodel-sync/blob/main/README.md) | [简体中文](https://github.com/ndwlbj/freemodel-sync/blob/main/README.zh-CN.md)
 
 **Discover, test and rank free LLMs, then write the top-ranked working one (plus fallbacks) into the configs of tools you already use.**
 
@@ -58,9 +58,9 @@ discover ──► filter ──► probe (tiny, cached, budgeted) ──► ran
 
 ```bash
 pipx install freemodel-sync              # from PyPI, once a release has been published there
-pipx install git+https://github.com/ghwghw19/freemodel-sync
+pipx install git+https://github.com/ndwlbj/freemodel-sync
 # or run without installing
-uvx --from git+https://github.com/ghwghw19/freemodel-sync freemodel-sync --help
+uvx --from git+https://github.com/ndwlbj/freemodel-sync freemodel-sync --help
 # from a local checkout
 pipx install .
 ```
@@ -98,7 +98,7 @@ or missing credits (no file written, no model marked as failed), `4` another run
 
 Default location: `~/.config/freemodel-sync/config.yml` (override with `-c FILE` or
 `$FREEMODEL_SYNC_CONFIG`). Every key is optional; see
-[`examples/config.example.yml`](https://github.com/ghwghw19/freemodel-sync/blob/main/examples/config.example.yml) for the full annotated file.
+[`examples/config.example.yml`](https://github.com/ndwlbj/freemodel-sync/blob/main/examples/config.example.yml) for the full annotated file.
 
 ## Targets (adapters)
 
@@ -171,11 +171,11 @@ pytest
 ```
 
 Tests never touch the network (HTTP is mocked with `httpx.MockTransport`). See
-[CONTRIBUTING.md](https://github.com/ghwghw19/freemodel-sync/blob/main/CONTRIBUTING.md).
+[CONTRIBUTING.md](https://github.com/ndwlbj/freemodel-sync/blob/main/CONTRIBUTING.md).
 
 ## Security
 
-To report a vulnerability privately, see [SECURITY.md](https://github.com/ghwghw19/freemodel-sync/blob/main/SECURITY.md).
+To report a vulnerability privately, see [SECURITY.md](https://github.com/ndwlbj/freemodel-sync/blob/main/SECURITY.md).
 
 - Keys are read only from environment variables; freemodel-sync does not write them to config files
   or print them.
@@ -186,4 +186,4 @@ To report a vulnerability privately, see [SECURITY.md](https://github.com/ghwghw
 
 ## License
 
-[MIT](https://github.com/ghwghw19/freemodel-sync/blob/main/LICENSE) © freemodel-sync contributors
+[MIT](https://github.com/ndwlbj/freemodel-sync/blob/main/LICENSE) © freemodel-sync contributors

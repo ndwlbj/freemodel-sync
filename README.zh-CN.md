@@ -1,10 +1,10 @@
 # freemodel-sync
 
-[![CI](https://github.com/ghwghw19/freemodel-sync/actions/workflows/ci.yml/badge.svg)](https://github.com/ghwghw19/freemodel-sync/actions/workflows/ci.yml)
+[![CI](https://github.com/ndwlbj/freemodel-sync/actions/workflows/ci.yml/badge.svg)](https://github.com/ndwlbj/freemodel-sync/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 
-[English](https://github.com/ghwghw19/freemodel-sync/blob/main/README.md) | [简体中文](https://github.com/ghwghw19/freemodel-sync/blob/main/README.zh-CN.md)
+[English](https://github.com/ndwlbj/freemodel-sync/blob/main/README.md) | [简体中文](https://github.com/ndwlbj/freemodel-sync/blob/main/README.zh-CN.md)
 
 **自动发现、测试、排名免费大模型，再把排名最高且能用的那个（加上备用列表）写进你正在用的工具配置里。**
 
@@ -31,9 +31,9 @@
 
 ```bash
 pipx install freemodel-sync              # 从 PyPI 安装（需要已有版本发布到 PyPI）
-pipx install git+https://github.com/ghwghw19/freemodel-sync
+pipx install git+https://github.com/ndwlbj/freemodel-sync
 # 或者免安装直接运行
-uvx --from git+https://github.com/ghwghw19/freemodel-sync freemodel-sync --help
+uvx --from git+https://github.com/ndwlbj/freemodel-sync freemodel-sync --help
 # 本地源码
 pipx install .
 ```
@@ -64,7 +64,7 @@ freemodel-sync sync                      # 写配置，有变化时通知
 
 ## 配置
 
-默认路径 `~/.config/freemodel-sync/config.yml`（可用 `-c FILE` 或 `$FREEMODEL_SYNC_CONFIG` 指定）。所有字段都是可选的，完整带注释的示例见 [`examples/config.example.yml`](https://github.com/ghwghw19/freemodel-sync/blob/main/examples/config.example.yml)。
+默认路径 `~/.config/freemodel-sync/config.yml`（可用 `-c FILE` 或 `$FREEMODEL_SYNC_CONFIG` 指定）。所有字段都是可选的，完整带注释的示例见 [`examples/config.example.yml`](https://github.com/ndwlbj/freemodel-sync/blob/main/examples/config.example.yml)。
 
 ## 配置目标（适配器）
 
@@ -124,11 +124,11 @@ ruff check src tests
 pytest
 ```
 
-测试完全不联网（HTTP 用 `httpx.MockTransport` 模拟）。贡献指南见 [CONTRIBUTING.md](https://github.com/ghwghw19/freemodel-sync/blob/main/CONTRIBUTING.md)。
+测试完全不联网（HTTP 用 `httpx.MockTransport` 模拟）。贡献指南见 [CONTRIBUTING.md](https://github.com/ndwlbj/freemodel-sync/blob/main/CONTRIBUTING.md)。
 
 ## 安全
 
-私下报告漏洞的方式见 [SECURITY.md](https://github.com/ghwghw19/freemodel-sync/blob/main/SECURITY.md)。
+私下报告漏洞的方式见 [SECURITY.md](https://github.com/ndwlbj/freemodel-sync/blob/main/SECURITY.md)。
 
 - key 只从环境变量读取，freemodel-sync 不会把它写进配置文件，也不会打印。日志（包括 `-v`）会遮蔽 Telegram bot token、Bearer token 和 `sk-` 形式的 key；HTTP 请求日志（`--debug-http`）默认关闭。
 - 目标文件是符号链接时会写入真实文件（先备份），链接本身保留。
@@ -136,4 +136,4 @@ pytest
 
 ## 许可证
 
-[MIT](https://github.com/ghwghw19/freemodel-sync/blob/main/LICENSE) © freemodel-sync contributors
+[MIT](https://github.com/ndwlbj/freemodel-sync/blob/main/LICENSE) © freemodel-sync contributors

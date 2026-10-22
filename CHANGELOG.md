@@ -92,6 +92,6 @@ All notable changes to this project are documented here. The format follows
 - Initial release: OpenRouter discovery, budget-aware probing, ranking, and the
   `openai-env`, `openai-yaml`, `dsh` and `astrbot` adapters, plus Telegram/webhook notifications.
 
-[Unreleased]: https://github.com/ghwghw19/freemodel-sync/compare/v0.2.0...HEAD
-[0.2.0]: https://github.com/ghwghw19/freemodel-sync/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/ghwghw19/freemodel-sync/releases/tag/v0.1.0
+[Unreleased]: https://github.com/ndwlbj/freemodel-sync/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/ndwlbj/freemodel-sync/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/ndwlbj/freemodel-sync/releases/tag/v0.1.0

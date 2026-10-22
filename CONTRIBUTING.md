@@ -5,7 +5,7 @@ Thanks for helping! Bug reports, new providers and new adapters are all welcome.
 ## Development setup
 
 ```bash
-git clone https://github.com/ghwghw19/freemodel-sync
+git clone https://github.com/ndwlbj/freemodel-sync
 cd freemodel-sync
 python -m venv .venv && . .venv/bin/activate
 python -m pip install -e ".[dev]"
@@ -66,7 +66,7 @@ stored anywhere.
 1. On PyPI, add a *pending publisher* (Account settings → Publishing →
    Add a new pending publisher → GitHub) with:
    - PyPI project name: `freemodel-sync`
-   - Owner: `ghwghw19`
+   - Owner: `ndwlbj`
    - Repository name: `freemodel-sync`
    - Workflow name: `release.yml`
    - Environment name: `pypi`

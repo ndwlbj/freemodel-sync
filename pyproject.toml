@@ -10,8 +10,8 @@ readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.9"
-authors = [{ name = "ghwghw19" }]
-maintainers = [{ name = "ghwghw19" }]
+authors = [{ name = "ndwlbj" }]
+maintainers = [{ name = "ndwlbj" }]
 keywords = ["llm", "openrouter", "free-models", "model-routing", "config", "cli"]
 classifiers = [
   "Development Status :: 3 - Alpha",
@@ -41,10 +41,10 @@ dev = ["pytest>=7", "pytest-cov>=4", "ruff>=0.4"]
 freemodel-sync = "freemodel_sync.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/ghwghw19/freemodel-sync"
-Repository = "https://github.com/ghwghw19/freemodel-sync"
-Issues = "https://github.com/ghwghw19/freemodel-sync/issues"
-Changelog = "https://github.com/ghwghw19/freemodel-sync/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/ndwlbj/freemodel-sync"
+Repository = "https://github.com/ndwlbj/freemodel-sync"
+Issues = "https://github.com/ndwlbj/freemodel-sync/issues"
+Changelog = "https://github.com/ndwlbj/freemodel-sync/blob/main/CHANGELOG.md"
 
 [tool.hatch.version]
 path = "src/freemodel_sync/__init__.py"
