@@ -5,7 +5,9 @@ Every adapter goes through :func:`write_if_changed`, which guarantees:
 * idempotency: nothing is written when the rendered content is unchanged;
 * ``dry_run``: show what would change, touch nothing;
 * backup: the previous file is copied to ``<file>.bak-<timestamp>`` first;
-* atomic replace via a temp file in the same directory.
+* atomic replace via a temp file in the same directory;
+* symlinks are followed: the real target file is backed up and replaced,
+  and the link itself is left in place.
 """
 
 from __future__ import annotations
@@ -50,20 +52,23 @@ def write_if_changed(
     dry_run: bool = False,
     backup: bool = True,
 ) -> WriteResult:
-    path = Path(path).expanduser()
+    display_path = Path(path).expanduser()
+    # Follow symlinks (dotfile repos, container mounts): replacing the link
+    # with a regular file would silently detach it from the real config.
+    path = Path(os.path.realpath(display_path))
     old_text = path.read_text(encoding="utf-8") if path.exists() else ""
     if old_text == new_text:
-        return WriteResult(adapter, str(path), changed=False, written=False)
+        return WriteResult(adapter, str(display_path), changed=False, written=False)
     diff = "".join(
         difflib.unified_diff(
             old_text.splitlines(keepends=True),
             new_text.splitlines(keepends=True),
-            fromfile=f"{path} (current)",
-            tofile=f"{path} (new)",
+            fromfile=f"{display_path} (current)",
+            tofile=f"{display_path} (new)",
         )
     )
     if dry_run:
-        return WriteResult(adapter, str(path), changed=True, written=False, diff=diff)
+        return WriteResult(adapter, str(display_path), changed=True, written=False, diff=diff)
     path.parent.mkdir(parents=True, exist_ok=True)
     backup_path: Optional[str] = None
     if backup and path.exists():
@@ -87,7 +92,7 @@ def write_if_changed(
         if os.path.exists(tmp):
             os.unlink(tmp)
         raise
-    return WriteResult(adapter, str(path), changed=True, written=True, backup=backup_path, diff=diff)
+    return WriteResult(adapter, str(display_path), changed=True, written=True, backup=backup_path, diff=diff)
 
 
 class Adapter(abc.ABC):

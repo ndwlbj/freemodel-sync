@@ -11,7 +11,7 @@ import json
 import logging
 import time
 from datetime import date, datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
 
@@ -179,13 +179,26 @@ class OpenRouterProvider(Provider):
         return models
 
     def test(self, model: ModelInfo, timeout: float = 30.0) -> TestResult:
-        """Send one tiny streaming chat completion and measure TTFT/latency."""
+        """Send one tiny streaming chat completion and measure TTFT/latency.
+
+        Failures are classified (see :attr:`TestResult.failure_kind`) so the
+        tester can tell a broken model from an account or quota problem:
+
+        * 401/402/403, and OpenRouter platform 429s (free-model per-minute or
+          per-day caps), are ``"account"`` failures: they say nothing about the
+          model, stop the round and are never cached.
+        * Upstream-provider 429s (``error.metadata.provider_name`` /
+          ``provider_code`` present), 408/5xx and network errors are
+          ``"transient"`` model failures, cached only briefly.
+        * Anything else (e.g. 400/404 "no endpoints") is a ``"model"`` failure.
+        """
 
         if not self.api_key:
             return TestResult(
                 key=model.key,
                 ok=False,
                 error="missing api key",
+                failure_kind="account",
                 tested_at=time.time(),
             )
 
@@ -210,12 +223,16 @@ class OpenRouterProvider(Provider):
         saw_finish = False
         done_after_finish = False
         error: Optional[str] = None
+        failure_kind: Optional[str] = None
+        retry_after_s: Optional[float] = None
+        rl_remaining: Optional[int] = None
 
         try:
             with self._get_client().stream(
                 "POST", url, headers=headers, json=payload, timeout=timeout
             ) as response:
                 status_code = response.status_code
+                retry_after_s, rl_remaining = _rate_limit_hints(response.headers)
                 if status_code != 200:
                     try:
                         body = response.read()
@@ -223,7 +240,9 @@ class OpenRouterProvider(Provider):
                         body = getattr(response, "text", "") or ""
                     if isinstance(body, bytes):
                         body = body.decode("utf-8", errors="replace")
-                    error = str(body).strip()[:200] or f"HTTP {status_code}"
+                    error_obj = _error_object(body)
+                    message = error_obj.get("message") if error_obj else None
+                    error = (str(message) if message else str(body).strip())[:200] or f"HTTP {status_code}"
                     return TestResult(
                         key=model.key,
                         ok=False,
@@ -231,6 +250,9 @@ class OpenRouterProvider(Provider):
                         error=error,
                         status_code=status_code,
                         tested_at=time.time(),
+                        failure_kind=_classify(status_code, error_obj),
+                        retry_after_s=retry_after_s,
+                        rate_limit_remaining=rl_remaining,
                     )
 
                 for line in response.iter_lines():
@@ -257,8 +279,11 @@ class OpenRouterProvider(Provider):
                         err = chunk.get("error")
                         if isinstance(err, dict):
                             error = str(err.get("message") or err.get("code") or err)
+                            code = err.get("code")
+                            failure_kind = _classify(code if isinstance(code, int) else None, err)
                         else:
                             error = str(err)
+                            failure_kind = "model"
                         break
                     choices = chunk.get("choices")
                     if not isinstance(choices, list) or not choices:
@@ -275,6 +300,7 @@ class OpenRouterProvider(Provider):
                         saw_finish = True
         except httpx.HTTPError as exc:
             error = f"{type(exc).__name__}: {exc}"
+            failure_kind = "transient"
 
         total_ms = (time.perf_counter() - start) * 1000.0
         ok = (
@@ -282,6 +308,10 @@ class OpenRouterProvider(Provider):
             and error is None
             and (token_seen or done_after_finish)
         )
+        if not ok and failure_kind is None:
+            failure_kind = "model"
+            if error is None:
+                error = "empty response"
         return TestResult(
             key=model.key,
             ok=ok,
@@ -290,10 +320,19 @@ class OpenRouterProvider(Provider):
             error=error,
             status_code=status_code,
             tested_at=time.time(),
+            failure_kind=None if ok else failure_kind,
+            retry_after_s=retry_after_s,
+            rate_limit_remaining=rl_remaining,
         )
 
     def quota(self) -> Optional[QuotaInfo]:
-        """Return key usage/limits, or ``None`` when unavailable."""
+        """Return free-model request quota for the key, or ``None`` when unavailable.
+
+        The source of truth is ``data.free_model_daily_requests``
+        (``used`` / ``limit`` / ``remaining`` for the current UTC day). The
+        tier is *not* inferred from ``is_free_tier``: OpenRouter selects it by
+        all-time purchased credits, independently of that flag.
+        """
 
         if not self.api_key:
             return None
@@ -303,7 +342,7 @@ class OpenRouterProvider(Provider):
             response.raise_for_status()
             payload = response.json()
         except (httpx.HTTPError, ValueError) as exc:
-            logger.warning("could not fetch OpenRouter quota: %s", exc)
+            logger.warning("could not fetch OpenRouter quota: %s", type(exc).__name__)
             return None
 
         data = payload.get("data") if isinstance(payload, dict) else None
@@ -314,14 +353,85 @@ class OpenRouterProvider(Provider):
         is_free_tier = data.get("is_free_tier")
         if not isinstance(is_free_tier, bool):
             is_free_tier = None
-        # OpenRouter allows 50 free-model requests/day on the free tier and
-        # 1000/day once at least 10 credits have been purchased.  When the tier
-        # is unknown, assume the conservative 50/day.
-        daily_free_limit = 1000 if is_free_tier is False else 50
+        free = data.get("free_model_daily_requests")
+        free = free if isinstance(free, dict) else {}
         return QuotaInfo(
             is_free_tier=is_free_tier,
-            daily_free_limit=daily_free_limit,
+            daily_free_limit=_as_int(free.get("limit")),
+            daily_free_used=_as_int(free.get("used")),
+            daily_free_remaining=_as_int(free.get("remaining")),
             usage=_as_float(data.get("usage")),
             limit_remaining=_as_float(data.get("limit_remaining")),
             raw=data,
         )
+
+
+def _as_int(value: Any) -> Optional[int]:
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _error_object(body: str) -> Dict[str, Any]:
+    """Extract the ``error`` object from an OpenRouter JSON error body."""
+
+    try:
+        payload = json.loads(body)
+    except (TypeError, ValueError):
+        return {}
+    if isinstance(payload, dict) and isinstance(payload.get("error"), dict):
+        return payload["error"]
+    return {}
+
+
+def _classify(status_code: Optional[int], error_obj: Dict[str, Any]) -> str:
+    """Classify a failed probe as ``"account"``, ``"transient"`` or ``"model"``."""
+
+    if status_code in (401, 402, 403):
+        return "account"
+    if status_code == 429:
+        metadata = error_obj.get("metadata") if isinstance(error_obj, dict) else None
+        metadata = metadata if isinstance(metadata, dict) else {}
+        if metadata.get("provider_name") or metadata.get("provider_code") is not None:
+            # The upstream provider of *this* model is saturated.
+            return "transient"
+        # OpenRouter platform limit (free-model per-minute/per-day cap).
+        return "account"
+    if status_code is not None and (status_code == 408 or status_code >= 500):
+        return "transient"
+    return "model"
+
+
+def _rate_limit_hints(headers: Any) -> Tuple[Optional[float], Optional[int]]:
+    """Return ``(retry_after_seconds, remaining)`` from rate-limit headers."""
+
+    retry_after: Optional[float] = None
+    remaining: Optional[int] = None
+    try:
+        raw_retry = headers.get("retry-after")
+        raw_reset = headers.get("x-ratelimit-reset")
+        raw_remaining = headers.get("x-ratelimit-remaining")
+    except AttributeError:  # pragma: no cover - defensive
+        return None, None
+    if raw_retry:
+        try:
+            retry_after = max(0.0, float(raw_retry))
+        except ValueError:
+            retry_after = None
+    if retry_after is None and raw_reset:
+        try:
+            reset = float(raw_reset)
+            if reset > 1e11:  # epoch milliseconds
+                reset /= 1000.0
+            if reset > 1e9:  # absolute epoch seconds
+                retry_after = max(0.0, reset - time.time())
+            else:  # relative seconds
+                retry_after = max(0.0, reset)
+        except ValueError:
+            retry_after = None
+    if raw_remaining:
+        remaining = _as_int(raw_remaining)
+    return retry_after, remaining

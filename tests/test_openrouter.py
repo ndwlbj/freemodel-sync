@@ -132,15 +132,23 @@ def test_probe_without_key_makes_no_request():
     assert result.ok is False and result.error == "missing api key"
 
 
-@pytest.mark.parametrize("free_tier,limit", [(True, 50), (False, 1000), (None, 50)])
-def test_quota(free_tier, limit):
-    data = {"label": "k", "usage": 0.5, "limit": None, "limit_remaining": None}
+@pytest.mark.parametrize("free_tier", [True, False, None])
+def test_quota_uses_free_model_daily_requests(free_tier):
+    data = {"label": "k", "usage": 0.5, "limit": None, "limit_remaining": None,
+            "free_model_daily_requests": {"used": 48, "limit": 50, "remaining": 2}}
     if free_tier is not None:
         data["is_free_tier"] = free_tier
     handler = lambda r: httpx.Response(200, json={"data": data})
     q = provider_with(handler).quota()
-    assert q.daily_free_limit == limit
+    # the tier comes from free_model_daily_requests, never from is_free_tier
+    assert (q.daily_free_limit, q.daily_free_used, q.daily_free_remaining) == (50, 48, 2)
     assert q.usage == 0.5
+
+
+def test_quota_without_free_model_daily_requests_reports_unknown():
+    handler = lambda r: httpx.Response(200, json={"data": {"is_free_tier": False, "usage": 0}})
+    q = provider_with(handler).quota()
+    assert q.daily_free_limit is None and q.daily_free_remaining is None
 
 
 def test_quota_without_key_or_on_error():

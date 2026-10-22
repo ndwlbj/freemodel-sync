@@ -20,6 +20,7 @@ import argparse
 import json
 import logging
 import os
+import re
 import sys
 import tempfile
 import time
@@ -34,7 +35,7 @@ from .models import ModelInfo, QuotaInfo, Selection, TestResult
 from .notify import notify_switch
 from .providers import ProviderError, available_providers, get_provider_class
 from .ranking import RankWeights, filter_models, rank, score_model, select
-from .tester import ResultCache, run_tests
+from .tester import ResultCache, TestRun, run_tests
 
 logger = logging.getLogger(__name__)
 
@@ -73,11 +74,6 @@ def _resolve_provider(
     name = names[0]
     settings = config.providers[name]
     api_key = os.environ.get(settings.api_key_env) if settings.api_key_env else None
-    if not api_key and settings.api_key_env:
-        logger.warning(
-            "%s is not set: discovery works, but models cannot be tested or selected",
-            settings.api_key_env,
-        )
     provider = _build_provider(name, api_key or None, dict(settings.options), provider_factory)
     return name, provider
 
@@ -133,32 +129,69 @@ def _static_order(
     return sorted(models, key=key)
 
 
+#: conservative free requests/day assumed when the provider reports nothing
+FALLBACK_DAILY_FREE_LIMIT = 50
+
+#: exit code when probing was stopped by an account/quota problem
+EXIT_ACCOUNT_ERROR = 3
+
+
+class MissingKeyError(RuntimeError):
+    """Probing was requested but the provider has no API key."""
+
+
 def _probe(
     config: Config,
+    provider_name: str,
     provider: Any,
     models: Sequence[ModelInfo],
     *,
     max_tests: Optional[int] = None,
-) -> Tuple[Dict[str, TestResult], Optional[QuotaInfo]]:
-    """Run probes with the configured cache, TTL and daily budget."""
+) -> Tuple[TestRun, Optional[QuotaInfo]]:
+    """Run probes with the configured cache, TTL and free-request budget.
+
+    Budget precedence: ``testing.daily_free_limit`` (user override, checked
+    against the local UTC-day counter) > ``remaining`` reported by the
+    provider > the provider's reported daily ``limit`` > a conservative 50.
+    Without an API key nothing is probed, counted or cached.
+    """
+
+    if not getattr(provider, "api_key", None):
+        env = config.providers[provider_name].api_key_env or "the provider's API key"
+        raise MissingKeyError(
+            f"{env} is not set: testing models needs your own key "
+            "(discover works without one). No requests were sent and nothing was cached."
+        )
 
     quota = _safe_quota(provider)
-    daily_budget = config.testing.daily_free_limit
-    if daily_budget is None and quota is not None:
+    daily_budget: Optional[int] = None
+    remaining: Optional[int] = None
+    if config.testing.daily_free_limit is not None:
+        daily_budget = config.testing.daily_free_limit
+    elif quota is not None and quota.daily_free_remaining is not None:
+        remaining = quota.daily_free_remaining
+    elif quota is not None and quota.daily_free_limit is not None:
         daily_budget = quota.daily_free_limit
+    else:
+        daily_budget = FALLBACK_DAILY_FREE_LIMIT
+
     cache = ResultCache(config.testing.cache_path).load()
     limit = config.testing.max_tests if max_tests is None else max_tests
-    results = run_tests(
+    run = run_tests(
         provider,
         models,
         cache=cache,
         max_tests=limit,
         cache_ttl_s=config.testing.cache_ttl_s,
+        transient_ttl_s=config.testing.transient_ttl_s,
         daily_budget=daily_budget,
+        remaining_budget=remaining,
         timeout=config.testing.timeout_s,
         reserve=config.testing.reserve_requests,
     )
-    return results, quota
+    if run.stop_reason:
+        print(f"warning: probing stopped: {run.stop_reason}", file=sys.stderr)
+    return run, quota
 
 
 def _selection_dict(selection: Optional[Selection]) -> Optional[Dict[str, Any]]:
@@ -283,7 +316,7 @@ def _cmd_discover(args: argparse.Namespace, config: Config, provider_name: str, 
 def _cmd_test(args: argparse.Namespace, config: Config, provider_name: str, provider: Any) -> int:
     models = _discover(config, provider)
     models = _static_order(models, config.ranking.weights)
-    results, _quota = _probe(config, provider, models, max_tests=args.max_tests)
+    results, _quota = _probe(config, provider_name, provider, models, max_tests=args.max_tests)
 
     rows = []
     for model in models:
@@ -300,13 +333,13 @@ def _cmd_test(args: argparse.Namespace, config: Config, provider_name: str, prov
         _print_table(["STATUS", "MODEL", "TTFT_MS", "ERROR"], rows)
     else:
         print("no free models matched the filters")
-    return 0
+    return EXIT_ACCOUNT_ERROR if results.account_problem else 0
 
 
 def _cmd_rank(args: argparse.Namespace, config: Config, provider_name: str, provider: Any) -> int:
     models = _discover(config, provider)
     models = _static_order(models, config.ranking.weights)
-    results, quota = _probe(config, provider, models)
+    results, quota = _probe(config, provider_name, provider, models)
     ranked = rank(models, results, config.ranking.weights, today=date.today())
     selection = select(ranked, config.ranking.fallback_count)
     payload = _ranking_payload(provider_name, ranked, selection, quota)
@@ -366,11 +399,18 @@ def _apply_target(
 def _cmd_sync(args: argparse.Namespace, config: Config, provider_name: str, provider: Any) -> int:
     models = _discover(config, provider)
     models = _static_order(models, config.ranking.weights)
-    results, _quota = _probe(config, provider, models)
+    results, _quota = _probe(config, provider_name, provider, models)
     ranked = rank(models, results, config.ranking.weights, today=date.today())
     selection = select(ranked, config.ranking.fallback_count)
 
     if selection is None:
+        if results.account_problem:
+            print(
+                "no usable model: probing was stopped by an account/quota problem "
+                "(models were not marked as failed); no config was written",
+                file=sys.stderr,
+            )
+            return EXIT_ACCOUNT_ERROR
         print("no usable model found; no config was written", file=sys.stderr)
         return 2
 
@@ -434,6 +474,58 @@ def _cmd_adapters(args: argparse.Namespace, config: Config) -> int:
 # ---------------------------------------------------------------------------
 # parser / entry point
 # ---------------------------------------------------------------------------
+class RedactingFilter(logging.Filter):
+    """Mask secrets that can appear in log messages (e.g. Telegram bot URLs)."""
+
+    _PATTERNS = (
+        (re.compile(r"(api\.telegram\.org/bot)[^/\s\"']+"), r"\1<redacted>"),
+        (re.compile(r"(?i)(bearer\s+)[^\s\"']+"), r"\1<redacted>"),
+        (re.compile(r"\bsk-[A-Za-z0-9_-]{8,}"), "sk-<redacted>"),
+    )
+
+    @classmethod
+    def redact(cls, text: str) -> str:
+        for pattern, replacement in cls._PATTERNS:
+            text = pattern.sub(replacement, text)
+        return text
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        try:
+            message = record.getMessage()
+        except Exception:  # pragma: no cover - defensive
+            return True
+        redacted = self.redact(message)
+        if redacted != message:
+            record.msg, record.args = redacted, None
+        return True
+
+
+_LOG_HANDLER: Optional[logging.Handler] = None
+
+
+def _configure_logging(verbose: bool, debug_http: bool = False) -> None:
+    """Install one stderr handler with secret redaction.
+
+    ``httpx``/``httpcore`` log full request URLs at INFO/DEBUG, and Telegram
+    puts the bot token in the URL, so they stay at WARNING unless
+    ``--debug-http`` is given (and even then messages are redacted).
+    """
+
+    global _LOG_HANDLER
+    root = logging.getLogger()
+    if _LOG_HANDLER is not None:
+        root.removeHandler(_LOG_HANDLER)
+    handler = logging.StreamHandler(sys.stderr)
+    handler.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
+    handler.addFilter(RedactingFilter())
+    root.addHandler(handler)
+    _LOG_HANDLER = handler
+    root.setLevel(logging.DEBUG if verbose else logging.WARNING)
+    http_level = logging.DEBUG if (verbose and debug_http) else logging.WARNING
+    for name in ("httpx", "httpcore"):
+        logging.getLogger(name).setLevel(http_level)
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Create the argument parser (exposed for tests and ``--help``)."""
 
@@ -449,6 +541,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "-v", "--verbose", action="store_true", help="enable verbose logging"
+    )
+    parser.add_argument(
+        "--debug-http",
+        action="store_true",
+        help="also log HTTP requests (secrets in URLs are redacted)",
     )
     parser.add_argument(
         "--version", action="version", version=f"%(prog)s {__version__}"
@@ -494,10 +591,7 @@ def main(
     parser = build_parser()
     args = parser.parse_args(argv)
 
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.WARNING,
-        format="%(levelname)s %(name)s: %(message)s",
-    )
+    _configure_logging(args.verbose, args.debug_http)
 
     if not args.command:
         parser.print_help()
@@ -530,7 +624,7 @@ def main(
             return _cmd_rank(args, config, provider_name, provider)
         if args.command == "sync":
             return _cmd_sync(args, config, provider_name, provider)
-    except (ConfigError, ProviderError, ValueError, OSError) as exc:
+    except (ConfigError, ProviderError, ValueError, OSError, MissingKeyError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     except Exception as exc:  # noqa: BLE001 - the CLI reports errors instead of tracebacks

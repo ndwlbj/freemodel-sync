@@ -12,7 +12,8 @@ from freemodel_sync.models import ModelInfo, QuotaInfo, TestResult
 
 
 class StubProvider:
-    def __init__(self, ok_ids, quota_limit=50):
+    def __init__(self, ok_ids, quota_limit=50, api_key="test-key"):
+        self.api_key = api_key
         self.ok_ids = set(ok_ids)
         self.quota_limit = quota_limit
         self.tested = []
@@ -36,7 +37,7 @@ class StubProvider:
 
 @pytest.fixture
 def setup(tmp_path, monkeypatch):
-    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     target = tmp_path / "bot-model.yml"
     target.write_text("- id: agent-default-model\n  config: {provider: x, model: 'old'}\n")
     cfg = tmp_path / "config.yml"

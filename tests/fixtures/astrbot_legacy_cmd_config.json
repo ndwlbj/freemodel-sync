@@ -1,0 +1,22 @@
+{
+  "provider": [
+    {
+      "id": "openrouter",
+      "type": "openai_chat_completion",
+      "provider_type": "chat_completion",
+      "enable": true,
+      "key": [
+        "<your-openrouter-key>"
+      ],
+      "api_base": "https://openrouter.ai/api/v1",
+      "model_config": {
+        "model": "old/model:free",
+        "temperature": 0.4
+      }
+    }
+  ],
+  "provider_settings": {
+    "enable": true,
+    "default_provider_id": "openrouter"
+  }
+}
