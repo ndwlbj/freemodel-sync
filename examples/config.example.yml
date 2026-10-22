@@ -1,0 +1,81 @@
+# freemodel-sync example configuration.
+# Copy to ~/.config/freemodel-sync/config.yml (or pass -c FILE) and adjust.
+# API keys are NEVER stored here: they are read from the environment
+# variables named below (e.g. export OPENROUTER_API_KEY=...).
+
+providers:
+  openrouter:
+    enabled: true
+    api_key_env: OPENROUTER_API_KEY
+
+filters:
+  require_tools: false          # only keep models that support tool calling
+  min_context: 32000            # minimum context window (tokens)
+  exclude_expiring_within_days: 3
+  include: []                   # fnmatch globs on model ids, e.g. ["deepseek/*", "*qwen*"]
+  exclude: ["*content-safety*"]
+
+testing:
+  max_tests: 5                  # new probe requests per run (cached results are reused)
+  cache_ttl_hours: 6
+  timeout_s: 30
+  reserve_requests: 10          # leave this many free requests/day for your real usage
+  daily_free_limit: null        # override the provider's free requests/day (50 or 1000 on OpenRouter)
+  cache_path: ~/.cache/freemodel-sync/results.json
+
+ranking:
+  fallback_count: 3
+  weights:
+    availability: 100
+    latency: 30
+    context: 20
+    tools: 15
+    expiry_penalty: 50
+    untested_penalty: 40
+
+output:
+  ranking_json: ~/.cache/freemodel-sync/ranking.json
+
+state_path: ~/.local/state/freemodel-sync/state.json
+
+targets:
+  # Generic OpenAI-compatible env file (only these three variables are managed).
+  - adapter: openai-env
+    path: ~/my-app/.env
+    options:
+      base_url_var: OPENAI_BASE_URL
+      model_var: OPENAI_MODEL
+      fallbacks_var: OPENAI_FALLBACK_MODELS
+
+  # Generic YAML config: sets base_url / model / fallback_models under `llm`.
+  - adapter: openai-yaml
+    path: ~/my-app/config.yml
+    options:
+      key_path: llm
+
+  # dsh (DeepSeek Harness) cordis.patch.yml-style file: manages only the
+  # `agent-default-model` entry. Map freemodel-sync provider names to the
+  # provider ids configured in your dsh setup.
+  - adapter: dsh
+    path: ~/path/to/bot-model.yml
+    options:
+      entry_id: agent-default-model
+      provider_map:
+        openrouter: openrouter
+
+  # AstrBot (experimental): updates model_config.model of an EXISTING provider
+  # entry in data/cmd_config.json. Create the provider in AstrBot first.
+  - adapter: astrbot
+    path: ~/AstrBot/data/cmd_config.json
+    options:
+      provider_id: openrouter
+
+notify:
+  # Telegram: token and chat id are read from these environment variables.
+  telegram:
+    bot_token_env: TELEGRAM_BOT_TOKEN
+    chat_id_env: TELEGRAM_CHAT_ID
+  # Generic webhook (e.g. a QQ bot bridge). JSON body:
+  # {"event": "primary_changed", "old": ..., "new": ..., "fallbacks": [...], "text": ...}
+  webhook:
+    url_env: FREEMODEL_SYNC_WEBHOOK_URL

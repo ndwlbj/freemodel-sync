@@ -1,0 +1,64 @@
+[build-system]
+requires = ["hatchling>=1.18"]
+build-backend = "hatchling.build"
+
+[project]
+name = "freemodel-sync"
+dynamic = ["version"]
+description = "Discover, test and rank free LLMs, then sync a primary model + fallbacks into the configs of tools you already use. Not a proxy."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.9"
+authors = [{ name = "freemodel-sync contributors" }]
+keywords = ["llm", "openrouter", "free-models", "model-routing", "config", "cli"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Utilities",
+]
+dependencies = [
+  "httpx>=0.24",
+  "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "pytest-cov>=4", "ruff>=0.4"]
+
+[project.scripts]
+freemodel-sync = "freemodel_sync.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/ghwghw19/freemodel-sync"
+Issues = "https://github.com/ghwghw19/freemodel-sync/issues"
+
+[tool.hatch.version]
+path = "src/freemodel_sync/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/freemodel_sync"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 120
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = ["UP006", "UP007", "UP035", "UP045"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E731"]

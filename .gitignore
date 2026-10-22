@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local configs and secrets - never commit these
+.env
+.env.*
+!.env.example
+config.yml
+config.yaml
+!examples/*.yml
+*.bak-*
+results.json
+state.json

@@ -1,0 +1,546 @@
+"""Command line interface for freemodel-sync.
+
+Commands::
+
+    freemodel-sync [-c CONFIG] [-v] discover [--json]
+    freemodel-sync [-c CONFIG] [-v] test [--max-tests N]
+    freemodel-sync [-c CONFIG] [-v] rank [--json] [--output FILE]
+    freemodel-sync [-c CONFIG] [-v] sync [--dry-run] [--no-notify]
+    freemodel-sync [-c CONFIG] [-v] providers
+    freemodel-sync [-c CONFIG] [-v] adapters
+    freemodel-sync --version
+
+API keys are only ever read from the environment variables named in the
+config file; they are never printed.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import logging
+import os
+import sys
+import tempfile
+import time
+from datetime import date
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+
+from . import __version__
+from .adapters import available_adapters, get_adapter_class
+from .config import Config, ConfigError, TargetConfig, load_config
+from .models import ModelInfo, QuotaInfo, Selection, TestResult
+from .notify import notify_switch
+from .providers import ProviderError, available_providers, get_provider_class
+from .ranking import RankWeights, filter_models, rank, score_model, select
+from .tester import ResultCache, run_tests
+
+logger = logging.getLogger(__name__)
+
+ProviderFactory = Callable[..., Any]
+
+
+# ---------------------------------------------------------------------------
+# helpers
+# ---------------------------------------------------------------------------
+def _build_provider(
+    name: str,
+    api_key: Optional[str],
+    options: Dict[str, Any],
+    provider_factory: Optional[ProviderFactory] = None,
+) -> Any:
+    """Instantiate a provider.
+
+    By default this is ``get_provider_class(name)(api_key=..., **options)``.
+    Tests can inject ``provider_factory(name, api_key=..., **options)``.
+    """
+
+    if provider_factory is None:
+        return get_provider_class(name)(api_key=api_key, **options)
+    return provider_factory(name, api_key=api_key, **options)
+
+
+def _resolve_provider(
+    config: Config,
+    provider_factory: Optional[ProviderFactory] = None,
+) -> Tuple[str, Any]:
+    """Return ``(name, provider)`` for the first enabled provider."""
+
+    names = config.enabled_providers()
+    if not names:
+        raise ConfigError("no providers are enabled in the config")
+    name = names[0]
+    settings = config.providers[name]
+    api_key = os.environ.get(settings.api_key_env) if settings.api_key_env else None
+    if not api_key and settings.api_key_env:
+        logger.warning(
+            "%s is not set: discovery works, but models cannot be tested or selected",
+            settings.api_key_env,
+        )
+    provider = _build_provider(name, api_key or None, dict(settings.options), provider_factory)
+    return name, provider
+
+
+def _safe_quota(provider: Any) -> Optional[QuotaInfo]:
+    """Call ``provider.quota()`` defensively; never fail a command over it."""
+
+    quota_fn = getattr(provider, "quota", None)
+    if not callable(quota_fn):
+        return None
+    try:
+        return quota_fn()
+    except Exception as exc:  # noqa: BLE001 - quota is best effort
+        logger.warning("could not read provider quota: %s", type(exc).__name__)
+        return None
+
+
+def _discover(config: Config, provider: Any) -> List[ModelInfo]:
+    """Discover and filter free models."""
+
+    models = provider.discover()
+    if not isinstance(models, list):
+        models = list(models)
+    filters = config.filters
+    return filter_models(
+        models,
+        require_tools=filters.require_tools,
+        min_context=filters.min_context,
+        exclude_expiring_within_days=filters.exclude_expiring_within_days,
+        include=filters.include,
+        exclude=filters.exclude,
+        today=date.today(),
+    )
+
+
+def _static_order(
+    models: Sequence[ModelInfo],
+    weights: RankWeights,
+    today: Optional[date] = None,
+) -> List[ModelInfo]:
+    """Order models by their static score (``test=None``), best first.
+
+    Probing is expensive and quota-limited, so the most promising models
+    (tools, large context, not expiring soon) are tested before the rest.
+    """
+
+    today = today or date.today()
+
+    def key(model: ModelInfo) -> Tuple[float, str]:
+        score, _reasons = score_model(model, None, weights, today=today)
+        return (-score, model.id)
+
+    return sorted(models, key=key)
+
+
+def _probe(
+    config: Config,
+    provider: Any,
+    models: Sequence[ModelInfo],
+    *,
+    max_tests: Optional[int] = None,
+) -> Tuple[Dict[str, TestResult], Optional[QuotaInfo]]:
+    """Run probes with the configured cache, TTL and daily budget."""
+
+    quota = _safe_quota(provider)
+    daily_budget = config.testing.daily_free_limit
+    if daily_budget is None and quota is not None:
+        daily_budget = quota.daily_free_limit
+    cache = ResultCache(config.testing.cache_path).load()
+    limit = config.testing.max_tests if max_tests is None else max_tests
+    results = run_tests(
+        provider,
+        models,
+        cache=cache,
+        max_tests=limit,
+        cache_ttl_s=config.testing.cache_ttl_s,
+        daily_budget=daily_budget,
+        timeout=config.testing.timeout_s,
+        reserve=config.testing.reserve_requests,
+    )
+    return results, quota
+
+
+def _selection_dict(selection: Optional[Selection]) -> Optional[Dict[str, Any]]:
+    if selection is None:
+        return None
+    return {
+        "provider": selection.provider,
+        "primary": selection.primary.model.id,
+        "primary_key": selection.primary.model.key,
+        "fallbacks": [fallback.model.id for fallback in selection.fallbacks],
+        "model_ids": selection.model_ids,
+        "primary_model": selection.primary.to_dict(),
+        "fallback_models": [fallback.to_dict() for fallback in selection.fallbacks],
+    }
+
+
+def _ranking_payload(
+    provider_name: str,
+    ranked: Sequence[Any],
+    selection: Optional[Selection],
+    quota: Optional[QuotaInfo],
+) -> Dict[str, Any]:
+    return {
+        "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "provider": provider_name,
+        "quota": quota.to_dict() if quota is not None else None,
+        "ranking": [item.to_dict() for item in ranked],
+        "selection": _selection_dict(selection),
+    }
+
+
+def _write_json(path: Path, payload: Dict[str, Any]) -> None:
+    """Atomically write *payload* as pretty JSON, creating parent directories."""
+
+    path = Path(path).expanduser()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(prefix=f".{path.name}.", dir=str(path.parent))
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, indent=2, ensure_ascii=False)
+            handle.write("\n")
+        os.replace(tmp, path)
+    except BaseException:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+        raise
+
+
+def _print_table(headers: Sequence[str], rows: Sequence[Sequence[Any]]) -> None:
+    """Print a simple left-aligned text table."""
+
+    text_rows = [[("" if cell is None else str(cell)) for cell in row] for row in rows]
+    widths = [len(header) for header in headers]
+    for row in text_rows:
+        for index, cell in enumerate(row):
+            if index < len(widths):
+                widths[index] = max(widths[index], len(cell))
+    print("  ".join(header.ljust(widths[i]) for i, header in enumerate(headers)).rstrip())
+    print("  ".join("-" * width for width in widths))
+    for row in text_rows:
+        print("  ".join(cell.ljust(widths[i]) for i, cell in enumerate(row)).rstrip())
+
+
+def _status(test: Optional[TestResult]) -> str:
+    if test is None:
+        return "untested"
+    return "ok" if test.ok else "failed"
+
+
+def _read_state(path: Path) -> Dict[str, Any]:
+    """Read the state file; missing/corrupt files yield an empty mapping."""
+
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError):
+        return {}
+    try:
+        data = json.loads(text)
+    except (TypeError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _write_state(path: Path, selection: Selection) -> None:
+    payload = {
+        "primary": selection.primary.model.key,
+        "provider": selection.provider,
+        "model": selection.primary.model.id,
+        "fallbacks": [fallback.model.id for fallback in selection.fallbacks],
+        "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    }
+    _write_json(Path(path), payload)
+
+
+# ---------------------------------------------------------------------------
+# commands
+# ---------------------------------------------------------------------------
+def _cmd_discover(args: argparse.Namespace, config: Config, provider_name: str, provider: Any) -> int:
+    models = _discover(config, provider)
+    if args.json:
+        print(json.dumps([model.to_dict() for model in models], indent=2, ensure_ascii=False))
+        return 0
+    if not models:
+        print("no free models matched the filters")
+        return 0
+    rows = []
+    for model in models:
+        days = model.days_until_expiry(date.today())
+        rows.append(
+            [
+                model.id,
+                model.context_length,
+                "yes" if model.supports_tools else "no",
+                days if days is not None else "-",
+            ]
+        )
+    _print_table(["MODEL", "CONTEXT", "TOOLS", "EXPIRES_IN_DAYS"], rows)
+    print(f"\n{len(models)} free model(s) from {provider_name}")
+    return 0
+
+
+def _cmd_test(args: argparse.Namespace, config: Config, provider_name: str, provider: Any) -> int:
+    models = _discover(config, provider)
+    models = _static_order(models, config.ranking.weights)
+    results, _quota = _probe(config, provider, models, max_tests=args.max_tests)
+
+    rows = []
+    for model in models:
+        test = results.get(model.key)
+        rows.append(
+            [
+                _status(test),
+                model.id,
+                f"{test.ttft_ms:.0f}" if test is not None and test.ttft_ms else "-",
+                (test.error or "") if test is not None else "not probed (budget/cap)",
+            ]
+        )
+    if rows:
+        _print_table(["STATUS", "MODEL", "TTFT_MS", "ERROR"], rows)
+    else:
+        print("no free models matched the filters")
+    return 0
+
+
+def _cmd_rank(args: argparse.Namespace, config: Config, provider_name: str, provider: Any) -> int:
+    models = _discover(config, provider)
+    models = _static_order(models, config.ranking.weights)
+    results, quota = _probe(config, provider, models)
+    ranked = rank(models, results, config.ranking.weights, today=date.today())
+    selection = select(ranked, config.ranking.fallback_count)
+    payload = _ranking_payload(provider_name, ranked, selection, quota)
+
+    output = args.output or config.output.ranking_json
+    if output:
+        _write_json(Path(output), payload)
+
+    if args.json:
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        return 0
+
+    if ranked:
+        rows = []
+        for index, item in enumerate(ranked, start=1):
+            rows.append(
+                [
+                    index,
+                    f"{item.score:.2f}",
+                    item.model.id,
+                    _status(item.test),
+                    "; ".join(item.reasons) or "-",
+                ]
+            )
+        _print_table(["RANK", "SCORE", "MODEL", "STATUS", "REASONS"], rows)
+    else:
+        print("no free models matched the filters")
+
+    if quota is not None:
+        print(
+            f"\nquota: free_tier={quota.is_free_tier} "
+            f"daily_free_limit={quota.daily_free_limit}"
+        )
+    if selection is not None:
+        print(
+            f"selection: {selection.primary.model.key} "
+            f"(fallbacks: {', '.join(f.model.id for f in selection.fallbacks) or 'none'})"
+        )
+    else:
+        print("selection: none (no working model)")
+    if output:
+        print(f"ranking JSON written to {output}")
+    return 0
+
+
+def _apply_target(
+    target: TargetConfig,
+    selection: Selection,
+    *,
+    dry_run: bool,
+) -> Any:
+    adapter_class = get_adapter_class(target.adapter)
+    adapter = adapter_class(str(target.path), **target.options)
+    return adapter.apply(selection, dry_run=dry_run)
+
+
+def _cmd_sync(args: argparse.Namespace, config: Config, provider_name: str, provider: Any) -> int:
+    models = _discover(config, provider)
+    models = _static_order(models, config.ranking.weights)
+    results, _quota = _probe(config, provider, models)
+    ranked = rank(models, results, config.ranking.weights, today=date.today())
+    selection = select(ranked, config.ranking.fallback_count)
+
+    if selection is None:
+        print("no usable model found; no config was written", file=sys.stderr)
+        return 2
+
+    failures = 0
+    if not config.targets:
+        print("no targets configured; nothing to write")
+    for target in config.targets:
+        try:
+            result = _apply_target(target, selection, dry_run=args.dry_run)
+        except Exception as exc:  # noqa: BLE001 - report and continue other targets
+            failures += 1
+            print(f"error: {target.adapter} ({target.path}): {exc}", file=sys.stderr)
+            continue
+        action = "would update" if args.dry_run and result.changed else (
+            "updated" if result.written else "unchanged"
+        )
+        print(f"{target.adapter}: {action} {result.path}")
+        if args.dry_run and result.diff:
+            print(result.diff)
+
+    state_path = Path(config.state_path)
+    previous = _read_state(state_path)
+    old_key = previous.get("primary") or previous.get("key")
+    new_key = selection.primary.model.key
+    changed = old_key != new_key
+
+    if changed and not args.dry_run and not args.no_notify:
+        channels = notify_switch(
+            old_key if isinstance(old_key, str) else None,
+            selection,
+            telegram=config.notify.telegram,
+            webhook=config.notify.webhook,
+        )
+        if channels:
+            print(f"notified: {', '.join(channels)}")
+
+    if not args.dry_run:
+        try:
+            _write_state(state_path, selection)
+        except OSError as exc:
+            print(f"error: could not write state file {state_path}: {exc}", file=sys.stderr)
+            failures += 1
+
+    if failures:
+        return 1
+    return 0
+
+
+def _cmd_providers(args: argparse.Namespace, config: Config) -> int:
+    for name in available_providers():
+        print(name)
+    return 0
+
+
+def _cmd_adapters(args: argparse.Namespace, config: Config) -> int:
+    for name in available_adapters():
+        print(name)
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# parser / entry point
+# ---------------------------------------------------------------------------
+def build_parser() -> argparse.ArgumentParser:
+    """Create the argument parser (exposed for tests and ``--help``)."""
+
+    parser = argparse.ArgumentParser(
+        prog="freemodel-sync",
+        description=(
+            "Discover, test and rank free LLMs, then sync a primary model plus "
+            "fallbacks into the configs of tools you already use."
+        ),
+    )
+    parser.add_argument(
+        "-c", "--config", metavar="CONFIG", help="path to the YAML config file"
+    )
+    parser.add_argument(
+        "-v", "--verbose", action="store_true", help="enable verbose logging"
+    )
+    parser.add_argument(
+        "--version", action="version", version=f"%(prog)s {__version__}"
+    )
+
+    subparsers = parser.add_subparsers(dest="command", metavar="COMMAND")
+
+    discover = subparsers.add_parser("discover", help="list free models after filters")
+    discover.add_argument("--json", action="store_true", help="print JSON")
+
+    test = subparsers.add_parser("test", help="discover, filter and probe models")
+    test.add_argument("--max-tests", type=int, default=None, metavar="N", help="maximum probes")
+
+    rank_parser = subparsers.add_parser("rank", help="rank models and show the selection")
+    rank_parser.add_argument("--json", action="store_true", help="print JSON")
+    rank_parser.add_argument("--output", metavar="FILE", help="write the ranking JSON to FILE")
+
+    sync = subparsers.add_parser("sync", help="write the selection into all targets")
+    sync.add_argument("--dry-run", action="store_true", help="show changes without writing")
+    sync.add_argument("--no-notify", action="store_true", help="do not send notifications")
+
+    subparsers.add_parser("providers", help="list registered providers")
+    subparsers.add_parser("adapters", help="list registered adapters")
+
+    return parser
+
+
+def main(
+    argv: Optional[Sequence[str]] = None,
+    provider_factory: Optional[ProviderFactory] = None,
+    *,
+    config: Optional[Config] = None,
+) -> int:
+    """Run the CLI and return a process exit code.
+
+    Args:
+        argv: argument list (defaults to ``sys.argv[1:]``).
+        provider_factory: optional ``factory(name, api_key=..., **options)``
+            used instead of the registered provider class (for tests).
+        config: pre-built :class:`Config` (skips loading a file).
+    """
+
+    parser = build_parser()
+    args = parser.parse_args(argv)
+
+    logging.basicConfig(
+        level=logging.DEBUG if args.verbose else logging.WARNING,
+        format="%(levelname)s %(name)s: %(message)s",
+    )
+
+    if not args.command:
+        parser.print_help()
+        return 0
+
+    try:
+        if config is None:
+            config = load_config(args.config)
+    except ConfigError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    if args.command == "providers":
+        return _cmd_providers(args, config)
+    if args.command == "adapters":
+        return _cmd_adapters(args, config)
+
+    try:
+        provider_name, provider = _resolve_provider(config, provider_factory)
+    except (ConfigError, ProviderError, ValueError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    try:
+        if args.command == "discover":
+            return _cmd_discover(args, config, provider_name, provider)
+        if args.command == "test":
+            return _cmd_test(args, config, provider_name, provider)
+        if args.command == "rank":
+            return _cmd_rank(args, config, provider_name, provider)
+        if args.command == "sync":
+            return _cmd_sync(args, config, provider_name, provider)
+    except (ConfigError, ProviderError, ValueError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+    except Exception as exc:  # noqa: BLE001 - the CLI reports errors instead of tracebacks
+        logger.debug("command failed", exc_info=True)
+        print(f"error: {type(exc).__name__}: {exc}", file=sys.stderr)
+        return 1
+
+    parser.error(f"unknown command: {args.command}")
+    return 1
+
+
+if __name__ == "__main__":  # pragma: no cover
+    raise SystemExit(main())
