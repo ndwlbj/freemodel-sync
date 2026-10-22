@@ -156,3 +156,20 @@ def test_astrbot_adapter_requires_existing_provider(tmp_path, selection):
         get_adapter_class("astrbot")(str(p), provider_id="missing").apply(selection)
     with pytest.raises(ValueError, match="provider_id"):
         get_adapter_class("astrbot")(str(p)).apply(selection)
+
+
+def test_write_follows_symlink(tmp_path, selection):
+    """Review P1-2: a symlinked target must stay a symlink; the real file is updated."""
+    real_dir = tmp_path / "real"
+    real_dir.mkdir()
+    real = real_dir / "real.env"
+    real.write_text("OPENAI_MODEL=old\n")
+    link = tmp_path / "link.env"
+    link.symlink_to(real)
+
+    res = get_adapter_class("openai-env")(str(link)).apply(selection)
+    assert res.written and res.path == str(link)
+    assert link.is_symlink() and link.resolve() == real.resolve()
+    assert "OPENAI_MODEL=vendor/a:free" in real.read_text()
+    assert Path(res.backup).parent == real_dir and Path(res.backup).read_text() == "OPENAI_MODEL=old\n"
+    assert not get_adapter_class("openai-env")(str(link)).apply(selection).changed
