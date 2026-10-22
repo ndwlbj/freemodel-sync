@@ -8,14 +8,21 @@ replaces the entry whose ``id`` equals ``entry_id`` (by default
       config: {provider: openrouter, model: 'x/y:free'}
 
 Other entries are preserved untouched and in their original order.  DSH
-replaces an entry's whole ``config`` mapping, so only ``provider`` and
-``model`` are written there.  Fallbacks are not part of this entry; set the
-``fallback_entry_id`` option to additionally maintain an entry of the form
-``{id: <fallback_entry_id>, config: {models: [...]}}``.
+replaces an entry's whole ``config`` mapping, so ``provider`` and ``model`` are
+written there and any other keys already present in the managed entry's
+``config`` (for example ``reasoningEffort``) are carried over.  An existing
+``name`` field is kept; ``entry_name`` sets it explicitly (DSH skips a patch
+entry whose ``name`` does not match the plugin's package name).
+
+DSH has no fallback-list entry: verified against dsh 0.2.1-rc.2, an unknown
+id such as ``freemodel-fallbacks`` is reported as ``patch: entry ... not
+found`` and ignored.  The former ``fallback_entry_id`` option is therefore
+deprecated and no longer written.
 """
 
 from __future__ import annotations
 
+import logging
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -23,6 +30,8 @@ import yaml
 
 from ..models import Selection
 from .base import Adapter, register_adapter
+
+LOG = logging.getLogger(__name__)
 
 #: Values matching this pattern can be emitted as plain YAML scalars.
 _PLAIN_RE = re.compile(r"^[A-Za-z0-9_./:@+-]+$")
@@ -41,6 +50,20 @@ def _single_quoted(value: str) -> str:
     """Render *value* as a single-quoted YAML scalar ('' escapes a quote)."""
 
     return "'" + str(value).replace("'", "''") + "'"
+
+
+def _flow_value(value: Any) -> str:
+    """Render any YAML-safe value on one line in flow style."""
+
+    if isinstance(value, str):
+        return _flow_scalar(value)
+    text = yaml.safe_dump(value, default_flow_style=True, width=1 << 20, allow_unicode=True)
+    text = text.strip()
+    if text.endswith("\n..."):
+        text = text[: -len("\n...")]
+    elif text.endswith("..."):
+        text = text[:-3].strip()
+    return text
 
 
 def _dump_other_entry(entry: Any) -> str:
@@ -115,8 +138,10 @@ class DshAdapter(Adapter):
         provider_name: provider id to write; defaults to the selection's provider.
         provider_map: mapping such as ``{"openrouter": "my-dsh-provider"}`` used
             to translate a provider name into the user's DSH provider id.
-        fallback_entry_id: optional id of an entry that stores the fallback
-            model ids as ``config.models``.
+        entry_name: optional ``name`` to write into the entry, e.g.
+            ``'@deepseek-ai/dsh-agent-default-model'``. An existing ``name`` is
+            kept when this is not set.
+        fallback_entry_id: deprecated and ignored (DSH has no such entry).
     """
 
     name = "dsh"
@@ -131,26 +156,30 @@ class DshAdapter(Adapter):
             provider = str(explicit)
         return provider
 
-    def _render_entry(self, entry_id: str, provider: str, model_id: str) -> str:
-        return (
-            f"- id: {_flow_scalar(entry_id)}\n"
-            f"  config: {{provider: {_flow_scalar(provider)}, "
-            f"model: {_single_quoted(model_id)}}}\n"
-        )
-
-    def _render_fallback_entry(self, entry_id: str, model_ids: List[str]) -> str:
-        models = ", ".join(_single_quoted(model_id) for model_id in model_ids)
-        return (
-            f"- id: {_flow_scalar(entry_id)}\n"
-            f"  config: {{models: [{models}]}}\n"
-        )
+    def _render_entry(
+        self,
+        entry_id: str,
+        provider: str,
+        model_id: str,
+        *,
+        name: Optional[str] = None,
+        extra: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        parts = [f"provider: {_flow_scalar(provider)}", f"model: {_single_quoted(model_id)}"]
+        for key, value in (extra or {}).items():
+            parts.append(f"{_flow_value(key)}: {_flow_value(value)}")
+        text = f"- id: {_flow_scalar(entry_id)}\n"
+        if name:
+            text += f"  name: {_single_quoted(name)}\n"
+        return text + "  config: {" + ", ".join(parts) + "}\n"
 
     def render(self, selection: Selection, current_text: str) -> str:
         entry_id = str(self.options.get("entry_id") or "agent-default-model")
-        fallback_entry_id = self.options.get("fallback_entry_id")
-        fallback_entry_id = str(fallback_entry_id) if fallback_entry_id else None
-        if fallback_entry_id and fallback_entry_id == entry_id:
-            raise ValueError("fallback_entry_id must differ from entry_id")
+        if self.options.get("fallback_entry_id"):
+            LOG.warning(
+                "dsh: option fallback_entry_id is deprecated and ignored: DSH has no "
+                "fallback-list entry (an unknown patch id is skipped with 'entry not found')"
+            )
 
         try:
             data = yaml.safe_load(current_text) if current_text.strip() else None
@@ -164,13 +193,25 @@ class DshAdapter(Adapter):
             raise ValueError("expected a YAML list of entries at the top level")
 
         provider = self._provider_name(selection)
+        existing = next(
+            (e for e in entries if isinstance(e, dict) and str(e.get("id")) == entry_id), None
+        )
+        name = self.options.get("entry_name") or (existing or {}).get("name")
+        old_config = (existing or {}).get("config")
+        extra = (
+            {k: v for k, v in old_config.items() if k not in ("provider", "model")}
+            if isinstance(old_config, dict)
+            else {}
+        )
         managed: Dict[str, str] = {
-            entry_id: self._render_entry(entry_id, provider, selection.primary.model.id)
-        }
-        if fallback_entry_id:
-            managed[fallback_entry_id] = self._render_fallback_entry(
-                fallback_entry_id, [fallback.model.id for fallback in selection.fallbacks]
+            entry_id: self._render_entry(
+                entry_id,
+                provider,
+                selection.primary.model.id,
+                name=str(name) if name else None,
+                extra=extra,
             )
+        }
 
         chunks = _split_top_level_items(current_text)
         if chunks is None or len(chunks) != len(entries):
@@ -198,9 +239,8 @@ class DshAdapter(Adapter):
         text = "".join(rendered)
         if text and not text.endswith("\n"):
             text += "\n"
-        for name in (entry_id, fallback_entry_id):
-            if name is not None and name not in found:
-                text += managed[name]
+        if entry_id not in found:
+            text += managed[entry_id]
         if chunks and chunks[-1] is not None:
             text += _trailing_text(current_text)
         return text

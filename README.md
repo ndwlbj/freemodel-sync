@@ -98,7 +98,7 @@ Default location: `~/.config/freemodel-sync/config.yml` (override with `-c FILE`
 | --- | --- | --- |
 | `openai-env` | `KEY=VALUE` env file | `OPENAI_BASE_URL`, `OPENAI_MODEL`, `OPENAI_FALLBACK_MODELS` (names configurable). Other lines, comments and your API key are left untouched. |
 | `openai-yaml` | any YAML file | `base_url`, `model`, `fallback_models` under a dotted `key_path` (default `llm`). |
-| `dsh` | dsh (DeepSeek Harness) `cordis.patch.yml`-style list | Replaces only the `agent-default-model` entry with `config: {provider: <p>, model: '<m>'}`; other entries and comments are kept byte-for-byte. Use `provider_map` to map `openrouter` to your dsh provider id. Optional `fallback_entry_id` writes the fallback list as a separate entry. |
+| `dsh` | dsh (DeepSeek Harness) `cordis.patch.yml`-style list | Replaces only the `agent-default-model` entry with `config: {provider: <p>, model: '<m>'}`; other entries and comments are kept byte-for-byte. Use `provider_map` to map `openrouter` to your dsh provider id. Other keys already in that entry's `config` (e.g. `reasoningEffort`) and its `name` are kept; `entry_name` sets the name. dsh has no fallback-list entry, so fallbacks are not written (`fallback_entry_id` is deprecated and ignored). |
 | `astrbot` (experimental) | AstrBot `data/cmd_config.json` | Updates the model of an **existing** provider entry (`provider_id`): the top-level `model` field for AstrBot ≥ 4.10 (`provider_sources` layout), `model_config.model` for older versions. Never creates providers or touches keys or provider sources. |
 
 Example `dsh` result:

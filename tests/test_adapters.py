@@ -110,13 +110,40 @@ def test_dsh_adapter_new_file_exact_format(tmp_path, selection):
     assert p.read_text() == "- id: agent-default-model\n  config: {provider: openrouter, model: 'vendor/a:free'}\n"
 
 
-def test_dsh_adapter_quotes_and_fallback_entry(tmp_path):
+def test_dsh_adapter_quotes_and_ignores_deprecated_fallback_entry(tmp_path, caplog):
+    """Review P1-8: dsh 0.2.1-rc.2 rejects unknown ids ('entry not found')."""
     sel = make_selection(primary="we'ird:free", fallbacks=("b:free",))
     p = tmp_path / "p.yml"
-    get_adapter_class("dsh")(str(p), fallback_entry_id="freemodel-fallbacks").apply(sel)
+    with caplog.at_level("WARNING"):
+        get_adapter_class("dsh")(str(p), fallback_entry_id="freemodel-fallbacks").apply(sel)
     entries = yaml.safe_load(p.read_text())
-    assert entries[0]["config"]["model"] == "we'ird:free"
-    assert entries[1] == {"id": "freemodel-fallbacks", "config": {"models": ["b:free"]}}
+    assert len(entries) == 1 and entries[0]["config"]["model"] == "we'ird:free"
+    assert "deprecated" in caplog.text
+
+
+def test_dsh_adapter_entry_name_and_preserved_config_keys(tmp_path, selection):
+    """dsh skips an entry whose name mismatches, and replaces the whole config."""
+    p = tmp_path / "p.yml"
+    p.write_text(
+        "# mine\n"
+        "- id: agent-default-model\n"
+        "  name: '@deepseek-ai/dsh-agent-default-model'\n"
+        "  config: {provider: x, model: old, reasoningEffort: high, extra: {a: [1, 2]}}\n"
+        "- id: other\n  config: {k: v}\n"
+    )
+    get_adapter_class("dsh")(str(p)).apply(selection, backup=False)
+    text = p.read_text()
+    assert text.startswith("# mine\n- id: agent-default-model\n  name: '@deepseek-ai/dsh-agent-default-model'\n")
+    entries = yaml.safe_load(text)
+    assert entries[0]["config"] == {
+        "provider": "openrouter", "model": "vendor/a:free",
+        "reasoningEffort": "high", "extra": {"a": [1, 2]},
+    }
+    assert entries[1] == {"id": "other", "config": {"k": "v"}}
+
+    q = tmp_path / "q.yml"
+    get_adapter_class("dsh")(str(q), entry_name="@deepseek-ai/dsh-agent-default-model").apply(selection)
+    assert yaml.safe_load(q.read_text())[0]["name"] == "@deepseek-ai/dsh-agent-default-model"
 
 
 def test_dsh_adapter_rejects_mapping(tmp_path, selection):

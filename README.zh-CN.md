@@ -67,7 +67,7 @@ freemodel-sync sync                      # 写配置，有变化时通知
 | --- | --- | --- |
 | `openai-env` | `KEY=VALUE` 环境变量文件 | `OPENAI_BASE_URL`、`OPENAI_MODEL`、`OPENAI_FALLBACK_MODELS`（变量名可配置）。其他行、注释和你的 API key 都不动。 |
 | `openai-yaml` | 任意 YAML 文件 | 在点分路径 `key_path`（默认 `llm`）下写 `base_url`、`model`、`fallback_models`。 |
-| `dsh` | dsh（DeepSeek Harness）`cordis.patch.yml` 风格的列表 | 只替换 `agent-default-model` 这一项为 `config: {provider: <p>, model: '<m>'}`，其他条目和注释原样保留。用 `provider_map` 把 `openrouter` 映射成你 dsh 里的 provider id。可选 `fallback_entry_id` 把备用列表写成单独一项。 |
+| `dsh` | dsh（DeepSeek Harness）`cordis.patch.yml` 风格的列表 | 只替换 `agent-default-model` 这一项为 `config: {provider: <p>, model: '<m>'}`，其他条目和注释原样保留。用 `provider_map` 把 `openrouter` 映射成你 dsh 里的 provider id。该条目 `config` 里已有的其他键（如 `reasoningEffort`）和 `name` 会保留；`entry_name` 可指定 name。dsh 没有备用列表条目，所以不写备用模型（`fallback_entry_id` 已废弃并被忽略）。 |
 | `astrbot`（实验性） | AstrBot 的 `data/cmd_config.json` | 只更新**已存在**的 provider（`provider_id`）的模型：AstrBot ≥ 4.10（`provider_sources` 结构）写条目顶层的 `model`，旧版本写 `model_config.model`。不会新建 provider，也不碰 key 和 provider source。 |
 
 `dsh` 写入效果示例：
