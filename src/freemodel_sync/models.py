@@ -55,6 +55,20 @@ class TestResult:
     status_code: Optional[int] = None
     tested_at: float = 0.0  # unix timestamp
     cached: bool = False
+    #: ``"model"`` when the failure is specific to this model, ``"transient"``
+    #: for a model-level failure worth retrying soon (upstream 429, 5xx,
+    #: timeout), ``"account"`` when the failure says nothing about the model
+    #: (bad/missing key, no credits, platform rate limit). Account failures
+    #: are never cached and stop the probing round. ``None`` when ``ok``.
+    failure_kind: Optional[str] = None
+    #: seconds the provider asked us to wait (``Retry-After``/``X-RateLimit-Reset``)
+    retry_after_s: Optional[float] = None
+    #: remaining requests reported by ``X-RateLimit-Remaining``, if any
+    rate_limit_remaining: Optional[int] = None
+
+    @property
+    def is_account_error(self) -> bool:
+        return not self.ok and self.failure_kind == "account"
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -65,6 +79,8 @@ class TestResult:
         fields["ok"] = bool(fields.get("ok"))
         fields["tested_at"] = float(fields.get("tested_at") or 0.0)
         fields["cached"] = bool(fields.get("cached"))
+        if fields.get("failure_kind") is None and not fields["ok"]:
+            fields["failure_kind"] = "model"
         return cls(**fields)  # type: ignore[arg-type]
 
 
@@ -73,7 +89,11 @@ class QuotaInfo:
     """Provider-side quota / usage information (best effort)."""
 
     is_free_tier: Optional[bool] = None
-    daily_free_limit: Optional[int] = None  # e.g. 50 or 1000 requests/day on OpenRouter
+    #: free-model requests allowed per (UTC) day, as reported by the provider
+    daily_free_limit: Optional[int] = None
+    #: free-model requests used / remaining in the current UTC day, as reported
+    daily_free_used: Optional[int] = None
+    daily_free_remaining: Optional[int] = None
     usage: Optional[float] = None
     limit_remaining: Optional[float] = None
     raw: Dict[str, Any] = field(default_factory=dict, repr=False)
@@ -82,6 +102,8 @@ class QuotaInfo:
         return {
             "is_free_tier": self.is_free_tier,
             "daily_free_limit": self.daily_free_limit,
+            "daily_free_used": self.daily_free_used,
+            "daily_free_remaining": self.daily_free_remaining,
             "usage": self.usage,
             "limit_remaining": self.limit_remaining,
         }

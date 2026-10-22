@@ -17,6 +17,7 @@ Example::
     testing:
       max_tests: 5
       cache_ttl_hours: 6
+      transient_ttl_minutes: 30
       daily_free_limit: null   # override the provider-reported free requests/day
       cache_path: ~/.cache/freemodel-sync/results.json
     ranking:
@@ -69,6 +70,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "testing": {
         "max_tests": 5,
         "cache_ttl_hours": 6,
+        "transient_ttl_minutes": 30,
         "timeout_s": 30,
         "reserve_requests": 10,
         "daily_free_limit": None,
@@ -144,6 +146,8 @@ class FilterConfig(_Section):
 class TestingConfig(_Section):
     max_tests: int = 5
     cache_ttl_hours: float = 6
+    #: cache lifetime for transient model failures (upstream 429, 5xx, timeouts)
+    transient_ttl_minutes: float = 30
     timeout_s: float = 30
     reserve_requests: int = 10
     #: overrides the provider-reported daily free request limit (e.g. 50 or 1000)
@@ -158,6 +162,10 @@ class TestingConfig(_Section):
         """Cache TTL in seconds (convenience for :func:`tester.run_tests`)."""
 
         return float(self.cache_ttl_hours) * 3600.0
+
+    @property
+    def transient_ttl_s(self) -> float:
+        return float(self.transient_ttl_minutes) * 60.0
 
 
 @dataclass
@@ -364,6 +372,9 @@ def _parse_testing(raw: Any) -> TestingConfig:
         max_tests=_require_int(section.get("max_tests", 5), "testing.max_tests", minimum=0),
         cache_ttl_hours=_require_number(
             section.get("cache_ttl_hours", 6), "testing.cache_ttl_hours", positive=True
+        ),
+        transient_ttl_minutes=_require_number(
+            section.get("transient_ttl_minutes", 30), "testing.transient_ttl_minutes", positive=True
         ),
         timeout_s=_require_number(
             section.get("timeout_s", 30), "testing.timeout_s", positive=True
