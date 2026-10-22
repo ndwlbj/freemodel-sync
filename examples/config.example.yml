@@ -37,6 +37,13 @@ ranking:
 output:
   ranking_json: ~/.cache/freemodel-sync/ranking.json
 
+# Backups of target files made before each change. Backups are created with
+# mode 0600 (or stricter, matching the original). Per-target override:
+# options.keep_backups / options.backup_dir.
+backups:
+  keep: 5                       # 0 disables backups
+  dir: null                     # default: next to each target file
+
 state_path: ~/.local/state/freemodel-sync/state.json
 
 targets:

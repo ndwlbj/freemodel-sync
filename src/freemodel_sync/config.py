@@ -88,6 +88,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "fallback_count": 3,
     },
     "output": {"ranking_json": None},
+    "backups": {"keep": 5, "dir": None},
     "state_path": DEFAULT_STATE_PATH,
     "targets": [],
     "notify": {"telegram": None, "webhook": None},
@@ -198,6 +199,18 @@ class TargetConfig(_Section):
 
 
 @dataclass
+class BackupConfig(_Section):
+    """How many backups to keep per target and where to put them."""
+
+    keep: int = 5
+    dir: Optional[Path] = None
+
+    def __post_init__(self) -> None:
+        if self.dir is not None:
+            self.dir = _expand_path(self.dir)
+
+
+@dataclass
 class NotifyConfig(_Section):
     telegram: Optional[Dict[str, Any]] = None
     webhook: Optional[Dict[str, Any]] = None
@@ -216,6 +229,7 @@ class Config(_Section):
     testing: TestingConfig = field(default_factory=TestingConfig)
     ranking: RankingConfig = field(default_factory=RankingConfig)
     output: OutputConfig = field(default_factory=OutputConfig)
+    backups: BackupConfig = field(default_factory=BackupConfig)
     state_path: Path = field(default_factory=lambda: _expand_path(DEFAULT_STATE_PATH))
     targets: List[TargetConfig] = field(default_factory=list)
     notify: NotifyConfig = field(default_factory=NotifyConfig)
@@ -241,6 +255,8 @@ class Config(_Section):
             )
         if not isinstance(self.output, OutputConfig):
             self.output = OutputConfig(**dict(self.output))
+        if not isinstance(self.backups, BackupConfig):
+            self.backups = BackupConfig(**dict(self.backups))
         if not isinstance(self.notify, NotifyConfig):
             self.notify = NotifyConfig(**dict(self.notify))
         self.state_path = _expand_path(self.state_path)
@@ -435,6 +451,15 @@ def _parse_targets(raw: Any) -> List[TargetConfig]:
     return targets
 
 
+def _parse_backups(raw: Any) -> BackupConfig:
+    section = _require_mapping(raw, "backups")
+    keep = _require_int(section.get("keep", 5), "backups.keep", minimum=0)
+    directory = section.get("dir")
+    if directory is not None:
+        directory = _expand_path(_require_str(directory, "backups.dir"))
+    return BackupConfig(keep=keep, dir=directory)
+
+
 def _parse_notify(raw: Any) -> NotifyConfig:
     section = _require_mapping(raw, "notify")
 
@@ -503,6 +528,7 @@ def load_config(
         testing=_parse_testing(merged.get("testing", {})),
         ranking=_parse_ranking(merged.get("ranking", {})),
         output=OutputConfig(ranking_json=ranking_json),
+        backups=_parse_backups(merged.get("backups", {})),
         state_path=_expand_path(state_path),
         targets=_parse_targets(merged.get("targets", [])),
         notify=_parse_notify(merged.get("notify", {})),

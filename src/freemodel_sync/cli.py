@@ -390,10 +390,25 @@ def _apply_target(
     selection: Selection,
     *,
     dry_run: bool,
+    config: Optional[Config] = None,
 ) -> Any:
+    """Apply *selection* to one target.
+
+    ``options.keep_backups`` / ``options.backup_dir`` override the global
+    ``backups`` section for this target.
+    """
+
+    options = dict(target.options)
+    keep = options.pop("keep_backups", config.backups.keep if config else 5)
+    backup_dir = options.pop("backup_dir", config.backups.dir if config else None)
     adapter_class = get_adapter_class(target.adapter)
-    adapter = adapter_class(str(target.path), **target.options)
-    return adapter.apply(selection, dry_run=dry_run)
+    adapter = adapter_class(str(target.path), **options)
+    return adapter.apply(
+        selection,
+        dry_run=dry_run,
+        keep_backups=int(keep),
+        backup_dir=Path(backup_dir).expanduser() if backup_dir else None,
+    )
 
 
 def _cmd_sync(args: argparse.Namespace, config: Config, provider_name: str, provider: Any) -> int:
@@ -419,7 +434,7 @@ def _cmd_sync(args: argparse.Namespace, config: Config, provider_name: str, prov
         print("no targets configured; nothing to write")
     for target in config.targets:
         try:
-            result = _apply_target(target, selection, dry_run=args.dry_run)
+            result = _apply_target(target, selection, dry_run=args.dry_run, config=config)
         except Exception as exc:  # noqa: BLE001 - report and continue other targets
             failures += 1
             print(f"error: {target.adapter} ({target.path}): {exc}", file=sys.stderr)
