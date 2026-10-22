@@ -84,7 +84,7 @@ Exit codes: `0` success, `1` error (bad config, missing key, a target failed), `
 (no file written), `3` probing was stopped by an account/quota problem such as a platform rate limit
 or missing credits (no file written, no model marked as failed).
 
-`sync --dry-run` does not write target files or state, but it still probes (and caches) like a normal run.
+`sync --dry-run` is zero-cost: it uses only cached probe results (from an earlier `test`/`sync`), sends no chat or `/key` request, needs no API key, and writes no target, state or cache file. It still fetches the public model list. Add `--probe` to probe as usual during a dry run (this spends free-tier requests and updates the cache). `rank --no-probe` and `sync --no-probe` likewise use cached results only.
 
 ## Configuration
 

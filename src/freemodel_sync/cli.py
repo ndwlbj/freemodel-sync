@@ -148,14 +148,27 @@ def _probe(
     models: Sequence[ModelInfo],
     *,
     max_tests: Optional[int] = None,
+    no_probe: bool = False,
 ) -> Tuple[TestRun, Optional[QuotaInfo]]:
     """Run probes with the configured cache, TTL and free-request budget.
+
+    With ``no_probe`` only fresh cached results are used: no API key is
+    needed, no request is sent (not even ``/key``) and the cache is not written.
 
     Budget precedence: ``testing.daily_free_limit`` (user override, checked
     against the local UTC-day counter) > ``remaining`` reported by the
     provider > the provider's reported daily ``limit`` > a conservative 50.
     Without an API key nothing is probed, counted or cached.
     """
+
+    if no_probe:
+        cache = ResultCache(config.testing.cache_path).load()
+        run = TestRun()
+        for model in models:
+            cached = cache.get(model.key, config.testing.cache_ttl_s, config.testing.transient_ttl_s)
+            if cached is not None:
+                run[model.key] = cached
+        return run, None
 
     if not getattr(provider, "api_key", None):
         env = config.providers[provider_name].api_key_env or "the provider's API key"
@@ -350,7 +363,7 @@ def _cmd_test(args: argparse.Namespace, config: Config, provider_name: str, prov
 def _cmd_rank(args: argparse.Namespace, config: Config, provider_name: str, provider: Any) -> int:
     models = _discover(config, provider)
     models = _static_order(models, config.ranking.weights)
-    results, quota = _probe(config, provider_name, provider, models)
+    results, quota = _probe(config, provider_name, provider, models, no_probe=args.no_probe)
     ranked = rank(models, results, config.ranking.weights, today=date.today())
     selection = select(
         ranked,
@@ -429,7 +442,8 @@ def _apply_target(
 def _cmd_sync(args: argparse.Namespace, config: Config, provider_name: str, provider: Any) -> int:
     models = _discover(config, provider)
     models = _static_order(models, config.ranking.weights)
-    results, _quota = _probe(config, provider_name, provider, models)
+    no_probe = args.no_probe or (args.dry_run and not args.probe)
+    results, _quota = _probe(config, provider_name, provider, models, no_probe=no_probe)
     ranked = rank(models, results, config.ranking.weights, today=date.today())
     selection = select(
         ranked,
@@ -446,6 +460,12 @@ def _cmd_sync(args: argparse.Namespace, config: Config, provider_name: str, prov
             )
             return EXIT_ACCOUNT_ERROR
         print("no usable model found; no config was written", file=sys.stderr)
+        if no_probe:
+            print(
+                "hint: this run used cached probe results only (--dry-run/--no-probe); "
+                "run `freemodel-sync test` first, or use `sync --dry-run --probe`",
+                file=sys.stderr,
+            )
         return 2
 
     print(f"selection: {selection.primary.model.key} (fallbacks: {_fallback_list(selection)})")
@@ -598,9 +618,22 @@ def build_parser() -> argparse.ArgumentParser:
     rank_parser = subparsers.add_parser("rank", help="rank models and show the selection")
     rank_parser.add_argument("--json", action="store_true", help="print JSON")
     rank_parser.add_argument("--output", metavar="FILE", help="write the ranking JSON to FILE")
+    rank_parser.add_argument(
+        "--no-probe", action="store_true", help="use cached probe results only; send no requests"
+    )
 
     sync = subparsers.add_parser("sync", help="write the selection into all targets")
-    sync.add_argument("--dry-run", action="store_true", help="show changes without writing")
+    sync.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="show diffs only: no target/state/cache writes, no probes (uses cached results)",
+    )
+    sync.add_argument(
+        "--no-probe", action="store_true", help="use cached probe results only; send no requests"
+    )
+    sync.add_argument(
+        "--probe", action="store_true", help="with --dry-run: probe as usual (spends quota, updates cache)"
+    )
     sync.add_argument("--no-notify", action="store_true", help="do not send notifications")
 
     subparsers.add_parser("providers", help="list registered providers")

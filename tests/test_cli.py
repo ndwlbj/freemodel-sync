@@ -32,6 +32,7 @@ class StubProvider:
                           tested_at=time.time())
 
     def quota(self):
+        self.quota_calls = getattr(self, "quota_calls", 0) + 1
         return QuotaInfo(is_free_tier=True, daily_free_limit=self.quota_limit)
 
 
@@ -95,7 +96,7 @@ def test_sync_dry_run_then_write_then_idempotent(capsys, setup, monkeypatch):
     monkeypatch.setattr("freemodel_sync.cli.notify_switch", lambda *a, **k: calls.append(a) or ["webhook"])
     provider = StubProvider({"big/tools:free", "mid/model:free"})
 
-    assert run(cfg, provider, "sync", "--dry-run") == 0
+    assert run(cfg, provider, "sync", "--dry-run", "--probe") == 0
     out = capsys.readouterr().out
     assert "would update" in out and "+  config: {provider: openrouter, model: 'big/tools:free'}" in out
     assert "old" in target.read_text() and not (tmp / "state.json").exists() and calls == []
@@ -149,3 +150,43 @@ def test_untested_fallbacks_are_opt_in_and_flagged(capsys, setup):
     assert run(cfg, provider, "sync", "--no-notify") == 0
     out = capsys.readouterr().out
     assert "(untested)" in out
+
+
+def test_dry_run_is_zero_cost(capsys, setup):
+    """Review P1-6: --dry-run sends no probes and writes no cache/state/targets."""
+    tmp, cfg, target = setup
+    before = target.read_text()
+    provider = StubProvider({"big/tools:free"}, api_key=None)  # no key needed either
+    assert run(cfg, provider, "sync", "--dry-run") == 2
+    assert provider.tested == [] and getattr(provider, "quota_calls", 0) == 0
+    assert "cached probe results only" in capsys.readouterr().err
+    assert not (tmp / "cache.json").exists() and not (tmp / "state.json").exists()
+
+    # populate the cache with a real (mocked) probe round, then dry-run again
+    keyed = StubProvider({"big/tools:free", "mid/model:free"})
+    assert run(cfg, keyed, "test") == 0
+    cache_before = (tmp / "cache.json").read_bytes()
+    provider = StubProvider(set(), api_key=None)
+    assert run(cfg, provider, "sync", "--dry-run") == 0
+    out = capsys.readouterr().out
+    assert "would update" in out and "big/tools:free" in out
+    assert provider.tested == [] and getattr(provider, "quota_calls", 0) == 0
+    assert (tmp / "cache.json").read_bytes() == cache_before
+    assert target.read_text() == before and not (tmp / "state.json").exists()
+
+
+def test_no_probe_sync_writes_from_cache_only(capsys, setup):
+    tmp, cfg, target = setup
+    assert run(cfg, StubProvider({"mid/model:free"}), "test") == 0
+    provider = StubProvider(set(), api_key=None)
+    assert run(cfg, provider, "sync", "--no-probe", "--no-notify") == 0
+    assert provider.tested == []
+    assert "model: 'mid/model:free'" in target.read_text()
+
+
+def test_rank_no_probe(capsys, setup):
+    _, cfg, _ = setup
+    provider = StubProvider({"big/tools:free"}, api_key=None)
+    assert run(cfg, provider, "rank", "--no-probe", "--json") == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["selection"] is None and provider.tested == []
