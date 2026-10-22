@@ -32,6 +32,8 @@ All notable changes to this project are documented here. The format follows
   key order and quoting when it changes a value. Behaviour without the extra is unchanged.
   New target option `preserve_comments` (`auto` by default, `true` to require ruamel.yaml,
   `false` to always use PyYAML). CI installs the extra in the main test matrix.
+- Dependabot (`.github/dependabot.yml`): weekly grouped update PRs for pip dependencies and
+  for the SHA-pinned GitHub Actions.
 
 - Release workflow (`.github/workflows/release.yml`) that publishes to PyPI with Trusted
   Publishing (no API token) when a GitHub release is published, or on demand for an existing

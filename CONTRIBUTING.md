@@ -54,6 +54,10 @@ Fill in the pull request template. CI runs ruff, the test suite on Python
 3.9-3.13 and with the minimum dependency versions, and a package build with
 `twine check`.
 
+Dependabot opens weekly grouped PRs for pip dependencies and GitHub Actions.
+Actions stay pinned to a commit SHA with a version comment; check the release
+notes before merging an action update.
+
 ## Releasing (maintainers)
 
 Releases go to PyPI through `.github/workflows/release.yml` using
