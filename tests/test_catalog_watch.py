@@ -131,7 +131,7 @@ def test_main_opens_issue_with_token(monkeypatch, capsys):
     assert "issue: opened" in capsys.readouterr().out
 
 
-@pytest.mark.parametrize("workflow", ["ci.yml", "catalog-watch.yml"])
+@pytest.mark.parametrize("workflow", ["ci.yml", "catalog-watch.yml", "release.yml"])
 def test_workflows_pin_actions_by_sha(workflow):
     text = (SCRIPT.parents[1] / ".github" / "workflows" / workflow).read_text()
     uses = [line.split("uses:")[1].strip() for line in text.splitlines() if "uses:" in line]
@@ -139,3 +139,24 @@ def test_workflows_pin_actions_by_sha(workflow):
     if workflow == "catalog-watch.yml":
         assert "issues: write" in text and "contents: read" in text and "OPENROUTER" not in text
         assert "secrets." in text and text.count("secrets.") == 1
+
+
+def test_release_workflow_uses_trusted_publishing_with_minimal_permissions():
+    import yaml
+
+    wf = yaml.safe_load((SCRIPT.parents[1] / ".github" / "workflows" / "release.yml").read_text())
+    triggers = wf[True]  # YAML 1.1 parses the bare key `on` as True
+    assert triggers["release"]["types"] == ["published"]
+    assert triggers["workflow_dispatch"]["inputs"]["tag"]["required"] is True
+    assert wf["permissions"] == {"contents": "read"}
+    build, publish = wf["jobs"]["build"], wf["jobs"]["publish"]
+    assert "permissions" not in build
+    assert publish["needs"] == "build"
+    assert publish["permissions"] == {"id-token": "write"}
+    assert publish["environment"]["name"] == "pypi"
+    assert publish["environment"]["url"] == "https://pypi.org/project/freemodel-sync/"
+    uses = [step.get("uses", "") for step in publish["steps"]]
+    assert any(u.startswith("pypa/gh-action-pypi-publish@") for u in uses)
+    assert not any(step.get("with", {}).get("password") for step in publish["steps"])
+    text = (SCRIPT.parents[1] / ".github" / "workflows" / "release.yml").read_text()
+    assert "secrets." not in text and "twine check --strict" in text and "__version__" in text
