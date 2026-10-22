@@ -1,16 +1,25 @@
 """Adapter for AstrBot's ``data/cmd_config.json``.
 
-Format verified against the AstrBot docs: providers live in the top-level
-``provider`` list, each entry has a ``type`` such as
-``openai_chat_completion`` and a ``model_config.model`` field.  AstrBot >=4.x
-WebUI versions may store providers differently, so this adapter is
-experimental.
+AstrBot has used two layouts for chat providers; both are supported:
 
-Only ``model_config.model`` of the entry whose ``id`` equals ``provider_id`` is
-updated (``model_config`` is created when missing).  ``key`` and ``api_base``
-are never touched.  The provider is never created, because that would require
-the user's API key; a missing ``provider_id`` raises :class:`ValueError`.
-AstrBot provider entries have no fallback list, so fallbacks are ignored.
+* **v4.10.0 and later** (checked against AstrBot v4.29.1 source): connection
+  details (``key``, ``api_base``, ``type``, ...) live in the top-level
+  ``provider_sources`` list, and each entry of the top-level ``provider``
+  list references one via ``provider_source_id`` and carries the model name
+  in its own top-level ``model`` field.  AstrBot merges the two at load time
+  (``ProviderManager.get_merged_provider_config``).
+* **Legacy (before v4.10.0):** each ``provider`` entry is self-contained and
+  the model name is ``model_config.model``.  Newer AstrBot versions migrate
+  this layout on start-up, moving ``model_config.model`` to ``model``.
+
+Only the model name of the entry whose ``id`` equals ``provider_id`` is
+changed.  Keys, ``api_base`` and provider sources are never touched and no
+provider is created (that would need your API key).  An entry that matches
+neither layout raises :class:`ValueError` instead of being silently ignored.
+
+AstrBot keeps its configuration in memory and rewrites the file when settings
+are saved in the WebUI, so restart AstrBot after a change.  AstrBot provider
+entries have no fallback list; only the primary model is written.
 """
 
 from __future__ import annotations
@@ -21,14 +30,46 @@ from typing import Any, Dict, List, Optional
 from ..models import Selection
 from .base import Adapter, register_adapter
 
+LAYOUT_V4 = "v4"
+LAYOUT_LEGACY = "legacy"
+
+
+def detect_layout(data: Dict[str, Any], entry: Dict[str, Any]) -> str:
+    """Return which AstrBot layout *entry* uses, or raise ``ValueError``."""
+
+    entry_id = entry.get("id")
+    source_id = entry.get("provider_source_id")
+    if source_id:
+        sources = data.get("provider_sources")
+        if not isinstance(sources, list):
+            raise ValueError(
+                f"AstrBot provider {entry_id!r} references provider source {source_id!r}, "
+                "but the config has no 'provider_sources' list; refusing to guess the layout"
+            )
+        known = [s.get("id") for s in sources if isinstance(s, dict)]
+        if source_id not in known:
+            raise ValueError(
+                f"AstrBot provider {entry_id!r} references provider source {source_id!r}, "
+                f"which is not in 'provider_sources' (known: {', '.join(map(str, known)) or 'none'})"
+            )
+        return LAYOUT_V4
+    if isinstance(entry.get("model_config"), dict):
+        return LAYOUT_LEGACY
+    raise ValueError(
+        f"unrecognized AstrBot provider structure for {entry_id!r}: expected either "
+        "'provider_source_id' + 'model' (AstrBot >= 4.10) or 'model_config.model' (older "
+        "versions). Please open an issue with your AstrBot version."
+    )
+
 
 @register_adapter
 class AstrbotAdapter(Adapter):
-    """Update ``model_config.model`` of an existing AstrBot provider entry.
+    """Update the model of an existing AstrBot provider entry.
 
     Options:
         provider_id: required id of an existing entry in the top-level
-            ``provider`` list.
+            ``provider`` list (in AstrBot >= 4.10 this is the *model* entry,
+            not the provider source).
     """
 
     name = "astrbot"
@@ -50,11 +91,10 @@ class AstrbotAdapter(Adapter):
             raise ValueError("expected the AstrBot config to be a JSON object")
 
         providers = data.get("provider")
-        if providers is None:
-            providers = []
-            data["provider"] = providers
         if not isinstance(providers, list):
-            raise ValueError("expected the AstrBot config's 'provider' to be a list")
+            raise ValueError(
+                "unrecognized AstrBot config: no top-level 'provider' list in data/cmd_config.json"
+            )
 
         target: Optional[Dict[str, Any]] = None
         available: List[str] = []
@@ -77,15 +117,15 @@ class AstrbotAdapter(Adapter):
                 "would need your API key."
             )
 
-        model_config = target.get("model_config")
-        if model_config is None:
-            model_config = {}
-            target["model_config"] = model_config
-        elif not isinstance(model_config, dict):
-            raise ValueError(
-                f"AstrBot provider {provider_id!r} has a non-mapping 'model_config'; "
-                "refusing to overwrite it"
-            )
-
-        model_config["model"] = selection.primary.model.id
+        model_id = selection.primary.model.id
+        layout = detect_layout(data, target)
+        if layout == LAYOUT_V4:
+            if target.get("model") == model_id:
+                return current_text
+            target["model"] = model_id
+        else:
+            model_config = target["model_config"]
+            if model_config.get("model") == model_id:
+                return current_text
+            model_config["model"] = model_id
         return json.dumps(data, indent=2, ensure_ascii=False) + "\n"

@@ -126,32 +126,74 @@ def test_dsh_adapter_rejects_mapping(tmp_path, selection):
         get_adapter_class("dsh")(str(p)).apply(selection)
 
 
-ASTRBOT = {
-    "provider": [
-        {"id": "openrouter", "type": "openai_chat_completion", "provider_type": "chat_completion",
-         "enable": True, "key": ["placeholder"], "api_base": "https://openrouter.ai/api/v1",
-         "model_config": {"model": "old", "temperature": 0.4}},
-        {"id": "other", "type": "openai_chat_completion", "model_config": {"model": "keep"}},
-    ],
-    "provider_settings": {"enable": True},
-}
+FIXTURES = Path(__file__).parent / "fixtures"
 
 
-def test_astrbot_adapter_updates_model_only(tmp_path, selection):
+def _astrbot(tmp_path, name):
     p = tmp_path / "cmd_config.json"
-    p.write_text(json.dumps(ASTRBOT, indent=2))
+    p.write_text((FIXTURES / name).read_text())
+    return p
+
+
+def test_astrbot_v4_layout_writes_top_level_model(tmp_path, selection):
+    """Review P0-4: AstrBot >= 4.10 reads provider['model'], not model_config.model."""
+    p = _astrbot(tmp_path, "astrbot_v4_cmd_config.json")
+    original = json.loads(p.read_text())
     a = get_adapter_class("astrbot")(str(p), provider_id="openrouter")
-    a.apply(selection)
+    assert a.apply(selection).written
     data = json.loads(p.read_text())
-    assert data["provider"][0]["model_config"] == {"model": "vendor/a:free", "temperature": 0.4}
-    assert data["provider"][0]["key"] == ["placeholder"]
-    assert data["provider"][1]["model_config"]["model"] == "keep"
+    entry = data["provider"][0]
+    assert entry["model"] == "vendor/a:free"
+    assert "model_config" not in entry
+    assert entry["custom_extra_body"] == {"temperature": 0.4}
+    assert data["provider"][1] == original["provider"][1]
+    assert data["provider_sources"] == original["provider_sources"]  # keys untouched
     assert not a.apply(selection).changed
 
 
+def test_astrbot_legacy_layout_writes_model_config(tmp_path, selection):
+    p = _astrbot(tmp_path, "astrbot_legacy_cmd_config.json")
+    a = get_adapter_class("astrbot")(str(p), provider_id="openrouter")
+    a.apply(selection)
+    entry = json.loads(p.read_text())["provider"][0]
+    assert entry["model_config"] == {"model": "vendor/a:free", "temperature": 0.4}
+    assert entry["key"] == ["<your-openrouter-key>"]
+    assert "model" not in entry
+    assert not a.apply(selection).changed
+
+
+def test_astrbot_unchanged_file_is_not_reformatted(tmp_path):
+    p = _astrbot(tmp_path, "astrbot_v4_cmd_config.json")
+    compact = json.dumps(json.loads(p.read_text()), separators=(",", ":"))
+    p.write_text(compact)
+    sel = make_selection(primary="old/model:free")
+    assert not get_adapter_class("astrbot")(str(p), provider_id="openrouter").apply(sel).changed
+    assert p.read_text() == compact
+
+
+@pytest.mark.parametrize(
+    "mutate, match",
+    [
+        (lambda d: d["provider"][0].pop("provider_source_id") and d["provider"][0].pop("model"),
+         "unrecognized AstrBot provider structure"),
+        (lambda d: d["provider"][0].update(provider_source_id="missing_source"), "not in 'provider_sources'"),
+        (lambda d: d.pop("provider_sources"), "no 'provider_sources' list"),
+        (lambda d: d.pop("provider"), "no top-level 'provider' list"),
+    ],
+)
+def test_astrbot_unrecognized_structure_raises(tmp_path, selection, mutate, match):
+    p = _astrbot(tmp_path, "astrbot_v4_cmd_config.json")
+    data = json.loads(p.read_text())
+    mutate(data)
+    p.write_text(json.dumps(data))
+    before = p.read_text()
+    with pytest.raises(ValueError, match=match):
+        get_adapter_class("astrbot")(str(p), provider_id="openrouter").apply(selection)
+    assert p.read_text() == before
+
+
 def test_astrbot_adapter_requires_existing_provider(tmp_path, selection):
-    p = tmp_path / "cmd_config.json"
-    p.write_text(json.dumps(ASTRBOT))
+    p = _astrbot(tmp_path, "astrbot_v4_cmd_config.json")
     with pytest.raises(ValueError, match="not found"):
         get_adapter_class("astrbot")(str(p), provider_id="missing").apply(selection)
     with pytest.raises(ValueError, match="provider_id"):

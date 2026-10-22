@@ -1,0 +1,45 @@
+{
+  "config_version": 2,
+  "provider_sources": [
+    {
+      "id": "openrouter_source",
+      "provider": "openrouter",
+      "type": "openrouter_chat_completion",
+      "provider_type": "chat_completion",
+      "key": [
+        "<your-openrouter-key>"
+      ],
+      "timeout": 120,
+      "api_base": "https://openrouter.ai/api/v1",
+      "proxy": "",
+      "custom_headers": {}
+    }
+  ],
+  "provider": [
+    {
+      "id": "openrouter",
+      "enable": true,
+      "provider_source_id": "openrouter_source",
+      "model": "old/model:free",
+      "custom_extra_body": {
+        "temperature": 0.4
+      },
+      "modalities": []
+    },
+    {
+      "id": "openrouter-backup",
+      "enable": true,
+      "provider_source_id": "openrouter_source",
+      "model": "keep/me:free",
+      "custom_extra_body": {},
+      "modalities": [
+        "text",
+        "tool_use"
+      ]
+    }
+  ],
+  "provider_settings": {
+    "enable": true,
+    "default_provider_id": "openrouter"
+  }
+}
