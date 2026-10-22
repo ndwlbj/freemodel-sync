@@ -6,6 +6,16 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Daily free-model snapshot** (repository automation, not part of the package): the
+  `daily-snapshot.yml` workflow runs `scripts/daily_snapshot.py` every day at 01:00 UTC. It discovers
+  the free models of OpenRouter (and Groq when `GROQ_API_KEY` is set and the `GROQ_PLAN` variable is
+  `free`), probes at most 15 per provider within the reported free-request quota (account errors stop
+  probing, as in `test`), and commits `snapshots/YYYY-MM-DD.json`, `latest.json` and `latest.md`, with
+  the changes since the previous snapshot, to the orphan `data` branch. Error texts are redacted and the
+  output is checked for key values before it is written.
+
 ### Fixed
 
 - **OpenRouter 403 that only affects one model** (for example a free endpoint "only available

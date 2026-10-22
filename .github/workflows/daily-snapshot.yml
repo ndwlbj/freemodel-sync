@@ -1,0 +1,107 @@
+name: Daily snapshot
+
+# Automated daily health check of free models. Discovers OpenRouter's (and,
+# when configured, Groq's) free models, probes a capped number of them with
+# one tiny request each, and commits snapshots/ to the orphan `data` branch.
+# main is never touched.
+#
+# Secrets: OPENROUTER_API_KEY (required), GROQ_API_KEY (optional).
+# Variable: GROQ_PLAN=free confirms the Groq organization is on the Free plan;
+# without it Groq is skipped (on Groq's Developer plan every request is billed).
+on:
+  schedule:
+    - cron: "0 1 * * *"
+  workflow_dispatch:
+    inputs:
+      max_probes:
+        description: "Probe at most N models per provider"
+        required: false
+        default: "15"
+      no_probe:
+        description: "Discovery and quota only: send no probe request"
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: daily-snapshot
+  cancel-in-progress: false
+
+jobs:
+  snapshot:
+    if: github.repository == 'ndwlbj/freemodel-sync'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: python -m pip install .
+
+      - name: Require OPENROUTER_API_KEY
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          if [ -z "$OPENROUTER_API_KEY" ]; then
+            echo "::error::Repository secret OPENROUTER_API_KEY is missing. Add it under Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+
+      - name: Fetch previous snapshots (data branch)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          basic="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 -w0)"
+          echo "::add-mask::$basic"
+          auth="AUTHORIZATION: basic $basic"
+          mkdir -p "$RUNNER_TEMP/data" && cd "$RUNNER_TEMP/data"
+          git init -q
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          set +e
+          git -c http.extraheader="$auth" ls-remote --exit-code --heads origin data > /dev/null
+          found=$?
+          set -e
+          if [ "$found" -eq 0 ]; then
+            git -c http.extraheader="$auth" fetch -q --depth=1 origin data
+            git checkout -q -b data FETCH_HEAD
+          elif [ "$found" -eq 2 ]; then
+            echo "data branch does not exist yet; creating it as an orphan branch"
+            git checkout -q --orphan data
+          else
+            echo "::error::could not query the data branch (git ls-remote exit $found)"
+            exit 1
+          fi
+
+      - name: Generate snapshot
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GROQ_PLAN: ${{ vars.GROQ_PLAN }}
+          SNAPSHOT_MAX_PROBES: ${{ inputs.max_probes || '15' }}
+          NO_PROBE: ${{ inputs.no_probe && '1' || '' }}
+        run: |
+          python scripts/daily_snapshot.py --out "$RUNNER_TEMP/data/snapshots" ${NO_PROBE:+--no-probe}
+
+      - name: Commit to the data branch
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          basic="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 -w0)"
+          echo "::add-mask::$basic"
+          auth="AUTHORIZATION: basic $basic"
+          cd "$RUNNER_TEMP/data"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add snapshots
+          # --allow-empty: one commit per run even if nothing changed (every
+          # snapshot also carries its own generated_at timestamp).
+          git commit -q --allow-empty -m "snapshot: $(date -u +%Y-%m-%d)"
+          git -c http.extraheader="$auth" push -q origin HEAD:refs/heads/data
+          git log -1 --format='committed %h %s'

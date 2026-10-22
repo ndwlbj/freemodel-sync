@@ -169,6 +169,17 @@ Example `dsh` result:
 
 Notification failures are logged (without tokens or full URLs) and never fail a sync.
 
+## Daily free-model snapshot
+
+An automated daily health check ([`daily-snapshot.yml`](https://github.com/ndwlbj/freemodel-sync/blob/main/.github/workflows/daily-snapshot.yml), 01:00 UTC)
+discovers the free models, probes at most 15 of them per provider with one tiny request each
+(within the account's free-request quota), and publishes the result to the `data` branch:
+**[latest snapshot](https://github.com/ndwlbj/freemodel-sync/blob/data/snapshots/latest.md)**, with every day kept as `snapshots/YYYY-MM-DD.json`. The table shows
+each model's status (`ok`, `403`, `404`, `429`, `timeout`, ...), latency and context length, plus the
+changes since the previous day and models expiring soon. It is informational only: results come from
+GitHub Actions at one moment and can differ for you, so run `freemodel-sync test` with your own key
+before relying on a model.
+
 ## Writing a provider
 
 Providers are plugins. Subclass `Provider`, implement `discover()` and `test()` (and optionally

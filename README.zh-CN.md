@@ -116,6 +116,15 @@ targets:
 
 通知失败只记日志（不含 token 和完整 URL），不会导致同步失败。
 
+## 每日免费模型快照
+
+一个自动化的每日健康检查（[`daily-snapshot.yml`](https://github.com/ndwlbj/freemodel-sync/blob/main/.github/workflows/daily-snapshot.yml)，UTC 01:00）会发现免费模型，
+每个 provider 最多探测 15 个（每个一次极小请求，不超出账号的免费额度），结果发布到 `data` 分支：
+**[最新快照](https://github.com/ndwlbj/freemodel-sync/blob/data/snapshots/latest.md)**，每天的记录保存为 `snapshots/YYYY-MM-DD.json`。表中列出每个模型的状态
+（`ok`、`403`、`404`、`429`、`timeout` 等）、延迟和上下文长度，以及与前一天相比的变化和即将过期的模型。
+结果仅供参考：它来自 GitHub Actions 某一时刻的测试，你那边可能不同，正式使用前请用自己的 key 跑一次
+`freemodel-sync test`。
+
 ## 编写 provider 插件
 
 继承 `Provider`，实现 `discover()` 和 `test()`（可选 `quota()`），然后注册：
