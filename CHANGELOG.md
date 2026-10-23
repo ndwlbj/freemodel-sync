@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-23
+
 ### Added
 
 - **Daily free-model snapshot** (repository automation, not part of the package): the
@@ -25,6 +27,12 @@ All notable changes to this project are documented here. The format follows
   with a budget `limit_source`, a guardrail block or no metadata is still an account error.
 - `test`/`rank` tables show upstream 429/5xx/timeout failures as `transient` ("temporarily
   unavailable ... (retried later)") instead of `failed`.
+
+### Changed
+
+- **CI** runs the Python 3.9 jobs (the test matrix and the minimum-dependency job) on
+  `ubuntu-24.04` instead of `ubuntu-latest`: Ubuntu 26.04 has no Python 3.9 build for
+  `actions/setup-python`. Job names are unchanged.
 
 ## [0.3.0] - 2026-10-22
 
@@ -140,7 +148,8 @@ All notable changes to this project are documented here. The format follows
 - Initial release: OpenRouter discovery, budget-aware probing, ranking, and the
   `openai-env`, `openai-yaml`, `dsh` and `astrbot` adapters, plus Telegram/webhook notifications.
 
-[Unreleased]: https://github.com/ndwlbj/freemodel-sync/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/ndwlbj/freemodel-sync/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/ndwlbj/freemodel-sync/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/ndwlbj/freemodel-sync/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/ndwlbj/freemodel-sync/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/ndwlbj/freemodel-sync/releases/tag/v0.1.0
