@@ -153,6 +153,77 @@ def test_dsh_adapter_rejects_mapping(tmp_path, selection):
         get_adapter_class("dsh")(str(p)).apply(selection)
 
 
+DSH_WITH_PROVIDERS = """\
+- id: llm-pi-ai
+  config:
+    providers:
+      my-openrouter:
+        apiKeyEnv: OPENROUTER_API_KEY
+        models:
+          - {id: 'vendor/a:free', name: a}
+          - {id: 'vendor/b:free', name: b}
+      other:
+        models: [x-model]
+- id: agent-default-model
+  config: {provider: my-openrouter, model: 'vendor/b:free'}
+"""
+
+
+def test_dsh_adapter_accepts_model_in_provider_list(tmp_path, selection):
+    p = tmp_path / "cordis.patch.yml"
+    p.write_text(DSH_WITH_PROVIDERS)
+    res = get_adapter_class("dsh")(str(p), provider_map={"openrouter": "my-openrouter"}).apply(selection)
+    assert res.written
+    entries = yaml.safe_load(p.read_text())
+    assert entries[1]["config"] == {"provider": "my-openrouter", "model": "vendor/a:free"}
+    # the provider declarations are kept byte-for-byte
+    assert p.read_text().startswith(DSH_WITH_PROVIDERS.split("- id: agent-default-model")[0])
+
+
+def test_dsh_adapter_refuses_model_missing_from_provider_list(tmp_path):
+    p = tmp_path / "cordis.patch.yml"
+    p.write_text(DSH_WITH_PROVIDERS)
+    sel = make_selection(primary="vendor/missing:free")
+    adapter = get_adapter_class("dsh")(str(p), provider_map={"openrouter": "my-openrouter"})
+    with pytest.raises(ValueError, match="not in the models list of dsh provider 'my-openrouter'"):
+        adapter.apply(sel)
+    assert p.read_text() == DSH_WITH_PROVIDERS
+    assert not list(tmp_path.glob("cordis.patch.yml.bak-*"))
+    with pytest.raises(ValueError):
+        adapter.apply(sel, dry_run=True)
+
+
+def test_dsh_adapter_checks_plain_string_models_and_provider_name(tmp_path):
+    p = tmp_path / "cordis.patch.yml"
+    p.write_text(DSH_WITH_PROVIDERS)
+    with pytest.raises(ValueError, match="'other'"):
+        get_adapter_class("dsh")(str(p), provider_name="other").apply(make_selection(primary="vendor/a:free"))
+    get_adapter_class("dsh")(str(p), provider_name="other").apply(make_selection(primary="x-model"), backup=False)
+    assert yaml.safe_load(p.read_text())[1]["config"] == {"provider": "other", "model": "x-model"}
+
+
+def test_dsh_adapter_check_model_can_be_disabled(tmp_path):
+    p = tmp_path / "cordis.patch.yml"
+    p.write_text(DSH_WITH_PROVIDERS)
+    sel = make_selection(primary="vendor/missing:free")
+    for off in (False, "false"):
+        get_adapter_class("dsh")(
+            str(p), provider_map={"openrouter": "my-openrouter"}, check_model=off
+        ).apply(sel, backup=False)
+        assert yaml.safe_load(p.read_text())[1]["config"]["model"] == "vendor/missing:free"
+        p.write_text(DSH_WITH_PROVIDERS)
+
+
+def test_dsh_adapter_unchecked_when_provider_not_declared(tmp_path, selection, caplog):
+    """A provider defined elsewhere (built-in or another patch) cannot be checked."""
+    p = tmp_path / "cordis.patch.yml"
+    p.write_text(DSH_WITH_PROVIDERS)
+    with caplog.at_level("INFO"):
+        get_adapter_class("dsh")(str(p)).apply(selection, backup=False)
+    assert yaml.safe_load(p.read_text())[1]["config"] == {"provider": "openrouter", "model": "vendor/a:free"}
+    assert "not checked" in caplog.text
+
+
 FIXTURES = Path(__file__).parent / "fixtures"
 
 

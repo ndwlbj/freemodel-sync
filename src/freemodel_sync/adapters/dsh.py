@@ -18,6 +18,16 @@ DSH has no fallback-list entry: verified against dsh 0.2.1-rc.2, an unknown
 id such as ``freemodel-fallbacks`` is reported as ``patch: entry ... not
 found`` and ignored.  The former ``fallback_entry_id`` option is therefore
 deprecated and no longer written.
+
+Before writing, the adapter checks the selected model against the provider's
+model list when the same file declares that provider (an entry whose
+``config.providers.<provider>.models`` is a list, as in dsh's ``llm-pi-ai``
+entry). A model missing from that list raises ``ValueError``: dsh could not
+use it, so the target is reported as failed and the file is left unchanged.
+If the provider or its ``models`` list is not in this file (for example a
+built-in dsh provider or one declared in another patch), nothing can be
+checked and the entry is written as before. ``check_model: false`` disables
+the check.
 """
 
 from __future__ import annotations
@@ -75,6 +85,30 @@ def _dump_other_entry(entry: Any) -> str:
         allow_unicode=True,
         default_flow_style=False,
     )
+
+
+def _declared_models(entries: List[Any], provider: str) -> Optional[List[str]]:
+    """Model ids declared for *provider* in this file, or ``None`` if it declares none.
+
+    Looks at every entry whose ``config.providers`` is a mapping (dsh keeps
+    them in the ``llm-pi-ai`` entry). Models may be mappings with an ``id``
+    (dsh's format) or plain strings. Lists of several entries are combined.
+    """
+
+    found: Optional[List[str]] = None
+    for entry in entries:
+        config = entry.get("config") if isinstance(entry, dict) else None
+        providers = config.get("providers") if isinstance(config, dict) else None
+        spec = providers.get(provider) if isinstance(providers, dict) else None
+        models = spec.get("models") if isinstance(spec, dict) else None
+        if not isinstance(models, list):
+            continue
+        found = found or []
+        for model in models:
+            model_id = model.get("id") if isinstance(model, dict) else model
+            if isinstance(model_id, (str, int, float)) and not isinstance(model_id, bool):
+                found.append(str(model_id))
+    return found
 
 
 def _split_top_level_items(text: str) -> Optional[List[Tuple[str, str]]]:
@@ -142,6 +176,8 @@ class DshAdapter(Adapter):
             ``'@deepseek-ai/dsh-agent-default-model'``. An existing ``name`` is
             kept when this is not set.
         fallback_entry_id: deprecated and ignored (DSH has no such entry).
+        check_model: when true (default), refuse to write a model that is not
+            in the provider's ``models`` list declared in the same file.
     """
 
     name = "dsh"
@@ -193,6 +229,23 @@ class DshAdapter(Adapter):
             raise ValueError("expected a YAML list of entries at the top level")
 
         provider = self._provider_name(selection)
+        model_id = selection.primary.model.id
+        if self.options.get("check_model", True) not in (False, "false", "False", 0, "0", "no"):
+            declared = _declared_models(entries, provider)
+            if declared is None:
+                LOG.info(
+                    "dsh: provider %r has no models list in %s; model %r not checked",
+                    provider,
+                    self.path,
+                    model_id,
+                )
+            elif model_id not in declared:
+                raise ValueError(
+                    f"model {model_id!r} is not in the models list of dsh provider {provider!r} "
+                    f"in this file ({len(declared)} declared); dsh could not use it, so nothing "
+                    "was written. Add the model to that provider, map to another provider with "
+                    "provider_map/provider_name, or set check_model: false"
+                )
         existing = next(
             (e for e in entries if isinstance(e, dict) and str(e.get("id")) == entry_id), None
         )
@@ -207,7 +260,7 @@ class DshAdapter(Adapter):
             entry_id: self._render_entry(
                 entry_id,
                 provider,
-                selection.primary.model.id,
+                model_id,
                 name=str(name) if name else None,
                 extra=extra,
             )

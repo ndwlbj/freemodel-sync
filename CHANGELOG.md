@@ -6,6 +6,14 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **dsh adapter** checks the selected model before writing: when the same `cordis.patch.yml` declares
+  the target provider's `models` list (dsh's `llm-pi-ai` entry), a model that is not in it is refused
+  with an error and the file is left unchanged (the target counts as failed, like other adapter
+  errors). Providers without a `models` list in the file are not checked. New target option
+  `check_model: false` disables the check.
+
 ### Changed
 
 - Daily free-model snapshot cron moved from `0 1 * * *` (01:00 UTC) to `17 1 * * *` (01:17 UTC)
