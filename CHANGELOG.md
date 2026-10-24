@@ -23,6 +23,14 @@ All notable changes to this project are documented here. The format follows
     lag", and the ranking JSON quota gains `probes_since_read`, `remaining_estimate` and `note`;
   - the daily snapshot marks its quota as `"read": "before probing"`, adds `remaining_estimate` and
     a note, and the Markdown table says the counters may lag.
+- **Mid-stream rate limits no longer stop probing.** An error event that arrives inside the SSE
+  stream, after HTTP 200 (for example "... is temporarily rate-limited upstream", a mid-stream `429`
+  or a provider `5xx`), is now a transient failure of that model: it is cached briefly and the next
+  model is probed. Before, a mid-stream `429` without provider metadata counted as an account/quota
+  error and ended the round (the 2026-10-23 snapshot stopped after 11 of 15 probes this way).
+  Platform limits are enforced before the stream starts, so pre-stream classification is unchanged
+  (a platform `429`, `401`, `402` and account-level `403` still stop probing); in the stream only an
+  explicit `401`/`402` or account-level `403` code still does. Applies to Groq as well.
 
 ### Changed
 

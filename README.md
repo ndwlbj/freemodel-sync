@@ -40,7 +40,9 @@ discover ──► filter ──► probe (tiny, cached, budgeted) ──► ran
      (free-model per-minute/per-day cap) stops the round after that single request; the model is
      *not* cached as failed, and `Retry-After` / `X-RateLimit-Reset` pause later runs until the
      reset. Upstream-provider 429s, 5xx and timeouts count as transient failures and are retried
-     after `transient_ttl_minutes` (30 by default).
+     after `transient_ttl_minutes` (30 by default). So do errors that arrive inside the stream after
+     HTTP 200, such as a mid-stream rate limit ("temporarily rate-limited upstream"): probing goes on
+     with the next model.
    - Without an API key, `test`, `rank` and `sync` exit with an error and send nothing.
 4. **Rank** with an explainable score (availability ≫ latency, context, tools, expiry).
    Fallbacks are models that passed their probe; untested models are used only if you set

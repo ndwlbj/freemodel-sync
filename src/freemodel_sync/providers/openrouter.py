@@ -155,6 +155,10 @@ class OpenRouterProvider(Provider):
     def _rate_limit_hints(headers: Any) -> Tuple[Optional[float], Optional[int]]:
         return _rate_limit_hints(headers)
 
+    @staticmethod
+    def _classify_stream_error(code: Optional[int], error_obj: Dict[str, Any]) -> str:
+        return _classify_stream_error(code, error_obj)
+
     def __init__(
         self,
         api_key: Optional[str] = None,
@@ -241,6 +245,9 @@ class OpenRouterProvider(Provider):
           ``provider_code`` present), 408/5xx and network errors are
           ``"transient"`` model failures, cached only briefly.
         * Anything else (e.g. 400/404 "no endpoints") is a ``"model"`` failure.
+        * An error event inside the stream (after HTTP 200), such as a
+          mid-stream rate limit, is classified by :func:`_classify_stream_error`:
+          ``"transient"`` unless it carries an explicit account code.
         """
 
         if not self.api_key:
@@ -327,14 +334,15 @@ class OpenRouterProvider(Provider):
                     if not isinstance(chunk, dict):
                         continue
                     if "error" in chunk:
+                        # HTTP 200 was already sent: the request was admitted, so
+                        # this is about the model or its upstream, not the account.
                         err = chunk.get("error")
                         if isinstance(err, dict):
                             error = str(err.get("message") or err.get("code") or err)
-                            code = err.get("code")
-                            failure_kind = self._classify(code if isinstance(code, int) else None, err)
+                            failure_kind = self._classify_stream_error(_as_int(err.get("code")), err)
                         else:
                             error = str(err)
-                            failure_kind = "model"
+                            failure_kind = self._classify_stream_error(None, {})
                         break
                     choices = chunk.get("choices")
                     if not isinstance(choices, list) or not choices:
@@ -488,6 +496,28 @@ def _classify(status_code: Optional[int], error_obj: Dict[str, Any]) -> str:
     if status_code is not None and (status_code == 408 or status_code >= 500):
         return "transient"
     return "model"
+
+
+def _classify_stream_error(code: Optional[int], error_obj: Dict[str, Any]) -> str:
+    """Classify an error that arrived inside the SSE stream, after HTTP 200.
+
+    Platform limits (free-model per-minute/per-day caps, budgets, bad keys)
+    are enforced before the response starts, as a non-200 status. An error
+    event after the stream began, such as a mid-stream rate limit ("... is
+    temporarily rate-limited upstream") or a provider failure, therefore
+    concerns this model and is ``"transient"`` (cached briefly, probing goes
+    on). Only an explicit ``401``/``402`` code, or a ``403`` that the pre-stream
+    rules treat as an account error, still stops the round. Other ``4xx``
+    codes (``400``, ``404``, ...) are ``"model"`` failures.
+    """
+
+    if code in (401, 402):
+        return "account"
+    if code == 403:
+        return _classify(403, error_obj)
+    if code is not None and 400 <= code < 500 and code not in (408, 429):
+        return "model"
+    return "transient"
 
 
 def _rate_limit_hints(headers: Any) -> Tuple[Optional[float], Optional[int]]:

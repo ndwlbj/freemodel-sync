@@ -21,7 +21,7 @@
 1. **发现**：从 OpenRouter 公开模型列表（`GET /api/v1/models`，无需 key）拉取。只有同时满足以下条件才算免费：id 以 `:free` 结尾、输入和输出价格都是 `0`、支持文本输入输出。排除 `openrouter/free` 这类路由器。
 2. **过滤**：按是否支持工具调用、最小上下文长度、id 通配符、到期时间过滤。`expiration_date` 在 N 天内的模型直接排除，30 天内到期的会被扣分。
 3. **探测**：用**你自己的** OpenRouter key 给每个候选发一条极小的流式请求（默认 `max_tokens: 16`，可用 `providers.openrouter.probe_max_tokens` 修改），测可用性和首字延迟。非常节省：按潜力从高到低测；结果默认缓存 6 小时；每次最多新测 `max_tests` 个；额度以 `GET /api/v1/key` 返回的 `free_model_daily_requests.remaining`（按 UTC 日计；按撰写时 OpenRouter 文档，累计购买不足 10 credits 每天 50 次，以上 1000 次）为准，并预留 `reserve_requests` 次给你的日常使用。接口没返回额度时，按保守的每天 50 次、用本地 UTC 日计数。
-   - **账号问题不算模型故障。** 遇到 401/402/403 或 OpenRouter 平台级 429（免费模型每分钟/每日上限），这一次请求后立即停止本轮，不会把模型记成失败；`Retry-After` / `X-RateLimit-Reset` 会让之后的运行等到重置时间再探测。上游服务商的 429、5xx 和超时算临时失败，`transient_ttl_minutes`（默认 30 分钟）后重试。
+   - **账号问题不算模型故障。** 遇到 401/402/403 或 OpenRouter 平台级 429（免费模型每分钟/每日上限），这一次请求后立即停止本轮，不会把模型记成失败；`Retry-After` / `X-RateLimit-Reset` 会让之后的运行等到重置时间再探测。上游服务商的 429、5xx 和超时算临时失败，`transient_ttl_minutes`（默认 30 分钟）后重试。流式响应开始（HTTP 200）之后才出现的错误，例如流中途的限流（“temporarily rate-limited upstream”），也算该模型的临时失败，继续探测下一个模型。
    - 没有 API key 时，`test`、`rank`、`sync` 直接报错退出，不发任何请求。
 4. **排名**：可解释的打分（可用性 ≫ 延迟、上下文、工具支持、到期时间）。备用模型只取探测通过的；只有设置 `ranking.fallbacks_allow_untested: true` 才会用未测试的模型补位，并标注 `(untested)`。非对话模型（安全分类器、embedding、rerank、语音）默认排除。
 5. **写入**：把主模型和备用列表写进每个配置目标。每次写入都是幂等的（没变化就不动文件），支持 `--dry-run` 显示 diff，写前生成带时间戳的 `*.bak-*` 备份（权限 0600 或更严，默认只保留最新 5 份，见 `backups`），并原子替换文件。如果没有任何模型通过探测，**不会写任何文件**。

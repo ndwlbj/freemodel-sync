@@ -153,13 +153,18 @@ def test_auth_and_credit_errors_are_account_level(tmp_path, status):
     assert cache.get("openrouter|m0:free", 3600) is None
 
 
-def test_mid_stream_platform_429_is_account_level():
+def test_mid_stream_429_is_transient_not_account_level():
+    """After HTTP 200 the request was admitted: a 429 in the stream is about the model's upstream.
+
+    (Until fix/stream-rate-limit this was an account error and stopped the round; see
+    tests/test_stream_rate_limit.py.) Platform caps still arrive as a pre-stream 429.
+    """
     body = sse({"error": {"code": 429, "message": "Rate limit exceeded"},
                 "choices": [{"delta": {"content": ""}, "finish_reason": "error"}]})
     provider = OpenRouterProvider(api_key="k", client=httpx.Client(
         transport=httpx.MockTransport(lambda r: httpx.Response(200, content=body))))
     result = provider.test(ModelInfo("openrouter", "x:free"))
-    assert result.ok is False and result.failure_kind == "account"
+    assert result.ok is False and result.failure_kind == "transient"
 
 
 def test_upstream_429_is_transient_and_probing_continues(tmp_path):
