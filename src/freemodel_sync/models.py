@@ -84,9 +84,23 @@ class TestResult:
         return cls(**fields)  # type: ignore[arg-type]
 
 
+#: shown next to provider-reported quota counters (see :class:`QuotaInfo`)
+QUOTA_LAG_NOTE = (
+    "read once before probing, so this run's probes are not included; "
+    "the provider's counter can also lag behind recent requests"
+)
+
+
 @dataclass
 class QuotaInfo:
-    """Provider-side quota / usage information (best effort)."""
+    """Provider-side quota / usage information (best effort).
+
+    The counters are a snapshot taken when ``/key`` (or the provider's
+    equivalent) was read, which is *before* a probing round; requests sent
+    afterwards are counted in :attr:`probes_since_read`.  OpenRouter's
+    ``free_model_daily_requests.used`` has also been seen to trail requests
+    that were already sent, so treat the numbers as lower bounds on usage.
+    """
 
     is_free_tier: Optional[bool] = None
     #: free-model requests allowed per (UTC) day, as reported by the provider
@@ -97,6 +111,16 @@ class QuotaInfo:
     usage: Optional[float] = None
     limit_remaining: Optional[float] = None
     raw: Dict[str, Any] = field(default_factory=dict, repr=False)
+    #: probe requests sent after the counters were read (set by the caller)
+    probes_since_read: int = 0
+
+    @property
+    def remaining_estimate(self) -> Optional[int]:
+        """``daily_free_remaining`` minus the probes sent since it was read."""
+
+        if self.daily_free_remaining is None:
+            return None
+        return max(0, self.daily_free_remaining - max(0, int(self.probes_since_read)))
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -106,6 +130,9 @@ class QuotaInfo:
             "daily_free_remaining": self.daily_free_remaining,
             "usage": self.usage,
             "limit_remaining": self.limit_remaining,
+            "probes_since_read": self.probes_since_read,
+            "remaining_estimate": self.remaining_estimate,
+            "note": QUOTA_LAG_NOTE,
         }
 
 

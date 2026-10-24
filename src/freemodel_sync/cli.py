@@ -108,6 +108,10 @@ def _cache_path(config: Config, provider_name: str, first: bool) -> Path:
     return path.with_name(f"{path.stem}.{provider_name}{path.suffix or '.json'}")
 
 
+def _dash(value: Any) -> str:
+    return "-" if value is None else str(value)
+
+
 def _safe_quota(provider: Any) -> Optional[QuotaInfo]:
     """Call ``provider.quota()`` defensively; never fail a command over it."""
 
@@ -301,6 +305,7 @@ def _probe(
         )
 
     quota = _safe_quota(provider)
+    cache = ResultCache(cache_file).load()
     daily_budget: Optional[int] = None
     remaining: Optional[int] = None
     override = config.providers[provider_name].options.get("daily_free_limit") \
@@ -311,12 +316,16 @@ def _probe(
         daily_budget = int(override)
     elif quota is not None and quota.daily_free_remaining is not None:
         remaining = quota.daily_free_remaining
+        local = cache.requests_today()
+        if quota.daily_free_limit is not None and local > (quota.daily_free_used or 0):
+            # The provider's counter trails probes this tool already sent today:
+            # trust the larger (local) count so the reserve is not overrun.
+            remaining = min(remaining, max(0, quota.daily_free_limit - local))
     elif quota is not None and quota.daily_free_limit is not None:
         daily_budget = quota.daily_free_limit
     else:
         daily_budget = FALLBACK_DAILY_FREE_LIMIT
 
-    cache = ResultCache(cache_file).load()
     limit = config.testing.max_tests if max_tests is None else max_tests
     run = run_tests(
         provider,
@@ -330,6 +339,8 @@ def _probe(
         timeout=config.testing.timeout_s,
         reserve=config.testing.reserve_requests,
     )
+    if quota is not None:
+        quota.probes_since_read = run.probes
     if run.stop_reason and not quiet:
         print(f"warning: probing stopped: {run.stop_reason}", file=sys.stderr)
     return run, quota
@@ -539,10 +550,14 @@ def _cmd_rank(args: argparse.Namespace, config: Config, providers: Providers) ->
 
     for name, quota in quotas.items():
         if quota is not None:
-            print(
-                f"\nquota ({name}): free_tier={quota.is_free_tier} "
-                f"daily_free_limit={quota.daily_free_limit}"
-            )
+            line = f"\nquota ({name}): free_tier={quota.is_free_tier} daily_free_limit={quota.daily_free_limit}"
+            if quota.daily_free_used is not None or quota.daily_free_remaining is not None:
+                line += f" used={_dash(quota.daily_free_used)} remaining={_dash(quota.daily_free_remaining)}"
+                line += f" (before this run's {quota.probes_since_read} probe(s)"
+                if quota.remaining_estimate is not None:
+                    line += f", about {quota.remaining_estimate} left now"
+                line += "; data may lag)"
+            print(line)
     if selection is not None:
         print(
             f"selection: {selection.primary.model.key} "

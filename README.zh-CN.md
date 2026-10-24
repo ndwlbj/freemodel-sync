@@ -106,7 +106,7 @@ targets:
 - **AstrBot**：两种结构都对照 AstrBot 源码（v4.29.1）核对过；两种都不匹配时会直接报错，不会静默跳过。AstrBot 运行时把配置放在内存里，WebUI 保存时会覆盖文件，所以**同步后要重启 AstrBot**（也不要同时在 WebUI 里改）。provider 条目没有备用列表，只写主模型；对应到 AstrBot 的 `fallback_provider_ids` 还没实现。
 - **YAML 注释（0.3.0+）**：安装可选依赖（`pipx install "freemodel-sync[yaml-comments]"`）后，`openai-yaml` 会用 ruamel.yaml 修改文件，保留注释、键顺序和引号。不安装时使用 PyYAML，值发生变化时注释会丢失（值没变时不会重写文件）。目标选项 `preserve_comments: auto|true|false`（默认 `auto`）。`dsh` 适配器始终保留注释。
 - **分时段价格**：`:free` 模型的 `pricing.overrides` 里只要有非零价格（比如高峰时段或长上下文），就会被跳过并给出警告。
-- **免费额度**：每日预算来自 `free_model_daily_requests`，不再根据 `is_free_tier` 推断；可用 `testing.daily_free_limit` 覆盖（按 UTC 日计数）。
+- **免费额度**：每日预算来自 `free_model_daily_requests`，不再根据 `is_free_tier` 推断；可用 `testing.daily_free_limit` 覆盖（按 UTC 日计数）。额度在探测前读取一次，而且 OpenRouter 的 `used` 计数可能跟不上已发出的请求，所以显示的额度数据可能滞后；本工具当天（UTC）自己记录的探测次数比上报的 `used` 多时，预算按本地计数算。
 - **Provider**：支持 OpenRouter 和 Groq。评估过硅基流动，但它的 API 无法判断哪些模型免费，详见 [docs/providers.md](https://github.com/ndwlbj/freemodel-sync/blob/main/docs/providers.md)。
 
 ## 通知

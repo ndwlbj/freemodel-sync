@@ -13,6 +13,16 @@ All notable changes to this project are documented here. The format follows
   with an error and the file is left unchanged (the target counts as failed, like other adapter
   errors). Providers without a `models` list in the file are not checked. New target option
   `check_model: false` disables the check.
+- **OpenRouter quota figures that lag behind real usage.** `free_model_daily_requests` is read once
+  from `/api/v1/key` before probing, so the reported `used`/`remaining` never included the run's own
+  probes, and OpenRouter's `used` counter can also trail requests that were already sent (one
+  snapshot read `used: 7` and then sent 11 probes; the next one, hours later, read `used: 11`). Now:
+  - the probing budget uses this tool's own probe count for the UTC day when it is higher than the
+    reported `used`, so a lagging counter cannot eat into `reserve_requests`;
+  - `rank` prints `used`/`remaining` with "before this run's N probe(s), about M left now; data may
+    lag", and the ranking JSON quota gains `probes_since_read`, `remaining_estimate` and `note`;
+  - the daily snapshot marks its quota as `"read": "before probing"`, adds `remaining_estimate` and
+    a note, and the Markdown table says the counters may lag.
 
 ### Changed
 

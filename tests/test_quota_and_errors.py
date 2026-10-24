@@ -239,3 +239,60 @@ class FakeProbe:
 
 def mk(n, provider="fake"):
     return [ModelInfo(provider, f"m{i}:free") for i in range(n)]
+
+
+# --- quota lag: /key is read before probing and can trail requests already sent -------------
+
+class LaggingOpenRouter(FakeOpenRouter):
+    """/key reports a ``used`` count that does not include requests already sent."""
+
+    def __init__(self, models_payload, *, used, limit):
+        super().__init__(models_payload, remaining=limit - used, limit=limit)
+
+
+def test_local_probe_counter_caps_a_lagging_provider_counter(env, models_payload):
+    tmp, cfg, _ = env
+    utc_today = datetime.now(timezone.utc).date().isoformat()
+    # this tool already sent 8 probes today, but /key still says only 2 were used
+    (tmp / "cache.json").write_text(json.dumps({"daily": {"date": utc_today, "count": 8}}))
+    api = LaggingOpenRouter(models_payload, used=2, limit=12)
+    assert main(["-c", str(cfg), "test"], provider_factory=api.factory()) == 0
+    assert api.chat_calls == 4  # 12 - 8 (local), not 10 (reported remaining)
+
+
+def test_provider_counter_used_when_it_is_ahead(env, models_payload):
+    tmp, cfg, _ = env
+    utc_today = datetime.now(timezone.utc).date().isoformat()
+    (tmp / "cache.json").write_text(json.dumps({"daily": {"date": utc_today, "count": 1}}))
+    api = LaggingOpenRouter(models_payload, used=9, limit=12)  # other clients used the key too
+    assert main(["-c", str(cfg), "test"], provider_factory=api.factory()) == 0
+    assert api.chat_calls == 3
+
+
+def test_rank_reports_quota_as_read_before_probing(env, models_payload, capsys):
+    tmp, cfg, _ = env
+    api = LaggingOpenRouter(models_payload, used=5, limit=50)
+    assert main(["-c", str(cfg), "rank"], provider_factory=api.factory()) == 0
+    out = capsys.readouterr().out
+    probes = api.chat_calls
+    assert probes > 0
+    assert (
+        f"used=5 remaining=45 (before this run's {probes} probe(s), about {45 - probes} left now; data may lag)"
+        in out
+    )
+
+    assert main(["-c", str(cfg), "rank", "--json", "--no-probe"], provider_factory=api.factory()) == 0
+    capsys.readouterr()
+    assert main(["-c", str(cfg), "rank", "--json"], provider_factory=api.factory()) == 0
+    quota = json.loads(capsys.readouterr().out)["quota"]["openrouter"]
+    assert quota["probes_since_read"] == 0  # all fresh in the cache now: nothing probed
+    assert quota["remaining_estimate"] == quota["daily_free_remaining"] == 45
+    assert "lag" in quota["note"]
+
+
+def test_quota_remaining_estimate():
+    from freemodel_sync.models import QuotaInfo
+
+    assert QuotaInfo().remaining_estimate is None
+    assert QuotaInfo(daily_free_remaining=5, probes_since_read=3).remaining_estimate == 2
+    assert QuotaInfo(daily_free_remaining=2, probes_since_read=9).remaining_estimate == 0

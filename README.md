@@ -156,6 +156,9 @@ Example `dsh` result:
   example at peak hours or for long contexts) is skipped with a warning.
 - **Free quota:** the daily budget comes from `free_model_daily_requests` (never inferred from
   `is_free_tier`); `testing.daily_free_limit` overrides it, counted per UTC day.
+  The counters are read once, before probing, and OpenRouter's `used` count can trail requests
+  that were already sent, so shown quota figures may lag. When this tool's own probe count for the
+  UTC day is higher than the reported `used`, the budget uses the local count.
 - **Providers:** OpenRouter and Groq. SiliconFlow was evaluated but its API does not say which
   models are free; see [docs/providers.md](https://github.com/ndwlbj/freemodel-sync/blob/main/docs/providers.md).
 

@@ -143,8 +143,11 @@ def test_real_openrouter_provider_401_body_with_key_is_redacted(tmp_path):
     snap = load(out)
     assert KEY not in json.dumps(snap) and KEY not in (out / "latest.md").read_text()
     assert snap["providers"]["openrouter"]["status"] == "account_error"
-    assert snap["providers"]["openrouter"]["quota"] == {
-        "daily_free_limit": 50, "daily_free_used": 5, "daily_free_remaining": 45}
+    quota = snap["providers"]["openrouter"]["quota"]
+    assert quota.pop("note").startswith("read once before probing")
+    assert quota == {
+        "daily_free_limit": 50, "daily_free_used": 5, "daily_free_remaining": 45,
+        "read": "before probing", "remaining_estimate": 44}
     assert "usage" not in json.dumps(snap["providers"])
     assert snap["models"][0]["status"] == "401"
     assert snap["diff"]["expiring_soon"][0]["days_until_expiry"] == 8
@@ -344,3 +347,28 @@ def test_workflow_is_minimal_and_safe():
     gen = next(s for s in steps if s.get("name") == "Generate snapshot")
     assert "GITHUB_TOKEN" not in gen["env"]  # the step that runs the probes gets no write token
     assert gen["env"]["OPENROUTER_API_KEY"] == "${{ secrets.OPENROUTER_API_KEY }}"
+
+
+def test_quota_is_marked_as_read_before_probing(tmp_path):
+    """The counters are from before this run's probes and may lag (fix/openrouter-quota-lag)."""
+    provider = FakeProvider(
+        models=["v/a:free", "v/b:free", "v/c:free"],
+        quota=QuotaInfo(daily_free_limit=50, daily_free_used=7, daily_free_remaining=43),
+    )
+    code, out = run(tmp_path, [("openrouter", provider)])
+    assert code == 0
+    info = load(out)["providers"]["openrouter"]
+    assert info["probes_sent"] == 3
+    assert info["quota"]["daily_free_used"] == 7 and info["quota"]["remaining_estimate"] == 40
+    assert info["quota"]["read"] == "before probing"
+    md = (out / "latest.md").read_text()
+    assert "7 used / 43 left before this run, about 40 left after it (data may lag)" in md
+
+
+def test_no_probe_quota_estimate_equals_reported(tmp_path):
+    provider = FakeProvider(models=["v/a:free"], quota=QuotaInfo(daily_free_limit=50, daily_free_remaining=43))
+    code, out = run(tmp_path, [("openrouter", provider)], argv=["--no-probe"])
+    assert code == 0
+    quota = load(out)["providers"]["openrouter"]["quota"]
+    assert "remaining_estimate" not in quota and quota["daily_free_remaining"] == 43
+    assert "- used / 43 left before this run (data may lag)" in (out / "latest.md").read_text()

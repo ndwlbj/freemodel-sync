@@ -39,7 +39,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from freemodel_sync import __version__
-from freemodel_sync.models import ModelInfo, QuotaInfo, TestResult
+from freemodel_sync.models import QUOTA_LAG_NOTE, ModelInfo, QuotaInfo, TestResult
 from freemodel_sync.providers import ProviderError, get_provider_class
 from freemodel_sync.ranking import RankWeights, filter_models, score_model
 from freemodel_sync.tester import ResultCache, run_tests
@@ -165,10 +165,14 @@ def snapshot_provider(
             info["quota_error"] = type(exc).__name__
     if quota is not None:
         # Only the free-request counters: no credit/usage figures in a public file.
+        # Read once, before probing: this run's probes are not included, and
+        # OpenRouter's counter can trail requests already sent (see QUOTA_LAG_NOTE).
         info["quota"] = {
             "daily_free_limit": quota.daily_free_limit,
             "daily_free_used": quota.daily_free_used,
             "daily_free_remaining": quota.daily_free_remaining,
+            "read": "before probing",
+            "note": QUOTA_LAG_NOTE,
         }
 
     results: Dict[str, TestResult] = {}
@@ -191,6 +195,9 @@ def snapshot_provider(
         results = dict(run)
         account_error = run.account_error
         info["probes_sent"] = run.probes
+        if "quota" in info:
+            quota.probes_since_read = run.probes
+            info["quota"]["remaining_estimate"] = quota.remaining_estimate
         if run.stop_reason:
             info["stop_reason"] = redact(run.stop_reason, secrets)[:MAX_ERROR_CHARS]
         if account_error is not None:
@@ -322,6 +329,14 @@ def render_markdown(snapshot: Dict[str, Any]) -> str:
         quota = info.get("quota")
         if quota and quota.get("daily_free_limit") is not None:
             notes.append(f"daily free limit {quota['daily_free_limit']}")
+        if quota and (quota.get("daily_free_used") is not None or quota.get("daily_free_remaining") is not None):
+            counters = (
+                f"{_cell(quota.get('daily_free_used'))} used / "
+                f"{_cell(quota.get('daily_free_remaining'))} left before this run"
+            )
+            if quota.get("remaining_estimate") is not None:
+                counters += f", about {quota['remaining_estimate']} left after it"
+            notes.append(counters + " (data may lag)")
         lines.append(
             f"| {_cell(name)} | {_cell(info.get('status'))} | {_cell(info.get('discovered'))} | "
             f"{_cell(info.get('probes_sent'))} | {_cell('; '.join(n for n in notes if n))} |"
