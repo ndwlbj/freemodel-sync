@@ -21,10 +21,20 @@ def sse(*chunks):
 
 
 OK_STREAM = sse({"choices": [{"delta": {"content": "OK"}}]}, {"choices": [{"delta": {}, "finish_reason": "stop"}]})
-PLATFORM_429 = {"error": {"code": 429, "message": "Rate limit exceeded: free-models-per-day",
-                          "metadata": {"error_type": "rate_limit_exceeded"}}}
-UPSTREAM_429 = {"error": {"code": 429, "message": "Provider returned error",
-                          "metadata": {"provider_name": "SomeHost", "raw": "busy"}}}
+PLATFORM_429 = {
+    "error": {
+        "code": 429,
+        "message": "Rate limit exceeded: free-models-per-day",
+        "metadata": {"error_type": "rate_limit_exceeded"},
+    }
+}
+UPSTREAM_429 = {
+    "error": {
+        "code": 429,
+        "message": "Provider returned error",
+        "metadata": {"provider_name": "SomeHost", "raw": "busy"},
+    }
+}
 
 
 class FakeOpenRouter:
@@ -44,10 +54,20 @@ class FakeOpenRouter:
             return httpx.Response(200, json=self.models_payload)
         if path.endswith("/key"):
             self.key_calls += 1
-            return httpx.Response(200, json={"data": {
-                "is_free_tier": False, "usage": 0,
-                "free_model_daily_requests": {"used": self.limit - self.remaining,
-                                              "limit": self.limit, "remaining": self.remaining}}})
+            return httpx.Response(
+                200,
+                json={
+                    "data": {
+                        "is_free_tier": False,
+                        "usage": 0,
+                        "free_model_daily_requests": {
+                            "used": self.limit - self.remaining,
+                            "limit": self.limit,
+                            "remaining": self.remaining,
+                        },
+                    }
+                },
+            )
         if path.endswith("/chat/completions"):
             self.chat_calls += 1
             return self.chat(request)
@@ -64,15 +84,20 @@ def env(tmp_path, monkeypatch):
     target = tmp_path / "bot-model.yml"
     target.write_text("- id: agent-default-model\n  config: {provider: x, model: 'old'}\n")
     cfg = tmp_path / "config.yml"
-    cfg.write_text(yaml.safe_dump({
-        "testing": {"cache_path": str(tmp_path / "cache.json"), "max_tests": 20, "reserve_requests": 0},
-        "state_path": str(tmp_path / "state.json"),
-        "targets": [{"adapter": "dsh", "path": str(target)}],
-    }))
+    cfg.write_text(
+        yaml.safe_dump(
+            {
+                "testing": {"cache_path": str(tmp_path / "cache.json"), "max_tests": 20, "reserve_requests": 0},
+                "state_path": str(tmp_path / "state.json"),
+                "targets": [{"adapter": "dsh", "path": str(target)}],
+            }
+        )
+    )
     return tmp_path, cfg, target
 
 
 # --- P0-1: free_model_daily_requests is the source of truth --------------------------------
+
 
 def test_remaining_from_key_endpoint_caps_probes(env, models_payload):
     tmp, cfg, _ = env
@@ -83,8 +108,9 @@ def test_remaining_from_key_endpoint_caps_probes(env, models_payload):
 
 def test_reserve_is_subtracted_from_remaining(tmp_path):
     provider = FakeProbe()
-    run = run_tests(provider, mk(10), cache=ResultCache(tmp_path / "c.json").load(),
-                    max_tests=10, remaining_budget=12, reserve=10)
+    run = run_tests(
+        provider, mk(10), cache=ResultCache(tmp_path / "c.json").load(), max_tests=10, remaining_budget=12, reserve=10
+    )
     assert run.probes == 2 and "budget" in run.stop_reason
 
 
@@ -109,18 +135,22 @@ def test_config_override_beats_reported_quota(env, models_payload):
 
 # --- P0-2: account-level errors stop the round and are not cached ---------------------------
 
+
 def test_review_repro_platform_429_stops_immediately(env, models_payload):
     tmp, cfg, target = env
     before = target.read_text()
-    api = FakeOpenRouter(models_payload, remaining=2,
-                         chat=lambda r: httpx.Response(429, json=PLATFORM_429,
-                                                       headers={"Retry-After": "120",
-                                                                "X-RateLimit-Remaining": "0"}))
+    api = FakeOpenRouter(
+        models_payload,
+        remaining=2,
+        chat=lambda r: httpx.Response(
+            429, json=PLATFORM_429, headers={"Retry-After": "120", "X-RateLimit-Remaining": "0"}
+        ),
+    )
     rc = main(["-c", str(cfg), "sync"], provider_factory=api.factory())
     assert rc == EXIT_ACCOUNT_ERROR
-    assert api.chat_calls == 1                      # previously: 18
+    assert api.chat_calls == 1  # previously: 18
     cache = json.loads((tmp / "cache.json").read_text())
-    assert not [k for k in cache if "|" in k]       # no model recorded as failed
+    assert not [k for k in cache if "|" in k]  # no model recorded as failed
     assert cache["blocked_until"] > time.time() + 60
     assert target.read_text() == before
 
@@ -159,10 +189,15 @@ def test_mid_stream_429_is_transient_not_account_level():
     (Until fix/stream-rate-limit this was an account error and stopped the round; see
     tests/test_stream_rate_limit.py.) Platform caps still arrive as a pre-stream 429.
     """
-    body = sse({"error": {"code": 429, "message": "Rate limit exceeded"},
-                "choices": [{"delta": {"content": ""}, "finish_reason": "error"}]})
-    provider = OpenRouterProvider(api_key="k", client=httpx.Client(
-        transport=httpx.MockTransport(lambda r: httpx.Response(200, content=body))))
+    body = sse(
+        {
+            "error": {"code": 429, "message": "Rate limit exceeded"},
+            "choices": [{"delta": {"content": ""}, "finish_reason": "error"}],
+        }
+    )
+    provider = OpenRouterProvider(
+        api_key="k", client=httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(200, content=body)))
+    )
     result = provider.test(ModelInfo("openrouter", "x:free"))
     assert result.ok is False and result.failure_kind == "transient"
 
@@ -191,9 +226,11 @@ def test_upstream_429_is_transient_and_probing_continues(tmp_path):
 
 def test_x_ratelimit_remaining_stops_probing(tmp_path):
     def handler(request):
-        return httpx.Response(200, content=OK_STREAM,
-                              headers={"X-RateLimit-Remaining": "1",
-                                       "X-RateLimit-Reset": str(int((time.time() + 30) * 1000))})
+        return httpx.Response(
+            200,
+            content=OK_STREAM,
+            headers={"X-RateLimit-Remaining": "1", "X-RateLimit-Reset": str(int((time.time() + 30) * 1000))},
+        )
 
     provider = OpenRouterProvider(api_key="k", client=httpx.Client(transport=httpx.MockTransport(handler)))
     cache = ResultCache(tmp_path / "c.json").load()
@@ -204,12 +241,20 @@ def test_x_ratelimit_remaining_stops_probing(tmp_path):
 
 def test_legacy_cached_account_errors_are_ignored(tmp_path):
     p = tmp_path / "c.json"
-    p.write_text(json.dumps({"p|m:free": TestResult("p|m:free", False, error="missing api key",
-                                                    failure_kind="account", tested_at=time.time()).to_dict()}))
+    p.write_text(
+        json.dumps(
+            {
+                "p|m:free": TestResult(
+                    "p|m:free", False, error="missing api key", failure_kind="account", tested_at=time.time()
+                ).to_dict()
+            }
+        )
+    )
     assert ResultCache(p).load().get("p|m:free", 3600) is None
 
 
 # --- P0-3: no key -> clear error, no probes, no cache writes, no counting -------------------
+
 
 @pytest.mark.parametrize("command", ["test", "rank", "sync"])
 def test_missing_key_errors_out_without_side_effects(env, models_payload, capsys, command):
@@ -233,6 +278,7 @@ def test_discover_still_works_without_key(env, models_payload):
 
 # --- helpers --------------------------------------------------------------------------------
 
+
 class FakeProbe:
     def __init__(self):
         self.calls = 0
@@ -247,6 +293,7 @@ def mk(n, provider="fake"):
 
 
 # --- quota lag: /key is read before probing and can trail requests already sent -------------
+
 
 class LaggingOpenRouter(FakeOpenRouter):
     """/key reports a ``used`` count that does not include requests already sent."""
@@ -282,8 +329,7 @@ def test_rank_reports_quota_as_read_before_probing(env, models_payload, capsys):
     probes = api.chat_calls
     assert probes > 0
     assert (
-        f"used=5 remaining=45 (before this run's {probes} probe(s), about {45 - probes} left now; data may lag)"
-        in out
+        f"used=5 remaining=45 (before this run's {probes} probe(s), about {45 - probes} left now; data may lag)" in out
     )
 
     assert main(["-c", str(cfg), "rank", "--json", "--no-probe"], provider_factory=api.factory()) == 0

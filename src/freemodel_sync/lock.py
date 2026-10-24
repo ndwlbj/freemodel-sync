@@ -32,9 +32,7 @@ class RunLock:
             fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except OSError as exc:
             os.close(fd)
-            raise LockedError(
-                f"another freemodel-sync run is in progress (lock file {self.path})"
-            ) from exc
+            raise LockedError(f"another freemodel-sync run is in progress (lock file {self.path})") from exc
         os.ftruncate(fd, 0)
         os.write(fd, f"{os.getpid()}\n".encode())
         self._fd = fd

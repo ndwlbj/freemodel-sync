@@ -53,11 +53,15 @@ def test_verbose_sync_does_not_log_telegram_token(tmp_path, monkeypatch, capsys,
         lambda **kw: real_client(transport=httpx.MockTransport(handler)),
     )
     cfg = tmp_path / "c.yml"
-    cfg.write_text(yaml.safe_dump({
-        "testing": {"cache_path": str(tmp_path / "cache.json")},
-        "state_path": str(tmp_path / "state.json"),
-        "notify": {"telegram": {}},
-    }))
+    cfg.write_text(
+        yaml.safe_dump(
+            {
+                "testing": {"cache_path": str(tmp_path / "cache.json")},
+                "state_path": str(tmp_path / "state.json"),
+                "notify": {"telegram": {}},
+            }
+        )
+    )
     assert main([*flags, "-c", str(cfg), "sync"], provider_factory=lambda name, **kw: Stub()) == 0
     assert sent and TOKEN in sent[0]  # the request itself still carries the token
     err = capsys.readouterr().err
@@ -67,8 +71,6 @@ def test_verbose_sync_does_not_log_telegram_token(tmp_path, monkeypatch, capsys,
 
 
 def test_redacting_filter_patterns():
-    text = RedactingFilter.redact(
-        f"POST https://api.telegram.org/bot{TOKEN}/sendMessage Authorization: Bearer abc.def"
-    )
+    text = RedactingFilter.redact(f"POST https://api.telegram.org/bot{TOKEN}/sendMessage Authorization: Bearer abc.def")
     assert TOKEN not in text and "abc.def" not in text
     assert "bot<redacted>/sendMessage" in text

@@ -85,11 +85,23 @@ def test_mid_stream_model_specific_403_is_a_model_failure():
     ("status", "body", "kind"),
     [
         # pre-stream platform 429 (free-model cap): unchanged, still an account error
-        (429, {"error": {"code": 429, "message": "Rate limit exceeded: free-models-per-day",
-                         "metadata": {"error_type": "rate_limit_exceeded"}}}, "account"),
+        (
+            429,
+            {
+                "error": {
+                    "code": 429,
+                    "message": "Rate limit exceeded: free-models-per-day",
+                    "metadata": {"error_type": "rate_limit_exceeded"},
+                }
+            },
+            "account",
+        ),
         # pre-stream upstream 429: unchanged, transient
-        (429, {"error": {"code": 429, "message": "Provider returned error",
-                         "metadata": {"provider_name": "SomeHost"}}}, "transient"),
+        (
+            429,
+            {"error": {"code": 429, "message": "Provider returned error", "metadata": {"provider_name": "SomeHost"}}},
+            "transient",
+        ),
         (401, {"error": {"code": 401, "message": "User not found"}}, "account"),
         (402, {"error": {"code": 402, "message": "Insufficient credits"}}, "account"),
     ],
@@ -125,11 +137,15 @@ def test_sync_still_writes_after_a_mid_stream_rate_limit(tmp_path, monkeypatch, 
     target = tmp_path / "bot-model.yml"
     target.write_text("- id: agent-default-model\n  config: {provider: x, model: 'old'}\n")
     cfg = tmp_path / "config.yml"
-    cfg.write_text(yaml.safe_dump({
-        "testing": {"cache_path": str(tmp_path / "cache.json"), "max_tests": 20, "reserve_requests": 0},
-        "state_path": str(tmp_path / "state.json"),
-        "targets": [{"adapter": "dsh", "path": str(target)}],
-    }))
+    cfg.write_text(
+        yaml.safe_dump(
+            {
+                "testing": {"cache_path": str(tmp_path / "cache.json"), "max_tests": 20, "reserve_requests": 0},
+                "state_path": str(tmp_path / "state.json"),
+                "targets": [{"adapter": "dsh", "path": str(target)}],
+            }
+        )
+    )
     calls = []
 
     def handler(request):
@@ -137,8 +153,9 @@ def test_sync_still_writes_after_a_mid_stream_rate_limit(tmp_path, monkeypatch, 
         if path.endswith("/models"):
             return httpx.Response(200, json=models_payload)
         if path.endswith("/key"):
-            return httpx.Response(200, json={"data": {"free_model_daily_requests":
-                                                      {"used": 0, "limit": 50, "remaining": 50}}})
+            return httpx.Response(
+                200, json={"data": {"free_model_daily_requests": {"used": 0, "limit": 50, "remaining": 50}}}
+            )
         calls.append(json.loads(request.content)["model"])
         if len(calls) == 1:  # the most promising model is rate-limited mid-stream
             return httpx.Response(200, content=stream_error({"code": 429, "message": UPSTREAM_TEXT}))

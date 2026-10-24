@@ -45,14 +45,27 @@ def test_discover_filters_free_text_models(models_payload):
 def test_discover_rejects_nonzero_price_and_non_text():
     payload = {
         "data": [
-            {"id": "a/paid:free", "pricing": {"prompt": "0.000001", "completion": "0"},
-             "architecture": {"input_modalities": ["text"], "output_modalities": ["text"]}},
-            {"id": "a/image:free", "pricing": {"prompt": "0", "completion": "0"},
-             "architecture": {"input_modalities": ["text"], "output_modalities": ["image"]}},
-            {"id": "a/ok:free", "pricing": {"prompt": "0", "completion": "0"},
-             "architecture": {"modality": "text+image->text"}, "expiration_date": "garbage"},
-            {"id": "a/notfree", "pricing": {"prompt": "0", "completion": "0"},
-             "architecture": {"modality": "text->text"}},
+            {
+                "id": "a/paid:free",
+                "pricing": {"prompt": "0.000001", "completion": "0"},
+                "architecture": {"input_modalities": ["text"], "output_modalities": ["text"]},
+            },
+            {
+                "id": "a/image:free",
+                "pricing": {"prompt": "0", "completion": "0"},
+                "architecture": {"input_modalities": ["text"], "output_modalities": ["image"]},
+            },
+            {
+                "id": "a/ok:free",
+                "pricing": {"prompt": "0", "completion": "0"},
+                "architecture": {"modality": "text+image->text"},
+                "expiration_date": "garbage",
+            },
+            {
+                "id": "a/notfree",
+                "pricing": {"prompt": "0", "completion": "0"},
+                "architecture": {"modality": "text->text"},
+            },
         ]
     }
     models = provider_with(lambda r: httpx.Response(200, json=payload)).discover()
@@ -134,8 +147,13 @@ def test_probe_without_key_makes_no_request():
 
 @pytest.mark.parametrize("free_tier", [True, False, None])
 def test_quota_uses_free_model_daily_requests(free_tier):
-    data = {"label": "k", "usage": 0.5, "limit": None, "limit_remaining": None,
-            "free_model_daily_requests": {"used": 48, "limit": 50, "remaining": 2}}
+    data = {
+        "label": "k",
+        "usage": 0.5,
+        "limit": None,
+        "limit_remaining": None,
+        "free_model_daily_requests": {"used": 48, "limit": 50, "remaining": 2},
+    }
     if free_tier is not None:
         data["is_free_tier"] = free_tier
     handler = lambda r: httpx.Response(200, json={"data": data})
@@ -163,8 +181,11 @@ def test_probe_max_tokens_is_configurable(option, expected):
 
     def handler(request):
         captured["body"] = json.loads(request.content)
-        return httpx.Response(200, content=sse({"choices": [{"delta": {"content": "OK"}}]}, "[DONE]"),
-                              headers={"content-type": "text/event-stream"})
+        return httpx.Response(
+            200,
+            content=sse({"choices": [{"delta": {"content": "OK"}}]}, "[DONE]"),
+            headers={"content-type": "text/event-stream"},
+        )
 
     provider_with(handler, probe_max_tokens=option).test(ModelInfo("openrouter", "x/y:free"))
     assert captured["body"]["max_tokens"] == expected
@@ -172,20 +193,28 @@ def test_probe_max_tokens_is_configurable(option, expected):
 
 def test_pricing_overrides_with_prices_are_not_free(caplog):
     """Review P2-4: time-of-day / long-context overrides can make a :free model cost money."""
+
     def model(mid, overrides):
         pricing = {"prompt": "0", "completion": "0"}
         if overrides is not ...:
             pricing["overrides"] = overrides
-        return {"id": mid, "name": mid, "pricing": pricing, "context_length": 1000,
-                "architecture": {"input_modalities": ["text"], "output_modalities": ["text"]}}
+        return {
+            "id": mid,
+            "name": mid,
+            "pricing": pricing,
+            "context_length": 1000,
+            "architecture": {"input_modalities": ["text"], "output_modalities": ["text"]},
+        }
 
-    payload = {"data": [
-        model("a/plain:free", ...),
-        model("b/zero-overrides:free", [{"utc_days": ["monday"], "prompt": "0", "completion": "0"}]),
-        model("c/peak-priced:free", [{"utc_start": 100, "utc_end": 400, "prompt": "0.0000003", "completion": "0"}]),
-        model("d/odd-format:free", {"prompt": "0"}),
-        model("e/empty:free", []),
-    ]}
+    payload = {
+        "data": [
+            model("a/plain:free", ...),
+            model("b/zero-overrides:free", [{"utc_days": ["monday"], "prompt": "0", "completion": "0"}]),
+            model("c/peak-priced:free", [{"utc_start": 100, "utc_end": 400, "prompt": "0.0000003", "completion": "0"}]),
+            model("d/odd-format:free", {"prompt": "0"}),
+            model("e/empty:free", []),
+        ]
+    }
     provider = provider_with(lambda request: httpx.Response(200, json=payload))
     with caplog.at_level("WARNING"):
         ids = [m.id for m in provider.discover()]

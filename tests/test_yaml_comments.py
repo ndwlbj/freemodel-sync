@@ -47,8 +47,13 @@ def test_ruamel_preserves_comments_order_and_quotes(tmp_path):
     assert result.changed
     data = yaml.safe_load(text)
     assert data["app"]["llm"] == EXPECTED and data["other"] is True and data["app"]["name"] == "my bot"
-    for comment in ("# Bot settings (hand-written)", "# display name", "# managed by freemodel-sync",
-                    "# keep me", "# previous choice"):
+    for comment in (
+        "# Bot settings (hand-written)",
+        "# display name",
+        "# managed by freemodel-sync",
+        "# keep me",
+        "# previous choice",
+    ):
         assert comment in text, comment
     assert 'name: "my bot"' in text  # quoting kept
     assert text.index("base_url") < text.index("model:") < text.index("temperature")
@@ -61,8 +66,10 @@ def test_ruamel_creates_missing_sections(tmp_path):
     pytest.importorskip("ruamel.yaml")
     text, _ = apply(tmp_path, "# only a comment\nother: 1\n")
     assert text.startswith("# only a comment\n")
-    assert yaml.safe_load(text) == {"other": 1, "app": {"llm": {k: EXPECTED[k] for k in
-                                                              ("base_url", "model", "fallback_models")}}}
+    assert yaml.safe_load(text) == {
+        "other": 1,
+        "app": {"llm": {k: EXPECTED[k] for k in ("base_url", "model", "fallback_models")}},
+    }
     text, _ = apply(tmp_path, "")
     assert yaml.safe_load(text)["app"]["llm"]["model"] == "vendor/a:free"
 
@@ -142,18 +149,29 @@ def test_per_provider_yaml_targets_in_one_sync(tmp_path, monkeypatch, use_ruamel
     groq_file.write_text(DOC)
     or_file.write_text(DOC)
     cfg = tmp_path / "config.yml"
-    cfg.write_text(yaml.safe_dump({
-        "providers": {"openrouter": {}, "groq": {"plan": "free"}},
-        "testing": {"cache_path": str(tmp_path / "cache.json"), "max_tests": 10},
-        "state_path": str(tmp_path / "state.json"),
-        "ranking": {"fallback_count": 1},
-        "targets": [
-            {"adapter": "openai-yaml", "path": str(groq_file),
-             "options": {"key_path": "app.llm", "providers": ["groq"], "preserve_comments": "auto"}},
-            {"adapter": "openai-yaml", "path": str(or_file),
-             "options": {"key_path": "app.llm", "providers": ["openrouter"]}},
-        ],
-    }, sort_keys=False))
+    cfg.write_text(
+        yaml.safe_dump(
+            {
+                "providers": {"openrouter": {}, "groq": {"plan": "free"}},
+                "testing": {"cache_path": str(tmp_path / "cache.json"), "max_tests": 10},
+                "state_path": str(tmp_path / "state.json"),
+                "ranking": {"fallback_count": 1},
+                "targets": [
+                    {
+                        "adapter": "openai-yaml",
+                        "path": str(groq_file),
+                        "options": {"key_path": "app.llm", "providers": ["groq"], "preserve_comments": "auto"},
+                    },
+                    {
+                        "adapter": "openai-yaml",
+                        "path": str(or_file),
+                        "options": {"key_path": "app.llm", "providers": ["openrouter"]},
+                    },
+                ],
+            },
+            sort_keys=False,
+        )
+    )
 
     def factory(name, api_key=None, **options):
         return _StubProvider(name, models[name], api_key)

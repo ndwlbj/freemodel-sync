@@ -16,7 +16,9 @@ TODAY = date(2026, 1, 1)
 
 def model(mid, prompt="0", expires=None, **extra):
     m = {
-        "id": mid, "name": mid, "context_length": 8192,
+        "id": mid,
+        "name": mid,
+        "context_length": 8192,
         "pricing": {"prompt": prompt, "completion": prompt},
         "architecture": {"input_modalities": ["text"], "output_modalities": ["text"]},
         "supported_parameters": ["max_tokens"],
@@ -28,12 +30,14 @@ def model(mid, prompt="0", expires=None, **extra):
 
 
 def healthy():
-    return {"data": [
-        model("a/one:free"),
-        model("b/two:free", expires="2026-01-10"),
-        model("c/three:free", expires="2026-03-01"),
-        model("d/paid", prompt="0.000001"),
-    ]}
+    return {
+        "data": [
+            model("a/one:free"),
+            model("b/two:free", expires="2026-01-10"),
+            model("c/three:free", expires="2026-03-01"),
+            model("d/paid", prompt="0.000001"),
+        ]
+    }
 
 
 def test_check_counts_free_and_lists_expiring():
@@ -49,9 +53,7 @@ def test_check_flags_schema_changes_and_no_free_models():
     report = cw.check(payload, today=TODAY)
     assert any("pricing.prompt" in a for a in report["anomalies"])
     assert any("only 0 free models" in a for a in report["anomalies"])
-    assert cw.check({"models": []}, today=TODAY)["anomalies"] == [
-        "response has no `data` list (schema change?)"
-    ]
+    assert cw.check({"models": []}, today=TODAY)["anomalies"] == ["response has no `data` list (schema change?)"]
 
 
 class FakeGitHub:

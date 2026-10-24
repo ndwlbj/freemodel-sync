@@ -29,8 +29,9 @@ class StubProvider:
     def test(self, model, timeout=30.0):
         self.tested.append(model.id)
         ok = model.id in self.ok_ids
-        return TestResult(model.key, ok, ttft_ms=250.0 if ok else None, error=None if ok else "503",
-                          tested_at=time.time())
+        return TestResult(
+            model.key, ok, ttft_ms=250.0 if ok else None, error=None if ok else "503", tested_at=time.time()
+        )
 
     def quota(self):
         self.quota_calls = getattr(self, "quota_calls", 0) + 1
@@ -43,12 +44,16 @@ def setup(tmp_path, monkeypatch):
     target = tmp_path / "bot-model.yml"
     target.write_text("- id: agent-default-model\n  config: {provider: x, model: 'old'}\n")
     cfg = tmp_path / "config.yml"
-    cfg.write_text(yaml.safe_dump({
-        "testing": {"cache_path": str(tmp_path / "cache.json"), "max_tests": 5},
-        "state_path": str(tmp_path / "state.json"),
-        "ranking": {"fallback_count": 2},
-        "targets": [{"adapter": "dsh", "path": str(target)}],
-    }))
+    cfg.write_text(
+        yaml.safe_dump(
+            {
+                "testing": {"cache_path": str(tmp_path / "cache.json"), "max_tests": 5},
+                "state_path": str(tmp_path / "state.json"),
+                "ranking": {"fallback_count": 2},
+                "targets": [{"adapter": "dsh", "path": str(target)}],
+            }
+        )
+    )
     return tmp_path, cfg, target
 
 

@@ -118,9 +118,7 @@ class OpenAIYamlAdapter(Adapter):
                 child = new_map()
                 node[part] = child
             elif not isinstance(child, dict):
-                raise ValueError(
-                    f"cannot set {key_path!r}: {part!r} is not a mapping in the current document"
-                )
+                raise ValueError(f"cannot set {key_path!r}: {part!r} is not a mapping in the current document")
             node = child
 
         leaf_name = path[-1]
@@ -129,9 +127,7 @@ class OpenAIYamlAdapter(Adapter):
             leaf = new_map()
             node[leaf_name] = leaf
         elif not isinstance(leaf, dict):
-            raise ValueError(
-                f"cannot set {key_path!r}: it is not a mapping in the current document"
-            )
+            raise ValueError(f"cannot set {key_path!r}: it is not a mapping in the current document")
 
         desired = {
             "base_url": resolve_base_url(selection.provider, self.options),

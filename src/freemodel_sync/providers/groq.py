@@ -102,9 +102,7 @@ class GroqProvider(OpenRouterProvider):
 
         self._check_plan()
         if not self.api_key:
-            raise ProviderError(
-                f"groq: listing models needs {self.api_key_env} (Groq's model list requires a key)"
-            )
+            raise ProviderError(f"groq: listing models needs {self.api_key_env} (Groq's model list requires a key)")
         try:
             response = self._get_client().get(f"{self.base_url}/models", headers=self._auth_headers())
             response.raise_for_status()

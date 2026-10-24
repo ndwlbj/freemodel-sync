@@ -57,8 +57,12 @@ class FakeProvider:
 
 def run(tmp_path, providers, skipped=None, argv=(), env=ENV):
     out = tmp_path / "snapshots"
-    code = ds.main(["--out", str(out), "--date", TODAY.isoformat(), *argv], env=dict(env),
-                   providers=(providers, skipped or {}), now=NOW)
+    code = ds.main(
+        ["--out", str(out), "--date", TODAY.isoformat(), *argv],
+        env=dict(env),
+        providers=(providers, skipped or {}),
+        now=NOW,
+    )
     return code, out
 
 
@@ -92,8 +96,18 @@ def test_redact_masks_exact_secret_values_and_keeps_none():
 def test_assert_no_secrets_refuses_output_with_a_key(tmp_path):
     with pytest.raises(ds.SecretLeakError):
         snap = ds.build_snapshot(
-            [("openrouter", FakeProvider(models=["v/a:free"]))], {}, today=TODAY, now=NOW, previous=None,
-            max_probes=1, reserve=0, probe=False, timeout=1.0, expiring_days=14, secrets=[KEY])
+            [("openrouter", FakeProvider(models=["v/a:free"]))],
+            {},
+            today=TODAY,
+            now=NOW,
+            previous=None,
+            max_probes=1,
+            reserve=0,
+            probe=False,
+            timeout=1.0,
+            expiring_days=14,
+            secrets=[KEY],
+        )
         snap["models"][0]["name"] = KEY  # e.g. an unredacted field slipped through
         ds.write_snapshot(tmp_path, snap, [KEY])
     assert not list(tmp_path.iterdir())
@@ -103,10 +117,18 @@ def test_key_in_provider_errors_never_reaches_the_snapshot(tmp_path):
     provider = FakeProvider(
         models=["v/a:free", "v/b:free"],
         outcomes={
-            "v/a:free": {"ok": False, "status_code": 404, "error": f"no endpoints for key {KEY}",
-                         "failure_kind": "model"},
-            "v/b:free": {"ok": False, "status_code": 401, "error": f"User not found. Bearer {KEY}",
-                         "failure_kind": "account"},
+            "v/a:free": {
+                "ok": False,
+                "status_code": 404,
+                "error": f"no endpoints for key {KEY}",
+                "failure_kind": "model",
+            },
+            "v/b:free": {
+                "ok": False,
+                "status_code": 401,
+                "error": f"User not found. Bearer {KEY}",
+                "failure_kind": "account",
+            },
         },
         quota=QuotaInfo(daily_free_limit=50, daily_free_remaining=40),
     )
@@ -119,12 +141,19 @@ def test_key_in_provider_errors_never_reaches_the_snapshot(tmp_path):
 
 
 def test_real_openrouter_provider_401_body_with_key_is_redacted(tmp_path):
-    catalog = {"data": [{
-        "id": "v/a:free", "name": "A", "context_length": 32000,
-        "pricing": {"prompt": "0", "completion": "0"},
-        "architecture": {"input_modalities": ["text"], "output_modalities": ["text"]},
-        "supported_parameters": ["tools"], "expiration_date": "2026-10-30",
-    }]}
+    catalog = {
+        "data": [
+            {
+                "id": "v/a:free",
+                "name": "A",
+                "context_length": 32000,
+                "pricing": {"prompt": "0", "completion": "0"},
+                "architecture": {"input_modalities": ["text"], "output_modalities": ["text"]},
+                "supported_parameters": ["tools"],
+                "expiration_date": "2026-10-30",
+            }
+        ]
+    }
     seen = []
 
     def handler(request):
@@ -132,8 +161,10 @@ def test_real_openrouter_provider_401_body_with_key_is_redacted(tmp_path):
         if request.url.path.endswith("/models"):
             return httpx.Response(200, json=catalog)
         if request.url.path.endswith("/key"):
-            return httpx.Response(200, json={"data": {"free_model_daily_requests":
-                                                      {"limit": 50, "used": 5, "remaining": 45}, "usage": 1.5}})
+            return httpx.Response(
+                200,
+                json={"data": {"free_model_daily_requests": {"limit": 50, "used": 5, "remaining": 45}, "usage": 1.5}},
+            )
         return httpx.Response(401, json={"error": {"code": 401, "message": f"bad key {KEY}"}})
 
     client = httpx.Client(transport=httpx.MockTransport(handler))
@@ -146,8 +177,12 @@ def test_real_openrouter_provider_401_body_with_key_is_redacted(tmp_path):
     quota = snap["providers"]["openrouter"]["quota"]
     assert quota.pop("note").startswith("read once before probing")
     assert quota == {
-        "daily_free_limit": 50, "daily_free_used": 5, "daily_free_remaining": 45,
-        "read": "before probing", "remaining_estimate": 44}
+        "daily_free_limit": 50,
+        "daily_free_used": 5,
+        "daily_free_remaining": 45,
+        "read": "before probing",
+        "remaining_estimate": 44,
+    }
     assert "usage" not in json.dumps(snap["providers"])
     assert snap["models"][0]["status"] == "401"
     assert snap["diff"]["expiring_soon"][0]["days_until_expiry"] == 8
@@ -158,8 +193,12 @@ def test_statuses_latency_and_context(tmp_path):
     provider = FakeProvider(
         models=["v/ok:free", "v/gate:free", "v/busy:free", "v/gone:free", "v/slow:free"],
         outcomes={
-            "v/gate:free": {"ok": False, "status_code": 403, "error": "agentic harnesses only",
-                            "failure_kind": "model"},
+            "v/gate:free": {
+                "ok": False,
+                "status_code": 403,
+                "error": "agentic harnesses only",
+                "failure_kind": "model",
+            },
             "v/busy:free": {"ok": False, "status_code": 429, "error": "upstream busy", "failure_kind": "transient"},
             "v/gone:free": {"ok": False, "status_code": 404, "error": "No endpoints", "failure_kind": "model"},
             "v/slow:free": {"ok": False, "error": "ReadTimeout: timed out", "failure_kind": "transient"},
@@ -170,8 +209,11 @@ def test_statuses_latency_and_context(tmp_path):
     assert code == 0
     by_id = {m["id"]: m for m in load(out)["models"]}
     assert {k: v["status"] for k, v in by_id.items()} == {
-        "v/ok:free": "ok", "v/gate:free": "403", "v/busy:free": "429",
-        "v/gone:free": "404", "v/slow:free": "timeout",
+        "v/ok:free": "ok",
+        "v/gate:free": "403",
+        "v/busy:free": "429",
+        "v/gone:free": "404",
+        "v/slow:free": "timeout",
     }
     assert by_id["v/ok:free"]["ttft_ms"] == 120 and by_id["v/ok:free"]["total_ms"] == 301
     assert by_id["v/ok:free"]["context_length"] == 8192
@@ -181,8 +223,9 @@ def test_statuses_latency_and_context(tmp_path):
 
 
 def test_probe_cap_applies_per_provider(tmp_path):
-    provider = FakeProvider(models=[f"v/m{i}:free" for i in range(20)],
-                            quota=QuotaInfo(daily_free_limit=1000, daily_free_remaining=1000))
+    provider = FakeProvider(
+        models=[f"v/m{i}:free" for i in range(20)], quota=QuotaInfo(daily_free_limit=1000, daily_free_remaining=1000)
+    )
     code, out = run(tmp_path, [("openrouter", provider)], argv=["--max-probes", "3"])
     assert code == 0
     assert len(provider.probed) == 3
@@ -198,8 +241,9 @@ def test_default_cap_is_15_and_env_overrides(tmp_path, monkeypatch):
 
 
 def test_remaining_quota_and_reserve_limit_probes(tmp_path):
-    provider = FakeProvider(models=[f"v/m{i}:free" for i in range(10)],
-                            quota=QuotaInfo(daily_free_limit=50, daily_free_remaining=12))
+    provider = FakeProvider(
+        models=[f"v/m{i}:free" for i in range(10)], quota=QuotaInfo(daily_free_limit=50, daily_free_remaining=12)
+    )
     code, out = run(tmp_path, [("openrouter", provider)])
     assert code == 0
     assert len(provider.probed) == 2  # 12 remaining - 10 reserve
@@ -209,8 +253,9 @@ def test_remaining_quota_and_reserve_limit_probes(tmp_path):
 def test_account_error_stops_probing(tmp_path):
     provider = FakeProvider(
         models=["v/a:free", "v/b:free", "v/c:free"],
-        outcomes={"v/a:free": {"ok": False, "status_code": 429, "error": "free-models-per-day",
-                               "failure_kind": "account"}},
+        outcomes={
+            "v/a:free": {"ok": False, "status_code": 429, "error": "free-models-per-day", "failure_kind": "account"}
+        },
         quota=QuotaInfo(daily_free_remaining=40),
     )
     code, out = run(tmp_path, [("openrouter", provider)])
@@ -258,7 +303,8 @@ def test_groq_needs_key_and_free_plan():
     providers, skipped = ds.resolve_providers({"OPENROUTER_API_KEY": KEY, "GROQ_API_KEY": "gsk_x" * 4})
     assert [n for n, _ in providers] == ["openrouter"] and "GROQ_PLAN" in skipped["groq"]
     providers, skipped = ds.resolve_providers(
-        {"OPENROUTER_API_KEY": KEY, "GROQ_API_KEY": "gsk_x" * 4, "GROQ_PLAN": "free"})
+        {"OPENROUTER_API_KEY": KEY, "GROQ_API_KEY": "gsk_x" * 4, "GROQ_PLAN": "free"}
+    )
     assert [n for n, _ in providers] == ["openrouter", "groq"] and skipped == {}
 
 
@@ -267,10 +313,15 @@ def test_skipped_and_second_provider_in_snapshot(tmp_path):
     code, out = run(tmp_path, [("openrouter", FakeProvider(models=["v/a:free"])), ("groq", groq)])
     assert code == 0
     assert {m["provider"] for m in load(out)["models"]} == {"openrouter", "groq"}
-    code, out = run(tmp_path, [("openrouter", FakeProvider(models=["v/a:free"]))],
-                    skipped={"groq": "GROQ_API_KEY not set"})
+    code, out = run(
+        tmp_path, [("openrouter", FakeProvider(models=["v/a:free"]))], skipped={"groq": "GROQ_API_KEY not set"}
+    )
     assert load(out)["providers"]["groq"] == {
-        "status": "skipped", "reason": "GROQ_API_KEY not set", "discovered": 0, "probes_sent": 0}
+        "status": "skipped",
+        "reason": "GROQ_API_KEY not set",
+        "discovered": 0,
+        "probes_sent": 0,
+    }
 
 
 # -- files and diff ---------------------------------------------------------
@@ -288,11 +339,14 @@ def test_diff_against_most_recent_earlier_snapshot(tmp_path):
     out = tmp_path / "snapshots"
     out.mkdir()
     old = {"date": "2026-10-20", "models": [{"key": "openrouter|v/old:free", "status": "ok"}]}
-    prev = {"date": "2026-10-21", "models": [
-        {"key": "openrouter|v/gone:free", "status": "ok"},
-        {"key": "openrouter|v/a:free", "status": "429"},
-        {"key": "openrouter|v/b:free", "status": "not_probed"},
-    ]}
+    prev = {
+        "date": "2026-10-21",
+        "models": [
+            {"key": "openrouter|v/gone:free", "status": "ok"},
+            {"key": "openrouter|v/a:free", "status": "429"},
+            {"key": "openrouter|v/b:free", "status": "not_probed"},
+        ],
+    }
     (out / "2026-10-20.json").write_text(json.dumps(old))
     (out / "2026-10-21.json").write_text(json.dumps(prev))
     (out / "2026-10-22.json").write_text(json.dumps({"date": "2026-10-22", "models": []}))  # same-day rerun
@@ -305,7 +359,8 @@ def test_diff_against_most_recent_earlier_snapshot(tmp_path):
     assert diff["removed"] == ["openrouter|v/gone:free"]
     assert diff["status_changed"] == [{"key": "openrouter|v/a:free", "from": "429", "to": "ok"}]
     assert diff["expiring_soon"] == [
-        {"key": "openrouter|v/new:free", "expiration_date": "2026-10-25", "days_until_expiry": 3}]
+        {"key": "openrouter|v/new:free", "expiration_date": "2026-10-25", "days_until_expiry": 3}
+    ]
     md = (out / "latest.md").read_text()
     assert "Compared with 2026-10-21" in md and "`openrouter|v/new:free`: 2026-10-25 (3 days)" in md
     assert "Groq publishes no expiry dates" in md

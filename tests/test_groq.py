@@ -12,10 +12,14 @@ from freemodel_sync.providers.groq import GroqProvider, parse_duration
 MODELS = {
     "object": "list",
     "data": [
-        {"id": "llama-3.3-70b-versatile", "object": "model", "owned_by": "Meta",
-         "active": True, "context_window": 131072},
-        {"id": "openai/gpt-oss-20b", "object": "model", "owned_by": "OpenAI",
-         "active": True, "context_window": 131072},
+        {
+            "id": "llama-3.3-70b-versatile",
+            "object": "model",
+            "owned_by": "Meta",
+            "active": True,
+            "context_window": 131072,
+        },
+        {"id": "openai/gpt-oss-20b", "object": "model", "owned_by": "OpenAI", "active": True, "context_window": 131072},
         {"id": "old-model", "object": "model", "active": False, "context_window": 8192},
         {"id": "whisper-large-v3", "object": "model", "active": True, "context_window": 448},
     ],
@@ -87,8 +91,11 @@ def test_probe_success_uses_max_completion_tokens_and_reads_rpd_headers():
         return httpx.Response(
             200,
             content=sse({"choices": [{"delta": {"content": "OK"}}]}, "[DONE]"),
-            headers={"content-type": "text/event-stream", "x-ratelimit-remaining-requests": "998",
-                     "x-ratelimit-reset-requests": "1m26.4s"},
+            headers={
+                "content-type": "text/event-stream",
+                "x-ratelimit-remaining-requests": "998",
+                "x-ratelimit-reset-requests": "1m26.4s",
+            },
         )
 
     result = groq(handler).test(ModelInfo("groq", "openai/gpt-oss-20b"))
@@ -96,25 +103,42 @@ def test_probe_success_uses_max_completion_tokens_and_reads_rpd_headers():
     assert captured["body"]["max_completion_tokens"] == 16 and "max_tokens" not in captured["body"]
 
 
-@pytest.mark.parametrize("status, kind", [
-    (401, "account"), (403, "account"), (429, "account"),
-    (498, "transient"), (500, "transient"), (503, "transient"),
-    (400, "model"), (404, "model"), (422, "model"),
-])
+@pytest.mark.parametrize(
+    "status, kind",
+    [
+        (401, "account"),
+        (403, "account"),
+        (429, "account"),
+        (498, "transient"),
+        (500, "transient"),
+        (503, "transient"),
+        (400, "model"),
+        (404, "model"),
+        (422, "model"),
+    ],
+)
 def test_error_classification(status, kind):
     def handler(request):
-        return httpx.Response(status, json={"error": {"message": "x", "type": "t"}},
-                              headers={"retry-after": "7"})
+        return httpx.Response(status, json={"error": {"message": "x", "type": "t"}}, headers={"retry-after": "7"})
 
     result = groq(handler).test(ModelInfo("groq", "m"))
     assert result.ok is False and result.failure_kind == kind and result.status_code == status
     assert result.retry_after_s == 7.0
 
 
-@pytest.mark.parametrize("raw, seconds", [
-    ("2", 2.0), ("7.66s", 7.66), ("2m59.56s", 179.56), ("1h2m3s", 3723.0), ("120ms", 0.12),
-    ("", None), (None, None), ("soon", None),
-])
+@pytest.mark.parametrize(
+    "raw, seconds",
+    [
+        ("2", 2.0),
+        ("7.66s", 7.66),
+        ("2m59.56s", 179.56),
+        ("1h2m3s", 3723.0),
+        ("120ms", 0.12),
+        ("", None),
+        (None, None),
+        ("soon", None),
+    ],
+)
 def test_parse_duration(raw, seconds):
     value = parse_duration(raw)
     assert (value is None and seconds is None) or value == pytest.approx(seconds)

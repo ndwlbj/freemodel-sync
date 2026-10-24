@@ -226,9 +226,7 @@ def snapshot_provider(
                 "ttft_ms": round(result.ttft_ms) if result is not None and result.ttft_ms else None,
                 "total_ms": round(result.total_ms) if result is not None and result.total_ms else None,
                 "error": (
-                    redact(result.error, secrets)[:MAX_ERROR_CHARS]
-                    if result is not None and result.error
-                    else None
+                    redact(result.error, secrets)[:MAX_ERROR_CHARS] if result is not None and result.error else None
                 ),
             }
         )
@@ -411,8 +409,14 @@ def build_snapshot(
     rows: List[Dict[str, Any]] = []
     for name, provider in providers:
         info, provider_rows = snapshot_provider(
-            name, provider, today=today, max_probes=max_probes, reserve=reserve,
-            probe=probe, timeout=timeout, secrets=secrets,
+            name,
+            provider,
+            today=today,
+            max_probes=max_probes,
+            reserve=reserve,
+            probe=probe,
+            timeout=timeout,
+            secrets=secrets,
         )
         provider_info[name] = info
         rows.extend(provider_rows)
@@ -474,12 +478,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--out", required=True, type=Path, help="snapshots directory (read for the diff, written)")
     parser.add_argument(
-        "--max-probes", type=_positive_int,
+        "--max-probes",
+        type=_positive_int,
         default=int(os.environ.get("SNAPSHOT_MAX_PROBES") or DEFAULT_MAX_PROBES),
         help=f"probe at most N models per provider (default {DEFAULT_MAX_PROBES}, env SNAPSHOT_MAX_PROBES)",
     )
-    parser.add_argument("--reserve", type=_positive_int, default=DEFAULT_RESERVE,
-                        help=f"free requests to leave untouched (default {DEFAULT_RESERVE})")
+    parser.add_argument(
+        "--reserve",
+        type=_positive_int,
+        default=DEFAULT_RESERVE,
+        help=f"free requests to leave untouched (default {DEFAULT_RESERVE})",
+    )
     parser.add_argument("--no-probe", action="store_true", help="discovery and quota only; send no chat request")
     parser.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT_S, help="seconds per probe")
     parser.add_argument("--expiring-days", type=_positive_int, default=DEFAULT_EXPIRING_DAYS)
@@ -510,10 +519,17 @@ def main(
 
     started = time.monotonic()
     snapshot = build_snapshot(
-        resolved, skipped, today=today, now=now,
+        resolved,
+        skipped,
+        today=today,
+        now=now,
         previous=find_previous(args.out, today),
-        max_probes=args.max_probes, reserve=args.reserve, probe=not args.no_probe,
-        timeout=args.timeout, expiring_days=args.expiring_days, secrets=secrets,
+        max_probes=args.max_probes,
+        reserve=args.reserve,
+        probe=not args.no_probe,
+        timeout=args.timeout,
+        expiring_days=args.expiring_days,
+        secrets=secrets,
     )
     try:
         paths = write_snapshot(args.out, snapshot, secrets)

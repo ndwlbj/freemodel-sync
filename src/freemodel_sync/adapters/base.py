@@ -68,7 +68,7 @@ def list_backups(path: Path, backup_dir: Optional[Path] = None) -> List[Path]:
         return []
     found = [p for p in directory.iterdir() if p.name.startswith(prefix) and p.is_file()]
     # Timestamps in the name sort chronologically; mtime breaks rare ties.
-    return sorted(found, key=lambda p: (p.name[len(prefix):], p.stat().st_mtime))
+    return sorted(found, key=lambda p: (p.name[len(prefix) :], p.stat().st_mtime))
 
 
 def _make_backup(real_path: Path, backup_dir: Optional[Path]) -> Path:
@@ -90,7 +90,7 @@ def _make_backup(real_path: Path, backup_dir: Optional[Path]) -> Path:
     try:
         view = memoryview(data)
         while view:
-            view = view[os.write(fd, view):]
+            view = view[os.write(fd, view) :]
         os.fsync(fd)
     finally:
         os.close(fd)

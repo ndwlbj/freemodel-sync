@@ -57,9 +57,7 @@ def get_provider_class(name: str) -> Type[Provider]:
     try:
         return _REGISTRY[name]
     except KeyError:
-        raise ProviderError(
-            f"unknown provider {name!r}; available: {', '.join(sorted(_REGISTRY)) or 'none'}"
-        ) from None
+        raise ProviderError(f"unknown provider {name!r}; available: {', '.join(sorted(_REGISTRY)) or 'none'}") from None
 
 
 def available_providers() -> List[str]:

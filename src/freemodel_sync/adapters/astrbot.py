@@ -92,9 +92,7 @@ class AstrbotAdapter(Adapter):
 
         providers = data.get("provider")
         if not isinstance(providers, list):
-            raise ValueError(
-                "unrecognized AstrBot config: no top-level 'provider' list in data/cmd_config.json"
-            )
+            raise ValueError("unrecognized AstrBot config: no top-level 'provider' list in data/cmd_config.json")
 
         target: Optional[Dict[str, Any]] = None
         available: List[str] = []

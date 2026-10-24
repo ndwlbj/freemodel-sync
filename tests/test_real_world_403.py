@@ -129,10 +129,12 @@ def test_budget_403_still_stops_probing(tmp_path):
 
 def test_transient_failures_are_labelled_as_such():
     model = ModelInfo("openrouter", "busy:free", context_length=65536)
-    transient = TestResult("openrouter|busy:free", False, error="Provider returned error", status_code=429,
-                           failure_kind="transient")
-    dead = TestResult("openrouter|dead:free", False, error="Provider returned error", status_code=404,
-                      failure_kind="model")
+    transient = TestResult(
+        "openrouter|busy:free", False, error="Provider returned error", status_code=429, failure_kind="transient"
+    )
+    dead = TestResult(
+        "openrouter|dead:free", False, error="Provider returned error", status_code=404, failure_kind="model"
+    )
     assert _status(transient) == "transient"
     assert _status(dead) == "failed"
     score, reasons = score_model(model, transient, RankWeights())

@@ -98,13 +98,19 @@ def test_config_and_per_target_override(tmp_path, monkeypatch):
 
     target = tmp_path / "bot.yml"
     target.write_text("- id: agent-default-model\n  config: {provider: x, model: 'old'}\n")
-    cfg.write_text(yaml.safe_dump({
-        "backups": {"keep": 3},
-        "testing": {"cache_path": str(tmp_path / "cache.json"), "cache_ttl_hours": 0.0001},
-        "state_path": str(tmp_path / "state.json"),
-        "targets": [{"adapter": "dsh", "path": str(target), "options": {"keep_backups": 1}}],
-    }))
+    cfg.write_text(
+        yaml.safe_dump(
+            {
+                "backups": {"keep": 3},
+                "testing": {"cache_path": str(tmp_path / "cache.json"), "cache_ttl_hours": 0.0001},
+                "state_path": str(tmp_path / "state.json"),
+                "targets": [{"adapter": "dsh", "path": str(target), "options": {"keep_backups": 1}}],
+            }
+        )
+    )
     for i in range(3):
-        assert main(["-c", str(cfg), "sync", "--no-notify"],
-                    provider_factory=lambda name, i=i, **kw: Stub(f"m{i}:free")) == 0
+        assert (
+            main(["-c", str(cfg), "sync", "--no-notify"], provider_factory=lambda name, i=i, **kw: Stub(f"m{i}:free"))
+            == 0
+        )
     assert len(list_backups(target)) == 1  # per-target override beats backups.keep=3

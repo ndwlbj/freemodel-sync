@@ -18,17 +18,24 @@ class Stub:
         self.tested = []
 
     def discover(self):
-        return [ModelInfo(self.name, mid, context_length=ctx, supports_tools=tools)
-                for mid, ctx, tools in self._models]
+        return [ModelInfo(self.name, mid, context_length=ctx, supports_tools=tools) for mid, ctx, tools in self._models]
 
     def test(self, model, timeout=30.0):
         self.tested.append(model.id)
         if self.fail:
-            return TestResult(model.key, False, error="rate limited", status_code=429,
-                              failure_kind="account", retry_after_s=600, tested_at=time.time())
+            return TestResult(
+                model.key,
+                False,
+                error="rate limited",
+                status_code=429,
+                failure_kind="account",
+                retry_after_s=600,
+                tested_at=time.time(),
+            )
         ok = model.id in self.ok
-        return TestResult(model.key, ok, ttft_ms=100.0 if ok else None,
-                          error=None if ok else "503", tested_at=time.time())
+        return TestResult(
+            model.key, ok, ttft_ms=100.0 if ok else None, error=None if ok else "503", tested_at=time.time()
+        )
 
     def quota(self):
         return None
@@ -48,14 +55,19 @@ def env(tmp_path, monkeypatch):
 
     def write(providers, targets=None, **extra):
         cfg = tmp_path / "config.yml"
-        cfg.write_text(yaml.safe_dump({
-            "providers": providers,
-            "testing": {"cache_path": str(tmp_path / "cache.json"), "max_tests": 5},
-            "state_path": str(tmp_path / "state.json"),
-            "ranking": {"fallback_count": 2},
-            "targets": targets if targets is not None else [{"adapter": "openai-env", "path": str(target)}],
-            **extra,
-        }, sort_keys=False))
+        cfg.write_text(
+            yaml.safe_dump(
+                {
+                    "providers": providers,
+                    "testing": {"cache_path": str(tmp_path / "cache.json"), "max_tests": 5},
+                    "state_path": str(tmp_path / "state.json"),
+                    "ranking": {"fallback_count": 2},
+                    "targets": targets if targets is not None else [{"adapter": "openai-env", "path": str(target)}],
+                    **extra,
+                },
+                sort_keys=False,
+            )
+        )
         return cfg
 
     def factory(name, api_key=None, **options):
@@ -76,8 +88,10 @@ def test_all_enabled_providers_merge_into_one_ranking(capsys, env, monkeypatch):
     monkeypatch.setenv("GROQ_API_KEY", "fake-gq")
     stubs["openrouter"] = {"models": OR_MODELS, "ok": {"or/small:free", "or/mid:free"}}
     stubs["groq"] = {"models": GQ_MODELS, "ok": {"llama-big", "llama-small"}}
-    cfg = write({"openrouter": {}, "groq": {"plan": "free"}},
-                targets=[{"adapter": "openai-env", "path": str(target), "options": {"providers": ["groq"]}}])
+    cfg = write(
+        {"openrouter": {}, "groq": {"plan": "free"}},
+        targets=[{"adapter": "openai-env", "path": str(target), "options": {"providers": ["groq"]}}],
+    )
 
     assert run(cfg, "rank", "--json") == 0
     payload = json.loads(capsys.readouterr().out)
@@ -106,8 +120,10 @@ def test_account_error_stops_only_that_provider(capsys, env, monkeypatch):
     monkeypatch.setenv("GROQ_API_KEY", "fake-gq")
     stubs["openrouter"] = {"models": OR_MODELS, "ok": {"or/mid:free"}}
     stubs["groq"] = {"models": GQ_MODELS, "fail": True}
-    cfg = write({"groq": {"plan": "free"}, "openrouter": {}},
-                targets=[{"adapter": "openai-env", "path": str(target), "options": {"providers": ["openrouter"]}}])
+    cfg = write(
+        {"groq": {"plan": "free"}, "openrouter": {}},
+        targets=[{"adapter": "openai-env", "path": str(target), "options": {"providers": ["openrouter"]}}],
+    )
     assert run(cfg, "sync", "--no-notify") == 0
     err = capsys.readouterr().err
     assert "groq: account/quota error" in err
@@ -128,18 +144,23 @@ def test_target_providers_restricts_selection(capsys, env, monkeypatch):
     stubs["groq"] = {"models": GQ_MODELS, "ok": {"llama-big"}}
     other = tmp / "other.env"
     other.write_text("")
-    cfg = write({"openrouter": {}, "groq": {"plan": "free"}}, targets=[
-        {"adapter": "openai-env", "path": str(target), "options": {"providers": ["openrouter"]}},
-        {"adapter": "openai-env", "path": str(other), "options": {"providers": ["groq"]}},
-    ])
+    cfg = write(
+        {"openrouter": {}, "groq": {"plan": "free"}},
+        targets=[
+            {"adapter": "openai-env", "path": str(target), "options": {"providers": ["openrouter"]}},
+            {"adapter": "openai-env", "path": str(other), "options": {"providers": ["groq"]}},
+        ],
+    )
     assert run(cfg, "sync", "--no-notify") == 0
     assert "OPENAI_MODEL=or/small:free" in target.read_text()
     assert "OPENAI_MODEL=llama-big" in other.read_text()
     assert "api.groq.com" in other.read_text()
     state = json.loads((tmp / "state.json").read_text())
     assert state["primary"] == "groq|llama-big"
-    assert state["targets"] == {f"openai-env:{target}": "openrouter|or/small:free",
-                                f"openai-env:{other}": "groq|llama-big"}
+    assert state["targets"] == {
+        f"openai-env:{target}": "openrouter|or/small:free",
+        f"openai-env:{other}": "groq|llama-big",
+    }
 
 
 def test_target_with_no_usable_model_fails_without_advancing_state(capsys, env, monkeypatch):
@@ -148,8 +169,10 @@ def test_target_with_no_usable_model_fails_without_advancing_state(capsys, env, 
     monkeypatch.setenv("GROQ_API_KEY", "fake-gq")
     stubs["openrouter"] = {"models": OR_MODELS, "ok": set()}
     stubs["groq"] = {"models": GQ_MODELS, "ok": {"llama-big"}}
-    cfg = write({"openrouter": {}, "groq": {"plan": "free"}},
-                targets=[{"adapter": "openai-env", "path": str(target), "options": {"providers": ["openrouter"]}}])
+    cfg = write(
+        {"openrouter": {}, "groq": {"plan": "free"}},
+        targets=[{"adapter": "openai-env", "path": str(target), "options": {"providers": ["openrouter"]}}],
+    )
     assert run(cfg, "sync", "--no-notify") == 1
     assert "no usable model from its providers openrouter" in capsys.readouterr().err
     assert target.read_text() == "OPENAI_MODEL=old\n"
@@ -190,8 +213,10 @@ def test_one_missing_key_is_skipped_all_missing_is_an_error(capsys, env, monkeyp
     tmp, target, stubs, write, run = env
     stubs["openrouter"] = {"models": OR_MODELS, "ok": {"or/mid:free"}}
     stubs["groq"] = {"models": GQ_MODELS, "ok": {"llama-big"}}
-    cfg = write({"openrouter": {}, "groq": {"plan": "free"}},
-                targets=[{"adapter": "openai-env", "path": str(target), "options": {"providers": ["openrouter"]}}])
+    cfg = write(
+        {"openrouter": {}, "groq": {"plan": "free"}},
+        targets=[{"adapter": "openai-env", "path": str(target), "options": {"providers": ["openrouter"]}}],
+    )
     assert run(cfg, "test") == 1
     assert "no enabled provider has an API key set" in capsys.readouterr().err
     assert stubs["groq"]["instance"].tested == [] and stubs["openrouter"]["instance"].tested == []
@@ -202,13 +227,22 @@ def test_one_missing_key_is_skipped_all_missing_is_an_error(capsys, env, monkeyp
     assert stubs["groq"]["instance"].tested == []
 
 
-@pytest.mark.parametrize("providers, targets, message", [
-    ({"nope": {}}, [], "unknown provider 'nope'"),
-    ({"openrouter": {}}, [{"adapter": "openai-env", "path": "x", "options": {"providers": ["groq"]}}],
-     "not in the providers section: groq"),
-    ({"openrouter": {}}, [{"adapter": "openai-env", "path": "x", "options": {"providers": "openrouter"}}],
-     "non-empty list"),
-])
+@pytest.mark.parametrize(
+    "providers, targets, message",
+    [
+        ({"nope": {}}, [], "unknown provider 'nope'"),
+        (
+            {"openrouter": {}},
+            [{"adapter": "openai-env", "path": "x", "options": {"providers": ["groq"]}}],
+            "not in the providers section: groq",
+        ),
+        (
+            {"openrouter": {}},
+            [{"adapter": "openai-env", "path": "x", "options": {"providers": "openrouter"}}],
+            "non-empty list",
+        ),
+    ],
+)
 def test_provider_config_errors(tmp_path, providers, targets, message):
     cfg = tmp_path / "c.yml"
     cfg.write_text(yaml.safe_dump({"providers": providers, "targets": targets}))
@@ -218,12 +252,17 @@ def test_provider_config_errors(tmp_path, providers, targets, message):
 
 def test_warns_when_target_could_switch_provider(tmp_path, caplog):
     cfg = tmp_path / "c.yml"
-    cfg.write_text(yaml.safe_dump({
-        "providers": {"openrouter": {}, "groq": {"plan": "free"}},
-        "targets": [{"adapter": "openai-env", "path": str(tmp_path / "a.env")},
-                    {"adapter": "openai-env", "path": str(tmp_path / "b.env"),
-                     "options": {"providers": ["groq"]}}],
-    }))
+    cfg.write_text(
+        yaml.safe_dump(
+            {
+                "providers": {"openrouter": {}, "groq": {"plan": "free"}},
+                "targets": [
+                    {"adapter": "openai-env", "path": str(tmp_path / "a.env")},
+                    {"adapter": "openai-env", "path": str(tmp_path / "b.env"), "options": {"providers": ["groq"]}},
+                ],
+            }
+        )
+    )
     with caplog.at_level("WARNING"):
         load_config(cfg)
     assert caplog.text.count("has no options.providers") == 1 and "a.env" in caplog.text

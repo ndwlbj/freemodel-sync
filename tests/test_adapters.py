@@ -136,8 +136,10 @@ def test_dsh_adapter_entry_name_and_preserved_config_keys(tmp_path, selection):
     assert text.startswith("# mine\n- id: agent-default-model\n  name: '@deepseek-ai/dsh-agent-default-model'\n")
     entries = yaml.safe_load(text)
     assert entries[0]["config"] == {
-        "provider": "openrouter", "model": "vendor/a:free",
-        "reasoningEffort": "high", "extra": {"a": [1, 2]},
+        "provider": "openrouter",
+        "model": "vendor/a:free",
+        "reasoningEffort": "high",
+        "extra": {"a": [1, 2]},
     }
     assert entries[1] == {"id": "other", "config": {"k": "v"}}
 
@@ -207,9 +209,9 @@ def test_dsh_adapter_check_model_can_be_disabled(tmp_path):
     p.write_text(DSH_WITH_PROVIDERS)
     sel = make_selection(primary="vendor/missing:free")
     for off in (False, "false"):
-        get_adapter_class("dsh")(
-            str(p), provider_map={"openrouter": "my-openrouter"}, check_model=off
-        ).apply(sel, backup=False)
+        get_adapter_class("dsh")(str(p), provider_map={"openrouter": "my-openrouter"}, check_model=off).apply(
+            sel, backup=False
+        )
         assert yaml.safe_load(p.read_text())[1]["config"]["model"] == "vendor/missing:free"
         p.write_text(DSH_WITH_PROVIDERS)
 
@@ -272,8 +274,10 @@ def test_astrbot_unchanged_file_is_not_reformatted(tmp_path):
 @pytest.mark.parametrize(
     "mutate, match",
     [
-        (lambda d: d["provider"][0].pop("provider_source_id") and d["provider"][0].pop("model"),
-         "unrecognized AstrBot provider structure"),
+        (
+            lambda d: d["provider"][0].pop("provider_source_id") and d["provider"][0].pop("model"),
+            "unrecognized AstrBot provider structure",
+        ),
         (lambda d: d["provider"][0].update(provider_source_id="missing_source"), "not in 'provider_sources'"),
         (lambda d: d.pop("provider_sources"), "no 'provider_sources' list"),
         (lambda d: d.pop("provider"), "no top-level 'provider' list"),

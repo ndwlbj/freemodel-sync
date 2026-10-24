@@ -86,8 +86,9 @@ def test_scoring_and_selection():
     slow = ModelInfo("p", "slow:free", context_length=131072)
     broken = ModelInfo("p", "broken:free", context_length=1_000_000, supports_tools=True)
     untested = ModelInfo("p", "untested:free", context_length=32768)
-    expiring = ModelInfo("p", "expiring:free", context_length=131072, supports_tools=True,
-                         expiration_date=date(2026, 10, 6))
+    expiring = ModelInfo(
+        "p", "expiring:free", context_length=131072, supports_tools=True, expiration_date=date(2026, 10, 6)
+    )
     results = {
         fast.key: TestResult(fast.key, True, ttft_ms=300),
         slow.key: TestResult(slow.key, True, ttft_ms=8000),
@@ -153,4 +154,3 @@ def test_default_config_enables_non_chat_filter(tmp_path, monkeypatch):
 
     monkeypatch.setenv("FREEMODEL_SYNC_CONFIG", str(tmp_path / "none.yml"))
     assert load_config().filters.exclude_non_chat is True
-

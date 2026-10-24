@@ -286,9 +286,7 @@ class OpenRouterProvider(Provider):
         rl_remaining: Optional[int] = None
 
         try:
-            with self._get_client().stream(
-                "POST", url, headers=headers, json=payload, timeout=timeout
-            ) as response:
+            with self._get_client().stream("POST", url, headers=headers, json=payload, timeout=timeout) as response:
                 status_code = response.status_code
                 retry_after_s, rl_remaining = self._rate_limit_hints(response.headers)
                 if status_code != 200:
@@ -362,11 +360,7 @@ class OpenRouterProvider(Provider):
             failure_kind = "transient"
 
         total_ms = (time.perf_counter() - start) * 1000.0
-        ok = (
-            status_code == 200
-            and error is None
-            and (token_seen or done_after_finish)
-        )
+        ok = status_code == 200 and error is None and (token_seen or done_after_finish)
         if not ok and failure_kind is None:
             failure_kind = "model"
             if error is None:

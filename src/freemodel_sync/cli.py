@@ -233,8 +233,12 @@ def _probe_all(
             continue
         try:
             run, quota = _probe(
-                config, name, provider, models,
-                max_tests=max_tests, no_probe=no_probe,
+                config,
+                name,
+                provider,
+                models,
+                max_tests=max_tests,
+                no_probe=no_probe,
                 cache_path=_cache_path(config, name, first=name == first_name),
                 quiet=len(providers) > 1,
             )
@@ -308,8 +312,9 @@ def _probe(
     cache = ResultCache(cache_file).load()
     daily_budget: Optional[int] = None
     remaining: Optional[int] = None
-    override = config.providers[provider_name].options.get("daily_free_limit") \
-        if provider_name in config.providers else None
+    override = (
+        config.providers[provider_name].options.get("daily_free_limit") if provider_name in config.providers else None
+    )
     if override is None:
         override = config.testing.daily_free_limit
     if override is not None:
@@ -400,9 +405,7 @@ def _print_table(headers: Sequence[str], rows: Sequence[Sequence[Any]]) -> None:
 def _fallback_list(selection: Selection) -> str:
     """Comma-separated fallbacks; untested ones are flagged."""
 
-    parts = [
-        f"{f.model.id} (untested)" if f.test is None else f.model.id for f in selection.fallbacks
-    ]
+    parts = [f"{f.model.id} (untested)" if f.test is None else f.model.id for f in selection.fallbacks]
     return ", ".join(parts) or "none"
 
 
@@ -559,10 +562,7 @@ def _cmd_rank(args: argparse.Namespace, config: Config, providers: Providers) ->
                 line += "; data may lag)"
             print(line)
     if selection is not None:
-        print(
-            f"selection: {selection.primary.model.key} "
-            f"(fallbacks: {_fallback_list(selection)})"
-        )
+        print(f"selection: {selection.primary.model.key} (fallbacks: {_fallback_list(selection)})")
     else:
         print("selection: none (no working model)")
     if output:
@@ -663,9 +663,7 @@ def _cmd_sync(args: argparse.Namespace, config: Config, providers: Providers) ->
             print(f"error: {target.adapter} ({target.path}): {exc}", file=sys.stderr)
             continue
         succeeded[f"{target.adapter}:{target.path}"] = target_selection.primary.model.key
-        action = "would update" if args.dry_run and result.changed else (
-            "updated" if result.written else "unchanged"
-        )
+        action = "would update" if args.dry_run and result.changed else ("updated" if result.written else "unchanged")
         print(f"{target.adapter}: {action} {result.path}")
         if args.dry_run and result.diff:
             print(result.diff)
@@ -681,8 +679,7 @@ def _cmd_sync(args: argparse.Namespace, config: Config, providers: Providers) ->
         # not fully happen: the next run retries and notifies once all
         # targets are written.
         print(
-            f"error: {len(failed_targets)} target(s) failed; state not advanced, "
-            "no notification sent",
+            f"error: {len(failed_targets)} target(s) failed; state not advanced, no notification sent",
             file=sys.stderr,
         )
         if not args.dry_run and succeeded:
@@ -792,20 +789,14 @@ def build_parser() -> argparse.ArgumentParser:
             "fallbacks into the configs of tools you already use."
         ),
     )
-    parser.add_argument(
-        "-c", "--config", metavar="CONFIG", help="path to the YAML config file"
-    )
-    parser.add_argument(
-        "-v", "--verbose", action="store_true", help="enable verbose logging"
-    )
+    parser.add_argument("-c", "--config", metavar="CONFIG", help="path to the YAML config file")
+    parser.add_argument("-v", "--verbose", action="store_true", help="enable verbose logging")
     parser.add_argument(
         "--debug-http",
         action="store_true",
         help="also log HTTP requests (secrets in URLs are redacted)",
     )
-    parser.add_argument(
-        "--version", action="version", version=f"%(prog)s {__version__}"
-    )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
 
     subparsers = parser.add_subparsers(dest="command", metavar="COMMAND")
 
@@ -818,9 +809,7 @@ def build_parser() -> argparse.ArgumentParser:
     rank_parser = subparsers.add_parser("rank", help="rank models and show the selection")
     rank_parser.add_argument("--json", action="store_true", help="print JSON")
     rank_parser.add_argument("--output", metavar="FILE", help="write the ranking JSON to FILE")
-    rank_parser.add_argument(
-        "--no-probe", action="store_true", help="use cached probe results only; send no requests"
-    )
+    rank_parser.add_argument("--no-probe", action="store_true", help="use cached probe results only; send no requests")
 
     sync = subparsers.add_parser("sync", help="write the selection into all targets")
     sync.add_argument(
@@ -828,9 +817,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="show diffs only: no target/state/cache writes, no probes (uses cached results)",
     )
-    sync.add_argument(
-        "--no-probe", action="store_true", help="use cached probe results only; send no requests"
-    )
+    sync.add_argument("--no-probe", action="store_true", help="use cached probe results only; send no requests")
     sync.add_argument(
         "--probe", action="store_true", help="with --dry-run: probe as usual (spends quota, updates cache)"
     )

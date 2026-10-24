@@ -63,8 +63,13 @@ def check(
     anomalies: List[str] = []
     data = payload.get("data") if isinstance(payload, dict) else None
     if not isinstance(data, list):
-        return {"total": 0, "free": 0, "missing": {}, "expiring": [],
-                "anomalies": ["response has no `data` list (schema change?)"]}
+        return {
+            "total": 0,
+            "free": 0,
+            "missing": {},
+            "expiring": [],
+            "anomalies": ["response has no `data` list (schema change?)"],
+        }
     models = [m for m in data if isinstance(m, dict)]
     missing = {f: sum(1 for m in models if _get(m, f) is None) for f in KEY_FIELDS}
     for field, count in missing.items():
@@ -77,11 +82,9 @@ def check(
     for model in free:
         expires = _parse_expiration_date(model.get("expiration_date"))
         if expires is not None and (expires - today).days <= expiring_days:
-            expiring.append({"id": model.get("id"), "expires": expires.isoformat(),
-                             "days": (expires - today).days})
+            expiring.append({"id": model.get("id"), "expires": expires.isoformat(), "days": (expires - today).days})
     expiring.sort(key=lambda item: (item["days"], str(item["id"])))
-    return {"total": len(models), "free": len(free), "missing": missing,
-            "expiring": expiring, "anomalies": anomalies}
+    return {"total": len(models), "free": len(free), "missing": missing, "expiring": expiring, "anomalies": anomalies}
 
 
 def render(report: Dict[str, Any], expiring_days: int = 14) -> str:
@@ -120,14 +123,16 @@ def sync_issue(report: Dict[str, Any], body: str, *, repo: str, token: str, http
 
     api = f"https://api.github.com/repos/{repo}"
     open_issues = http("GET", f"{api}/issues?state=open&per_page=100", token) or []
-    existing = next(
-        (i for i in open_issues if i.get("title") == ISSUE_TITLE and "pull_request" not in i), None
-    )
+    existing = next((i for i in open_issues if i.get("title") == ISSUE_TITLE and "pull_request" not in i), None)
     if not report["anomalies"]:
         if existing is None:
             return "none"
-        http("POST", f"{api}/issues/{existing['number']}/comments", token,
-             {"body": "The catalog check passes again; closing.\n\n" + body})
+        http(
+            "POST",
+            f"{api}/issues/{existing['number']}/comments",
+            token,
+            {"body": "The catalog check passes again; closing.\n\n" + body},
+        )
         http("PATCH", f"{api}/issues/{existing['number']}", token, {"state": "closed"})
         return "closed"
 
@@ -156,8 +161,13 @@ def main(argv: Optional[List[str]] = None, *, http: Fetch = _http) -> int:
         payload = http("GET", args.url)
     except (urllib.error.URLError, OSError, ValueError) as exc:
         payload = None
-        report = {"total": 0, "free": 0, "missing": {}, "expiring": [],
-                  "anomalies": [f"could not fetch the model list: {type(exc).__name__}"]}
+        report = {
+            "total": 0,
+            "free": 0,
+            "missing": {},
+            "expiring": [],
+            "anomalies": [f"could not fetch the model list: {type(exc).__name__}"],
+        }
     else:
         report = check(payload, expiring_days=args.expiring_days, min_free=args.min_free)
 

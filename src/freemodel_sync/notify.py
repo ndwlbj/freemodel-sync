@@ -39,10 +39,7 @@ def build_message(old_key: Optional[str], selection: Selection) -> str:
 
     old = old_key or "none"
     fallbacks = ", ".join(_fallback_ids(selection))
-    return (
-        f"freemodel-sync: primary model changed: {old} -> {_new_key(selection)}; "
-        f"fallbacks: {fallbacks}"
-    )
+    return f"freemodel-sync: primary model changed: {old} -> {_new_key(selection)}; fallbacks: {fallbacks}"
 
 
 def _hostname(url: str) -> str:

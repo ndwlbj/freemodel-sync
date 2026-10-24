@@ -96,9 +96,7 @@ class ResultCache:
 
         if self.path is None:
             raise ValueError("ResultCache has no path; call load(path) first")
-        payload: Dict[str, Any] = {
-            key: result.to_dict() for key, result in self._results.items()
-        }
+        payload: Dict[str, Any] = {key: result.to_dict() for key, result in self._results.items()}
         payload["daily"] = {"date": self._today(), "count": self.requests_today()}
         if self.blocked_until > time.time():
             payload["blocked_until"] = self.blocked_until
@@ -106,9 +104,7 @@ class ResultCache:
         atomic_write_text(self.path, json.dumps(payload, indent=2, sort_keys=True) + "\n")
 
     # -- result access ---------------------------------------------------
-    def get(
-        self, key: str, max_age_s: float, transient_max_age_s: Optional[float] = None
-    ) -> Optional[TestResult]:
+    def get(self, key: str, max_age_s: float, transient_max_age_s: Optional[float] = None) -> Optional[TestResult]:
         """Return a fresh cached result for ``key`` (marked ``cached=True``).
 
         Transient failures (upstream 429, 5xx, timeouts) expire after
@@ -229,9 +225,9 @@ def run_tests(
     blocked = cache.blocked_until > time.time()
     if blocked:
         run.rate_limited = True
-        run.stop_reason = "rate limited until " + datetime.fromtimestamp(
-            cache.blocked_until, timezone.utc
-        ).strftime("%Y-%m-%d %H:%M UTC")
+        run.stop_reason = "rate limited until " + datetime.fromtimestamp(cache.blocked_until, timezone.utc).strftime(
+            "%Y-%m-%d %H:%M UTC"
+        )
 
     for model in models:
         cached = cache.get(model.key, cache_ttl_s, transient_ttl_s)

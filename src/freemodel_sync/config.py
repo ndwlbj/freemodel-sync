@@ -230,9 +230,7 @@ class Config(_Section):
     """Fully resolved configuration (defaults + user file)."""
 
     providers: Dict[str, ProviderConfig] = field(
-        default_factory=lambda: {
-            "openrouter": ProviderConfig(enabled=True, api_key_env="OPENROUTER_API_KEY")
-        }
+        default_factory=lambda: {"openrouter": ProviderConfig(enabled=True, api_key_env="OPENROUTER_API_KEY")}
     )
     filters: FilterConfig = field(default_factory=FilterConfig)
     testing: TestingConfig = field(default_factory=TestingConfig)
@@ -245,9 +243,7 @@ class Config(_Section):
 
     def __post_init__(self) -> None:
         self.providers = {
-            str(name): value
-            if isinstance(value, ProviderConfig)
-            else ProviderConfig(**dict(value))
+            str(name): value if isinstance(value, ProviderConfig) else ProviderConfig(**dict(value))
             for name, value in self.providers.items()
         }
         if not isinstance(self.filters, FilterConfig):
@@ -271,10 +267,7 @@ class Config(_Section):
             self.notify = NotifyConfig(**dict(self.notify))
         self.state_path = _expand_path(self.state_path)
         self.targets = [
-            target
-            if isinstance(target, TargetConfig)
-            else TargetConfig(**dict(target))
-            for target in self.targets
+            target if isinstance(target, TargetConfig) else TargetConfig(**dict(target)) for target in self.targets
         ]
 
     def enabled_providers(self) -> List[str]:
@@ -357,9 +350,7 @@ def _parse_providers(raw: Any) -> Dict[str, ProviderConfig]:
     for name, value in mapping.items():
         where = f"providers.{name}"
         if str(name) not in known:
-            raise ConfigError(
-                f"{where}: unknown provider {name!r}; available: {', '.join(sorted(known))}"
-            )
+            raise ConfigError(f"{where}: unknown provider {name!r}; available: {', '.join(sorted(known))}")
         section = _require_mapping(value if value is not None else {}, where)
         enabled = _require_bool(section.get("enabled", True), f"{where}.enabled")
         # Default to the provider's own variable: never send one provider's key to another.
@@ -368,14 +359,8 @@ def _parse_providers(raw: Any) -> Dict[str, ProviderConfig]:
             api_key_env = ""
         elif not isinstance(api_key_env, str):
             raise ConfigError(f"{where}.api_key_env must be a string or null")
-        extra = {
-            key: item
-            for key, item in section.items()
-            if key not in {"enabled", "api_key_env"}
-        }
-        providers[str(name)] = ProviderConfig(
-            enabled=enabled, api_key_env=api_key_env, options=extra
-        )
+        extra = {key: item for key, item in section.items() if key not in {"enabled", "api_key_env"}}
+        providers[str(name)] = ProviderConfig(enabled=enabled, api_key_env=api_key_env, options=extra)
     return providers
 
 
@@ -384,20 +369,14 @@ def _parse_filters(raw: Any) -> FilterConfig:
     min_context = _require_int(section.get("min_context", 0), "filters.min_context", minimum=0)
     expiring = section.get("exclude_expiring_within_days", 3)
     if expiring is not None:
-        expiring = _require_int(
-            expiring, "filters.exclude_expiring_within_days", minimum=0
-        )
+        expiring = _require_int(expiring, "filters.exclude_expiring_within_days", minimum=0)
     return FilterConfig(
-        require_tools=_require_bool(
-            section.get("require_tools", False), "filters.require_tools"
-        ),
+        require_tools=_require_bool(section.get("require_tools", False), "filters.require_tools"),
         min_context=min_context,
         exclude_expiring_within_days=expiring,
         include=_optional_str_list(section.get("include", []), "filters.include"),
         exclude=_optional_str_list(section.get("exclude", []), "filters.exclude"),
-        exclude_non_chat=_require_bool(
-            section.get("exclude_non_chat", True), "filters.exclude_non_chat"
-        ),
+        exclude_non_chat=_require_bool(section.get("exclude_non_chat", True), "filters.exclude_non_chat"),
     )
 
 
@@ -407,18 +386,12 @@ def _parse_testing(raw: Any) -> TestingConfig:
     cache_path = _require_str(cache_path, "testing.cache_path")
     return TestingConfig(
         max_tests=_require_int(section.get("max_tests", 5), "testing.max_tests", minimum=0),
-        cache_ttl_hours=_require_number(
-            section.get("cache_ttl_hours", 6), "testing.cache_ttl_hours", positive=True
-        ),
+        cache_ttl_hours=_require_number(section.get("cache_ttl_hours", 6), "testing.cache_ttl_hours", positive=True),
         transient_ttl_minutes=_require_number(
             section.get("transient_ttl_minutes", 30), "testing.transient_ttl_minutes", positive=True
         ),
-        timeout_s=_require_number(
-            section.get("timeout_s", 30), "testing.timeout_s", positive=True
-        ),
-        reserve_requests=_require_int(
-            section.get("reserve_requests", 10), "testing.reserve_requests", minimum=0
-        ),
+        timeout_s=_require_number(section.get("timeout_s", 30), "testing.timeout_s", positive=True),
+        reserve_requests=_require_int(section.get("reserve_requests", 10), "testing.reserve_requests", minimum=0),
         daily_free_limit=(
             None
             if section.get("daily_free_limit") is None
@@ -434,14 +407,10 @@ def _parse_ranking(raw: Any) -> RankingConfig:
     weight_values: Dict[str, float] = {}
     for name in RankWeights.__dataclass_fields__:  # type: ignore[attr-defined]
         default = getattr(RankWeights(), name)
-        weight_values[name] = _require_number(
-            weights_raw.get(name, default), f"ranking.weights.{name}"
-        )
+        weight_values[name] = _require_number(weights_raw.get(name, default), f"ranking.weights.{name}")
     return RankingConfig(
         weights=RankWeights(**weight_values),
-        fallback_count=_require_int(
-            section.get("fallback_count", 3), "ranking.fallback_count", minimum=0
-        ),
+        fallback_count=_require_int(section.get("fallback_count", 3), "ranking.fallback_count", minimum=0),
         fallbacks_allow_untested=_require_bool(
             section.get("fallbacks_allow_untested", False), "ranking.fallbacks_allow_untested"
         ),
@@ -464,8 +433,7 @@ def _parse_targets(raw: Any) -> List[TargetConfig]:
         adapter = _require_str(section.get("adapter"), f"{where}.adapter")
         if adapter not in known:
             raise ConfigError(
-                f"{where}.adapter: unknown adapter {adapter!r}; "
-                f"available: {', '.join(sorted(known)) or 'none'}"
+                f"{where}.adapter: unknown adapter {adapter!r}; available: {', '.join(sorted(known)) or 'none'}"
             )
         path = _require_str(section.get("path"), f"{where}.path")
         options = _require_mapping(section.get("options") or {}, f"{where}.options")
@@ -477,9 +445,7 @@ def _parse_targets(raw: Any) -> List[TargetConfig]:
                 or not all(isinstance(item, str) and item for item in allowed)
             ):
                 raise ConfigError(f"{where}.options.providers must be a non-empty list of provider names")
-        targets.append(
-            TargetConfig(adapter=adapter, path=_expand_path(path), options=dict(options))
-        )
+        targets.append(TargetConfig(adapter=adapter, path=_expand_path(path), options=dict(options)))
     return targets
 
 
@@ -533,10 +499,7 @@ def load_config(
         if loaded is None:
             loaded = {}
         if not isinstance(loaded, Mapping):
-            raise ConfigError(
-                f"{config_path} must contain a mapping at the top level, "
-                f"got {type(loaded).__name__}"
-            )
+            raise ConfigError(f"{config_path} must contain a mapping at the top level, got {type(loaded).__name__}")
         data = dict(loaded)
     elif explicit:
         raise ConfigError(f"config file not found: {config_path}")
@@ -612,8 +575,7 @@ def _warn_inline_secrets(config_path: Path, notify: NotifyConfig) -> None:
         return
     if os.name == "posix" and mode & 0o077:
         LOG.warning(
-            "config file %s is readable by other users (mode %s) and contains a webhook "
-            "URL; run: chmod 600 %s",
+            "config file %s is readable by other users (mode %s) and contains a webhook URL; run: chmod 600 %s",
             config_path,
             oct(mode),
             config_path,

@@ -163,9 +163,7 @@ class OpenAIEnvAdapter(Adapter):
         if missing:
             if text and not text.endswith(("\n", "\r")):
                 text += newline
-            has_header = any(
-                _split_ending(line)[0].strip() == MANAGED_HEADER for line in rendered
-            )
+            has_header = any(_split_ending(line)[0].strip() == MANAGED_HEADER for line in rendered)
             if not has_header:
                 text += MANAGED_HEADER + newline
             for name, value in missing:

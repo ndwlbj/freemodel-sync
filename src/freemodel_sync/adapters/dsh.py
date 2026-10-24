@@ -246,9 +246,7 @@ class DshAdapter(Adapter):
                     "was written. Add the model to that provider, map to another provider with "
                     "provider_map/provider_name, or set check_model: false"
                 )
-        existing = next(
-            (e for e in entries if isinstance(e, dict) and str(e.get("id")) == entry_id), None
-        )
+        existing = next((e for e in entries if isinstance(e, dict) and str(e.get("id")) == entry_id), None)
         name = self.options.get("entry_name") or (existing or {}).get("name")
         old_config = (existing or {}).get("config")
         extra = (
