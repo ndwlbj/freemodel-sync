@@ -118,7 +118,7 @@ targets:
 
 ## 每日免费模型快照
 
-一个自动化的每日健康检查（[`daily-snapshot.yml`](https://github.com/ndwlbj/freemodel-sync/blob/main/.github/workflows/daily-snapshot.yml)，UTC 01:00）会发现免费模型，
+一个自动化的每日健康检查（[`daily-snapshot.yml`](https://github.com/ndwlbj/freemodel-sync/blob/main/.github/workflows/daily-snapshot.yml)，约北京时间 9:17 / UTC 01:17）会发现免费模型，
 每个 provider 最多探测 15 个（每个一次极小请求，不超出账号的免费额度），结果发布到 `data` 分支：
 **[最新快照](https://github.com/ndwlbj/freemodel-sync/blob/data/snapshots/latest.md)**，每天的记录保存为 `snapshots/YYYY-MM-DD.json`。表中列出每个模型的状态
 （`ok`、`403`、`404`、`429`、`timeout` 等）、延迟和上下文长度，以及与前一天相比的变化和即将过期的模型。

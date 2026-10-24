@@ -326,7 +326,7 @@ def test_workflow_is_minimal_and_safe():
     text = path.read_text()
     data = yaml.safe_load(text)
     triggers = data[True]  # YAML 1.1 reads the bare key `on` as True
-    assert triggers["schedule"] == [{"cron": "0 1 * * *"}]
+    assert triggers["schedule"] == [{"cron": "17 1 * * *"}]
     assert "workflow_dispatch" in triggers
     assert data["permissions"] == {"contents": "write"}
     assert data["concurrency"]["cancel-in-progress"] is False

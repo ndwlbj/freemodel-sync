@@ -171,7 +171,7 @@ Notification failures are logged (without tokens or full URLs) and never fail a 
 
 ## Daily free-model snapshot
 
-An automated daily health check ([`daily-snapshot.yml`](https://github.com/ndwlbj/freemodel-sync/blob/main/.github/workflows/daily-snapshot.yml), 01:00 UTC)
+An automated daily health check ([`daily-snapshot.yml`](https://github.com/ndwlbj/freemodel-sync/blob/main/.github/workflows/daily-snapshot.yml), about 09:17 Asia/Shanghai / 01:17 UTC)
 discovers the free models, probes at most 15 of them per provider with one tiny request each
 (within the account's free-request quota), and publishes the result to the `data` branch:
 **[latest snapshot](https://github.com/ndwlbj/freemodel-sync/blob/data/snapshots/latest.md)**, with every day kept as `snapshots/YYYY-MM-DD.json`. The table shows

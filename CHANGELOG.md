@@ -6,6 +6,11 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Daily free-model snapshot cron moved from `0 1 * * *` (01:00 UTC) to `17 1 * * *` (01:17 UTC)
+  to avoid the usual GitHub Actions on-the-hour queue.
+
 ## [0.3.1] - 2026-10-23
 
 ### Added
