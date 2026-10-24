@@ -36,13 +36,19 @@ discover ──► filter ──► probe (tiny, cached, budgeted) ──► ran
    `free_model_daily_requests.remaining` in `GET /api/v1/key` (UTC day; per OpenRouter's documentation at the time of writing, 50/day below 10
    purchased credits and 1000/day above). If the key endpoint reports nothing, a conservative
    50/day is assumed against a local UTC-day counter.
-   - **Account problems are not model failures.** A 401/402/403 or an OpenRouter platform 429
-     (free-model per-minute/per-day cap) stops the round after that single request; the model is
-     *not* cached as failed, and `Retry-After` / `X-RateLimit-Reset` pause later runs until the
-     reset. Upstream-provider 429s, 5xx and timeouts count as transient failures and are retried
-     after `transient_ttl_minutes` (30 by default). So do errors that arrive inside the stream after
-     HTTP 200, such as a mid-stream rate limit ("temporarily rate-limited upstream"): probing goes on
-     with the next model.
+   - **Account problems are not model failures.** A 401, a 402, an OpenRouter platform 429
+     (free-model per-minute/per-day cap) or a 403 about the account (key permissions, guardrails,
+     budget limits, or a bare 403 with no details) stops the round after that single request; the
+     model is *not* cached as failed, and `Retry-After` / `X-RateLimit-Reset` pause later runs until
+     the reset. A 403 whose error metadata points at the model itself (routing or moderation details,
+     e.g. a free endpoint that refuses this kind of client, or flagged input) is a failure of that
+     model only: it is cached as failed and probing goes on with the next model. Upstream-provider
+     429s, 408, 5xx and timeouts count as transient failures and are retried after
+     `transient_ttl_minutes` (30 by default). So do errors that arrive inside the stream after HTTP
+     200, such as a mid-stream rate limit ("temporarily rate-limited upstream"): probing goes on with
+     the next model; only an explicit 401/402 or account-level 403 in the stream still stops the
+     round. Other errors (e.g. 400/404 "no endpoints") are model failures. On Groq, every 401, 403
+     and 429 is treated as an account problem.
    - Without an API key, `test`, `rank` and `sync` exit with an error and send nothing.
 4. **Rank** with an explainable score (availability ≫ latency, context, tools, expiry).
    Fallbacks are models that passed their probe; untested models are used only if you set

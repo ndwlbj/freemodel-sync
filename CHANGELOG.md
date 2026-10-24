@@ -31,6 +31,12 @@ All notable changes to this project are documented here. The format follows
   Platform limits are enforced before the stream starts, so pre-stream classification is unchanged
   (a platform `429`, `401`, `402` and account-level `403` still stop probing); in the stream only an
   explicit `401`/`402` or account-level `403` code still does. Applies to Groq as well.
+- README (English and Chinese): the probing notes no longer say every 403 stops the round. A 403
+  with model-specific metadata (routing/moderation details) is a failure of that model and probing
+  continues; other 403s are account problems and stop the round, as the code already did. The same
+  paragraph now also lists 408 as transient, says that in the stream only an explicit `401`/`402` or
+  account-level `403` stops probing, that other errors such as 400/404 are model failures, and that
+  Groq treats every 401/403/429 as an account problem.
 
 ### Changed
 
