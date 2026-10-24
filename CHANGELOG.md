@@ -40,6 +40,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- Code formatted with `ruff format` (formatting only, no logic changes). CI now also runs
+  `ruff format --check src tests scripts`, and ruff is pinned to `0.17.2` both in CI and in the
+  `dev` extra (was `ruff>=0.4`), so a new ruff release cannot break CI on its own. The development
+  commands in README, README.zh-CN and CONTRIBUTING include `scripts` and the format check.
 - README (English and Chinese): the daily snapshot section is now **Daily health check**, with
   the schedule (01:17 UTC, about 09:17 Beijing time; GitHub may start it late), the 15-models-per-
   provider probe cap, the Groq condition and links to the public `data` branch snapshots.

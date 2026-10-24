@@ -229,7 +229,8 @@ Possible future providers (not implemented, no timeline): Zhipu GLM Flash, Googl
 
 ```bash
 python -m pip install -e ".[dev]"
-ruff check src tests
+ruff check src tests scripts
+ruff format --check src tests scripts
 pytest
 ```
 

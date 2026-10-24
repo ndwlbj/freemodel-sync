@@ -32,9 +32,13 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           # with the optional ruamel.yaml extra; the minimum-deps job covers the PyYAML-only path
-          python -m pip install -e ".[dev,yaml-comments]"
+          # ruff is pinned (same pin as the dev extra in pyproject.toml) so format/lint results do not
+          # change when a new ruff release comes out; bump both together
+          python -m pip install -e ".[dev,yaml-comments]" "ruff==0.17.2"
       - name: Lint
         run: ruff check src tests scripts
+      - name: Format check
+        run: ruff format --check src tests scripts
       - name: Test
         run: pytest --cov=freemodel_sync --cov-report=term-missing --cov-fail-under=80
       - name: CLI smoke test

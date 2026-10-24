@@ -36,7 +36,7 @@ dependencies = [
 
 [project.optional-dependencies]
 yaml-comments = ["ruamel.yaml>=0.17.22"]
-dev = ["pytest>=7", "pytest-cov>=4", "ruff>=0.4"]
+dev = ["pytest>=7", "pytest-cov>=4", "ruff==0.17.2"]
 
 [project.scripts]
 freemodel-sync = "freemodel_sync.cli:main"

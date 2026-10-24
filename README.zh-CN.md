@@ -158,7 +158,8 @@ class MyProvider(Provider):
 
 ```bash
 python -m pip install -e ".[dev]"
-ruff check src tests
+ruff check src tests scripts
+ruff format --check src tests scripts
 pytest
 ```
 

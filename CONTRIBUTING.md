@@ -9,7 +9,8 @@ git clone https://github.com/ndwlbj/freemodel-sync
 cd freemodel-sync
 python -m venv .venv && . .venv/bin/activate
 python -m pip install -e ".[dev]"
-ruff check src tests
+ruff check src tests scripts
+ruff format --check src tests scripts
 pytest
 ```
 
