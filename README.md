@@ -172,16 +172,29 @@ Example `dsh` result:
 
 Notification failures are logged (without tokens or full URLs) and never fail a sync.
 
-## Daily free-model snapshot
+## Daily health check
 
-An automated daily health check ([`daily-snapshot.yml`](https://github.com/ndwlbj/freemodel-sync/blob/main/.github/workflows/daily-snapshot.yml), about 09:17 Asia/Shanghai / 01:17 UTC)
-discovers the free models, probes at most 15 of them per provider with one tiny request each
-(within the account's free-request quota), and publishes the result to the `data` branch:
-**[latest snapshot](https://github.com/ndwlbj/freemodel-sync/blob/data/snapshots/latest.md)**, with every day kept as `snapshots/YYYY-MM-DD.json`. The table shows
-each model's status (`ok`, `403`, `404`, `429`, `timeout`, ...), latency and context length, plus the
-changes since the previous day and models expiring soon. It is informational only: results come from
-GitHub Actions at one moment and can differ for you, so run `freemodel-sync test` with your own key
-before relying on a model.
+The repository runs an automated daily health check of free models with GitHub Actions
+([`daily-snapshot.yml`](https://github.com/ndwlbj/freemodel-sync/blob/main/.github/workflows/daily-snapshot.yml)).
+
+- **When:** scheduled with cron `17 1 * * *`, i.e. 01:17 UTC, about 09:17 Beijing time (UTC+8).
+  GitHub can start scheduled runs late, or skip them when it is busy; the workflow can also be
+  started by hand.
+- **What:** it discovers the free models of OpenRouter (and of Groq, only when a Groq key is
+  configured and the Groq organization is confirmed to be on the Free plan). It then probes at most
+  **15 models per provider**, best static score first, with one tiny request each, staying within
+  the free-request quota and keeping 10 requests in reserve. An account or quota error stops
+  probing for that provider.
+- **Where:** results are committed to the public
+  [`data`](https://github.com/ndwlbj/freemodel-sync/tree/data/snapshots) branch (`main` is never
+  touched): **[latest snapshot](https://github.com/ndwlbj/freemodel-sync/blob/data/snapshots/latest.md)**,
+  plus `latest.json` and one `snapshots/YYYY-MM-DD.json` per day in the
+  [snapshot folder](https://github.com/ndwlbj/freemodel-sync/tree/data/snapshots).
+
+The table shows each model's status (`ok`, `403`, `404`, `429`, `timeout`, ...), latency and
+context length, plus the changes since the previous snapshot and models expiring soon. It is
+informational only: each result is one request from GitHub Actions at one moment and can differ for
+you, so run `freemodel-sync test` with your own key before relying on a model.
 
 ## Writing a provider
 

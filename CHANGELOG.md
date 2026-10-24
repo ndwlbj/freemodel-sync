@@ -26,6 +26,9 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- README (English and Chinese): the daily snapshot section is now **Daily health check**, with
+  the schedule (01:17 UTC, about 09:17 Beijing time; GitHub may start it late), the 15-models-per-
+  provider probe cap, the Groq condition and links to the public `data` branch snapshots.
 - Daily free-model snapshot cron moved from `0 1 * * *` (01:00 UTC) to `17 1 * * *` (01:17 UTC)
   to avoid the usual GitHub Actions on-the-hour queue.
 

@@ -116,14 +116,24 @@ targets:
 
 通知失败只记日志（不含 token 和完整 URL），不会导致同步失败。
 
-## 每日免费模型快照
+## 每日健康检查（Daily health check）
 
-一个自动化的每日健康检查（[`daily-snapshot.yml`](https://github.com/ndwlbj/freemodel-sync/blob/main/.github/workflows/daily-snapshot.yml)，约北京时间 9:17 / UTC 01:17）会发现免费模型，
-每个 provider 最多探测 15 个（每个一次极小请求，不超出账号的免费额度），结果发布到 `data` 分支：
-**[最新快照](https://github.com/ndwlbj/freemodel-sync/blob/data/snapshots/latest.md)**，每天的记录保存为 `snapshots/YYYY-MM-DD.json`。表中列出每个模型的状态
-（`ok`、`403`、`404`、`429`、`timeout` 等）、延迟和上下文长度，以及与前一天相比的变化和即将过期的模型。
-结果仅供参考：它来自 GitHub Actions 某一时刻的测试，你那边可能不同，正式使用前请用自己的 key 跑一次
-`freemodel-sync test`。
+仓库用 GitHub Actions 每天自动检查一次免费模型
+（[`daily-snapshot.yml`](https://github.com/ndwlbj/freemodel-sync/blob/main/.github/workflows/daily-snapshot.yml)）。
+
+- **时间**：cron 为 `17 1 * * *`，即 UTC 01:17，约北京时间 09:17。GitHub 的定时任务可能延后开始，
+  繁忙时也可能跳过；也可以手动触发。
+- **内容**：发现 OpenRouter 的免费模型（Groq 只有在配置了 Groq key、并确认其组织是 Free 计划时才会检查），
+  然后按静态评分从高到低，**每个 provider 最多探测 15 个模型**，每个只发一次极小的请求，不超出免费额度，
+  并预留 10 次请求。遇到账号或额度错误时，停止探测该 provider。
+- **结果**：提交到公开的 [`data`](https://github.com/ndwlbj/freemodel-sync/tree/data/snapshots) 分支
+  （不会改动 `main`）：**[最新快照](https://github.com/ndwlbj/freemodel-sync/blob/data/snapshots/latest.md)**，
+  另有 `latest.json`，以及[快照目录](https://github.com/ndwlbj/freemodel-sync/tree/data/snapshots)里每天一份的
+  `snapshots/YYYY-MM-DD.json`。
+
+表中列出每个模型的状态（`ok`、`403`、`404`、`429`、`timeout` 等）、延迟和上下文长度，以及与上一份快照相比的变化
+和即将过期的模型。结果仅供参考：每个结果只是 GitHub Actions 在某一时刻发出的一次请求，你那边可能不同，
+正式使用前请用自己的 key 跑一次 `freemodel-sync test`。
 
 ## 编写 provider 插件
 
