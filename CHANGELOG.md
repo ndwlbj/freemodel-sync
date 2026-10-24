@@ -6,13 +6,15 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-10-24
+
 ### Fixed
 
 - **dsh adapter** checks the selected model before writing: when the same `cordis.patch.yml` declares
   the target provider's `models` list (dsh's `llm-pi-ai` entry), a model that is not in it is refused
   with an error and the file is left unchanged (the target counts as failed, like other adapter
   errors). Providers without a `models` list in the file are not checked. New target option
-  `check_model: false` disables the check.
+  `check_model: false` disables the check. (#14)
 - **OpenRouter quota figures that lag behind real usage.** `free_model_daily_requests` is read once
   from `/api/v1/key` before probing, so the reported `used`/`remaining` never included the run's own
   probes, and OpenRouter's `used` counter can also trail requests that were already sent (one
@@ -22,7 +24,7 @@ All notable changes to this project are documented here. The format follows
   - `rank` prints `used`/`remaining` with "before this run's N probe(s), about M left now; data may
     lag", and the ranking JSON quota gains `probes_since_read`, `remaining_estimate` and `note`;
   - the daily snapshot marks its quota as `"read": "before probing"`, adds `remaining_estimate` and
-    a note, and the Markdown table says the counters may lag.
+    a note, and the Markdown table says the counters may lag. (#15)
 - **Mid-stream rate limits no longer stop probing.** An error event that arrives inside the SSE
   stream, after HTTP 200 (for example "... is temporarily rate-limited upstream", a mid-stream `429`
   or a provider `5xx`), is now a transient failure of that model: it is cached briefly and the next
@@ -30,25 +32,25 @@ All notable changes to this project are documented here. The format follows
   error and ended the round (the 2026-10-23 snapshot stopped after 11 of 15 probes this way).
   Platform limits are enforced before the stream starts, so pre-stream classification is unchanged
   (a platform `429`, `401`, `402` and account-level `403` still stop probing); in the stream only an
-  explicit `401`/`402` or account-level `403` code still does. Applies to Groq as well.
+  explicit `401`/`402` or account-level `403` code still does. Applies to Groq as well. (#17)
 - README (English and Chinese): the probing notes no longer say every 403 stops the round. A 403
   with model-specific metadata (routing/moderation details) is a failure of that model and probing
   continues; other 403s are account problems and stop the round, as the code already did. The same
   paragraph now also lists 408 as transient, says that in the stream only an explicit `401`/`402` or
   account-level `403` stops probing, that other errors such as 400/404 are model failures, and that
-  Groq treats every 401/403/429 as an account problem.
+  Groq treats every 401/403/429 as an account problem. (#18)
 
 ### Changed
 
 - Code formatted with `ruff format` (formatting only, no logic changes). CI now also runs
   `ruff format --check src tests scripts`, and ruff is pinned to `0.17.2` both in CI and in the
   `dev` extra (was `ruff>=0.4`), so a new ruff release cannot break CI on its own. The development
-  commands in README, README.zh-CN and CONTRIBUTING include `scripts` and the format check.
+  commands in README, README.zh-CN and CONTRIBUTING include `scripts` and the format check. (#19)
 - README (English and Chinese): the daily snapshot section is now **Daily health check**, with
   the schedule (01:17 UTC, about 09:17 Beijing time; GitHub may start it late), the 15-models-per-
-  provider probe cap, the Groq condition and links to the public `data` branch snapshots.
+  provider probe cap, the Groq condition and links to the public `data` branch snapshots. (#16)
 - Daily free-model snapshot cron moved from `0 1 * * *` (01:00 UTC) to `17 1 * * *` (01:17 UTC)
-  to avoid the usual GitHub Actions on-the-hour queue.
+  to avoid the usual GitHub Actions on-the-hour queue. (#13)
 
 ## [0.3.1] - 2026-10-23
 
@@ -192,7 +194,8 @@ All notable changes to this project are documented here. The format follows
 - Initial release: OpenRouter discovery, budget-aware probing, ranking, and the
   `openai-env`, `openai-yaml`, `dsh` and `astrbot` adapters, plus Telegram/webhook notifications.
 
-[Unreleased]: https://github.com/ndwlbj/freemodel-sync/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/ndwlbj/freemodel-sync/compare/v0.3.2...HEAD
+[0.3.2]: https://github.com/ndwlbj/freemodel-sync/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/ndwlbj/freemodel-sync/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/ndwlbj/freemodel-sync/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/ndwlbj/freemodel-sync/compare/v0.1.0...v0.2.0
