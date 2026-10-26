@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 
 import httpx
 import pytest
@@ -133,6 +134,7 @@ def test_example_config_is_valid(tmp_path):
     assert cfg.notify.telegram and cfg.notify.webhook
 
 
+@pytest.mark.skipif(os.name != "posix", reason="the permission check is POSIX-only")
 def test_inline_webhook_url_warns_and_checks_permissions(tmp_path, caplog):
     """Review P2-5: a tokenized webhook URL in a group/world-readable config file."""
     import os

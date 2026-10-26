@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import time
 from pathlib import Path
 
@@ -275,7 +276,8 @@ def test_overlapping_runs_are_serialized(capsys, setup):
         assert run(cfg, provider, "discover") == 0  # read-only, not locked
     assert provider.tested == [] and target.read_text() == before
     assert run(cfg, provider, "sync", "--no-notify") == 0  # lock released
-    assert oct((tmp / "state.json.lock").stat().st_mode & 0o777) == "0o600"
+    if os.name == "posix":  # Windows has no POSIX permission bits
+        assert oct((tmp / "state.json.lock").stat().st_mode & 0o777) == "0o600"
 
 
 def test_package_ships_py_typed():

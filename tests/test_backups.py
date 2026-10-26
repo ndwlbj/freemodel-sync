@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import stat
+from pathlib import Path
 
 import pytest
 import yaml
@@ -34,6 +35,7 @@ def test_keep_zero_disables_backups(tmp_path):
     assert r.written and r.backup is None and list_backups(p) == []
 
 
+@pytest.mark.skipif(os.name != "posix", reason="POSIX permission bits")
 @pytest.mark.parametrize("orig_mode, expected", [(0o600, 0o600), (0o644, 0o600), (0o400, 0o400), (0o640, 0o600)])
 def test_backup_permissions_never_broader_than_0600(tmp_path, orig_mode, expected):
     p = tmp_path / "secrets.env"
@@ -114,3 +116,12 @@ def test_config_and_per_target_override(tmp_path, monkeypatch):
             == 0
         )
     assert len(list_backups(target)) == 1  # per-target override beats backups.keep=3
+
+
+def test_backup_is_a_byte_for_byte_copy(tmp_path):
+    """On Windows os.open defaults to text mode; a backup must not turn CRLF into CR CR LF."""
+    p = tmp_path / "crlf.env"
+    original = b"A=1\r\nB=2\n"
+    p.write_bytes(original)
+    r = write_if_changed(p, "A=3\n", adapter="t")
+    assert Path(r.backup).read_bytes() == original

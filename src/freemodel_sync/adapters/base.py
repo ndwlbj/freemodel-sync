@@ -89,7 +89,10 @@ def _make_backup(real_path: Path, backup_dir: Optional[Path]) -> Path:
     # them more readable than the original, and never group/other readable.
     mode = (real_path.stat().st_mode & 0o777) & 0o600
     data = real_path.read_bytes()
-    fd = os.open(str(candidate), os.O_WRONLY | os.O_CREAT | os.O_EXCL, mode)
+    # O_BINARY: on Windows os.open defaults to text mode, which would turn every
+    # "\n" of the copy into "\r\n" (a CRLF file would get "\r\r\n").
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
+    fd = os.open(str(candidate), flags, mode)
     try:
         view = memoryview(data)
         while view:

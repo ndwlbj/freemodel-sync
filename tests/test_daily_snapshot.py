@@ -2,6 +2,7 @@
 
 import importlib.util
 import json
+import os
 from datetime import date, datetime, timezone
 from pathlib import Path
 
@@ -526,7 +527,8 @@ def test_files_are_written_atomically(tmp_path, monkeypatch):
     code, out = run(tmp_path, [("openrouter", FakeProvider(models=["v/a:free"]))])
     assert code == 0
     assert calls == ["2026-10-22.json", "latest.json", "latest.md"]
-    assert all((out / name).stat().st_mode & 0o777 == 0o644 for name in calls)
+    if os.name == "posix":  # Windows has no POSIX permission bits
+        assert all((out / name).stat().st_mode & 0o777 == 0o644 for name in calls)
     assert not [p for p in out.iterdir() if p.name not in calls]  # no temp files left
 
 

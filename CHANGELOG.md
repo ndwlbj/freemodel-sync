@@ -68,6 +68,8 @@ All notable changes to this project are documented here. The format follows
   Windows (no `fcntl`), so overlapping runs probed twice and exit code 4 never happened there. The
   lock now uses `msvcrt.locking` on Windows; like `flock` on POSIX it is released by the operating
   system if the process dies.
+- **Windows: backups are byte-for-byte copies.** The backup file was opened in Windows' default
+  text mode, so every line ending in the copy gained an extra carriage return.
 
 ### Security
 

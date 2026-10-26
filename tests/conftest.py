@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import socket
-import sys
 from pathlib import Path
 
 import pytest
@@ -22,9 +21,6 @@ _REAL_ENV = (
     "FREEMODEL_SYNC_CONFIG",
     "GITHUB_TOKEN",
 )
-
-#: skip marker for checks of POSIX permission bits / symlinks
-posix_only = pytest.mark.skipif(sys.platform == "win32", reason="POSIX file modes/symlinks")
 
 
 class NetworkBlockedError(RuntimeError):

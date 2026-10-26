@@ -7,7 +7,10 @@ import pytest
 from freemodel_sync import fileio
 from freemodel_sync.adapters.base import write_if_changed
 
+posix_only = pytest.mark.skipif(os.name != "posix", reason="POSIX permission bits / ownership")
 
+
+@posix_only
 def test_atomic_write_fsyncs_and_keeps_mode(tmp_path, monkeypatch):
     synced = []
     real_fsync = os.fsync
@@ -22,12 +25,14 @@ def test_atomic_write_fsyncs_and_keeps_mode(tmp_path, monkeypatch):
     assert [p.name for p in tmp_path.iterdir()] == ["conf.env"]  # no temp file left
 
 
+@posix_only
 def test_new_files_are_private(tmp_path):
     target = tmp_path / "sub" / "new.json"
     fileio.atomic_write_text(target, "{}\n")
     assert target.stat().st_mode & 0o777 == 0o600
 
 
+@posix_only
 def test_owner_is_copied_when_it_differs(tmp_path, monkeypatch):
     target = tmp_path / "conf.yml"
     target.write_text("a: 1\n")
@@ -39,6 +44,7 @@ def test_owner_is_copied_when_it_differs(tmp_path, monkeypatch):
     assert calls == [(st.st_uid, st.st_gid)]
 
 
+@posix_only
 def test_chown_permission_error_is_ignored(tmp_path, monkeypatch):
     target = tmp_path / "conf.yml"
     target.write_text("a: 1\n")
