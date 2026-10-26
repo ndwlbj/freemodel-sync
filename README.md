@@ -58,7 +58,8 @@ discover ──► filter ──► probe (tiny, cached, budgeted) ──► ran
 5. **Write** the primary model and fallback list into each configured target. Every write is
    idempotent (unchanged → untouched), supports `--dry-run` with a diff, makes a timestamped
    `*.bak-*` backup (mode 0600 or stricter, the newest 5 kept by default; see `backups`) and
-   replaces the file atomically. If no model passes its probe, **nothing is written**.
+   replaces the file atomically. With `backups.keep: 0` no backup is made and existing backups are
+   left alone (never deleted); delete old `*.bak-*` files yourself if you turn backups off. If no model passes its probe, **nothing is written**.
 6. **Notify** (optional) via Telegram or a generic webhook when the primary model changes. If any
    target fails to write, the run exits `1`, the recorded state is not advanced and no notification
    is sent; the next run retries.
@@ -100,6 +101,11 @@ Exit codes: `0` success, `1` error (bad config, missing key, a target failed), `
 (no file written), `3` probing was stopped by an account/quota problem such as a platform rate limit
 or missing credits (no file written, no model marked as failed), `4` another run is still in progress
 (`test`, `rank` and `sync` take a lock next to the state file, so overlapping cron runs never probe twice).
+The lock is an advisory OS lock on `<state_path>.lock` (`flock` on Linux and macOS): the operating
+system releases it when the process exits or crashes, so there is no stale lock to delete. It only
+serializes runs that use the same `state_path`, does not stop other programs from editing the target
+files, and may not work on network file systems such as NFS. On Windows the lock uses `msvcrt`;
+releases up to 0.3.3 take no lock there.
 `test` and `rank` both return `3` when an account/quota problem stopped probing.
 
 `sync --dry-run` is zero-cost: it uses only cached probe results (from an earlier `test`/`sync`), sends no chat or `/key` request, needs no API key, and writes no target, state or cache file. It still fetches the public model list. Add `--probe` to probe as usual during a dry run (this spends free-tier requests and updates the cache). `rank --no-probe` and `sync --no-probe` likewise use cached results only.
@@ -126,13 +132,17 @@ them at your own files.
 
 | provider | key variable | free when | notes |
 | --- | --- | --- | --- |
-| `openrouter` (default) | `OPENROUTER_API_KEY` | `:free` id and every price (including `pricing.overrides`) is 0 | public model list, quota from `/api/v1/key` |
+| `openrouter` (default) | `OPENROUTER_API_KEY` | `:free` id and every price (including `pricing.overrides`) is 0; a zero-priced model without `:free` is not used | public model list, quota from `/api/v1/key` |
 | `groq` | `GROQ_API_KEY` | your Groq organization is on the **Free plan**; confirm with `plan: free` | Groq's API has no prices; the model list needs the key |
 
 Groq and multi-provider ranking need freemodel-sync 0.3.0 or newer. All enabled providers feed one ranking. The `providers` section replaces the default
 (OpenRouter only), so you can drop OpenRouter or set `enabled: false`. Each provider uses its own
 key variable, cache file, daily counter and rate-limit pause, and a quota problem stops probing only
-for that provider. Fallbacks always come from the primary's provider. Restrict a target to the
+for that provider. The first enabled provider uses `testing.cache_path` itself; every other one uses
+`<name>.<provider>.json` next to it (e.g. `results.groq.json`). The binding follows the order of the
+`providers` section, so reordering it hands the first provider's daily counter and rate-limit pause
+to another provider until the next UTC day (cached results are keyed by provider and never mix).
+`providers.<name>.daily_free_limit` overrides `testing.daily_free_limit` for one provider. Fallbacks always come from the primary's provider. Restrict a target to the
 providers its tool has a key for with `options.providers: [openrouter]`; otherwise its base URL may
 switch provider. Details and sources are in [docs/providers.md](https://github.com/ndwlbj/freemodel-sync/blob/main/docs/providers.md).
 
@@ -169,6 +179,9 @@ Example `dsh` result:
   the file when you save in the WebUI, so **restart AstrBot after a sync** (and avoid editing in
   the WebUI at the same time). Provider entries have no fallback list, so only the primary model is
   written; mapping fallbacks to AstrBot's `fallback_provider_ids` is not implemented yet.
+  When the model changes, the whole JSON file is written back with 2-space indentation and
+  non-ASCII text kept as is (the format AstrBot itself writes), so a hand-formatted file is
+  reformatted; keys and values other than the model are unchanged.
 - **YAML comments (0.3.0+):** install the optional extra (`pipx install "freemodel-sync[yaml-comments]"`) and
   `openai-yaml` edits the file with ruamel.yaml, keeping comments, key order and quoting. Without it,
   PyYAML re-dumps the *whole* document when a value changes (an unchanged file is never
@@ -186,6 +199,8 @@ Example `dsh` result:
   The counters are read once, before probing, and OpenRouter's `used` count can trail requests
   that were already sent, so shown quota figures may lag. When this tool's own probe count for the
   UTC day is higher than the reported `used`, the budget uses the local count.
+- **Timeouts:** `testing.timeout_s` applies to probe requests only. Fetching the model list and the
+  quota uses a fixed 30-second timeout.
 - **Providers:** OpenRouter and Groq. SiliconFlow was evaluated but its API does not say which
   models are free; see [docs/providers.md](https://github.com/ndwlbj/freemodel-sync/blob/main/docs/providers.md).
 
@@ -225,6 +240,11 @@ The repository runs an automated daily health check of free models with GitHub A
   `"partial": true` and `latest.*` keep the last complete snapshot, so the public report never
   shows that provider's models as gone. If discovery fails for every provider, nothing is
   committed and the run fails.
+- **Check the date:** the snapshot runs with the maintainer's own OpenRouter key. If that key stops
+  working, or GitHub disables the schedule (it does so after 60 days without activity in a public
+  repository), no new snapshot is committed and `latest.*` simply stays old. The date is in the
+  title of `latest.md` and in the newest `YYYY-MM-DD.json` file name: if it is more than two days
+  old, treat the snapshot as stale.
 
 The table shows each model's status (`ok`, `403`, `404`, `429`, `timeout`, ...), latency and
 context length, plus the changes since the previous snapshot and models expiring soon. It is

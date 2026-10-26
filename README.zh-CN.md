@@ -24,7 +24,7 @@
    - **账号问题不算模型故障。** 遇到 401、402、OpenRouter 平台级 429（免费模型每分钟/每日上限），或针对账号的 403（key 权限、防护规则、预算上限，或不带任何细节的 403），这一次请求后立即停止本轮，不会把模型记成失败；`Retry-After` / `X-RateLimit-Reset` 会让之后的运行等到重置时间再探测。如果 403 的错误 metadata 指向模型本身（带路由或审核信息，例如某个免费端点拒绝这类客户端、输入被标记），只算该模型失败：记入缓存，继续探测下一个模型。上游服务商的 429、408、5xx 和超时算临时失败，`transient_ttl_minutes`（默认 30 分钟）后重试。流式响应开始（HTTP 200）之后才出现的错误，例如流中途的限流（“temporarily rate-limited upstream”），也算该模型的临时失败，继续探测下一个模型；流中只有明确的 401/402 或账号级 403 仍会停止本轮。其他错误（如 400/404 “no endpoints”）算模型失败。Groq 的 401、403、429 一律按账号问题处理。
    - 没有 API key 时，`test`、`rank`、`sync` 直接报错退出，不发任何请求。
 4. **排名**：可解释的打分（可用性 ≫ 延迟、上下文、工具支持、到期时间）。备用模型只取探测通过的；只有设置 `ranking.fallbacks_allow_untested: true` 才会用未测试的模型补位，并标注 `(untested)`。非对话模型（安全分类器、embedding、rerank、语音）默认排除。
-5. **写入**：把主模型和备用列表写进每个配置目标。每次写入都是幂等的（没变化就不动文件），支持 `--dry-run` 显示 diff，写前生成带时间戳的 `*.bak-*` 备份（权限 0600 或更严，默认只保留最新 5 份，见 `backups`），并原子替换文件。如果没有任何模型通过探测，**不会写任何文件**。
+5. **写入**：把主模型和备用列表写进每个配置目标。每次写入都是幂等的（没变化就不动文件），支持 `--dry-run` 显示 diff，写前生成带时间戳的 `*.bak-*` 备份（权限 0600 或更严，默认只保留最新 5 份，见 `backups`），并原子替换文件。设 `backups.keep: 0` 时不再生成备份，已有的备份也不会被清理（不会删除），关闭备份后旧的 `*.bak-*` 需要自己删。如果没有任何模型通过探测，**不会写任何文件**。
 6. **通知**（可选）：主模型变化时通过 Telegram 或通用 webhook 通知。只要有一个目标写入失败，就以退出码 `1` 结束，不更新记录的状态，也不发通知；下次运行会重试。
 
 ## 安装
@@ -58,7 +58,7 @@ freemodel-sync sync                      # 写配置，有变化时通知
 0 */3 * * * . "$HOME/.config/freemodel-sync/env" && freemodel-sync sync >> "$HOME/.cache/freemodel-sync/sync.log" 2>&1
 ```
 
-退出码：`0` 成功；`1` 出错（配置错误、没有 key、某个目标写入失败）；`2` 没有可用模型（不写任何文件）；`3` 探测因账号/额度问题被中止，例如平台限流或余额不足（不写任何文件，也不会把模型记成失败）；`4` 另一次运行还没结束（`test`、`rank`、`sync` 会在 state 文件旁加锁，cron 重叠时不会重复探测）。
+退出码：`0` 成功；`1` 出错（配置错误、没有 key、某个目标写入失败）；`2` 没有可用模型（不写任何文件）；`3` 探测因账号/额度问题被中止，例如平台限流或余额不足（不写任何文件，也不会把模型记成失败）；`4` 另一次运行还没结束（`test`、`rank`、`sync` 会在 state 文件旁加锁，cron 重叠时不会重复探测）。这是加在 `<state_path>.lock` 上的建议性系统锁（Linux 和 macOS 用 `flock`）：进程退出或崩溃时由系统释放，不会留下需要手动删除的锁；它只对使用同一个 `state_path` 的运行生效，不阻止其他程序修改目标文件，在 NFS 等网络文件系统上可能无效。Windows 上使用 `msvcrt` 加锁；0.3.3 及之前的版本在 Windows 上不加锁。
 
 `sync --dry-run` 不产生任何额度消耗：只使用之前 `test`/`sync` 留下的缓存探测结果，不发送聊天请求和 `/key` 请求，不需要 API key，也不写目标文件、state 或缓存（仍会获取公开的模型列表）。如果想在 dry run 时照常探测，加 `--probe`（会消耗免费额度并更新缓存）。`rank --no-probe` 和 `sync --no-probe` 同样只用缓存结果。
 
@@ -70,10 +70,10 @@ freemodel-sync sync                      # 写配置，有变化时通知
 
 | provider | key 环境变量 | 什么算免费 | 说明 |
 | --- | --- | --- | --- |
-| `openrouter`（默认） | `OPENROUTER_API_KEY` | id 以 `:free` 结尾且所有价格（包括 `pricing.overrides`）为 0 | 模型列表公开，额度来自 `/api/v1/key` |
+| `openrouter`（默认） | `OPENROUTER_API_KEY` | id 以 `:free` 结尾且所有价格（包括 `pricing.overrides`）为 0；没有 `:free` 后缀的零价模型不会被使用 | 模型列表公开，额度来自 `/api/v1/key` |
 | `groq` | `GROQ_API_KEY` | 你的 Groq 组织处于 **Free 计划**，需用 `plan: free` 确认 | Groq 的 API 不返回价格；获取模型列表需要 key |
 
-Groq 和多 provider 合并排名需要 freemodel-sync 0.3.0 及以上版本。所有启用的 provider 会合并成一个排名。`providers` 配置段会**替换**默认值（只有 OpenRouter），所以可以不写 OpenRouter，或者设 `enabled: false`。每个 provider 使用各自的 key 环境变量、缓存文件、每日计数和限流暂停，某个 provider 出现额度问题只会停止它自己的探测。备用模型总是和主模型来自同一个 provider。用 `options.providers: [openrouter]` 把目标限制在它的工具有 key 的 provider 上，否则它的 base URL 可能换成别的 provider。细节和资料来源见 [docs/providers.md](https://github.com/ndwlbj/freemodel-sync/blob/main/docs/providers.md)。
+Groq 和多 provider 合并排名需要 freemodel-sync 0.3.0 及以上版本。所有启用的 provider 会合并成一个排名。`providers` 配置段会**替换**默认值（只有 OpenRouter），所以可以不写 OpenRouter，或者设 `enabled: false`。每个 provider 使用各自的 key 环境变量、缓存文件、每日计数和限流暂停，某个 provider 出现额度问题只会停止它自己的探测。第一个启用的 provider 直接使用 `testing.cache_path`，其他 provider 使用同目录下的 `<name>.<provider>.json`（如 `results.groq.json`）。这个对应关系取决于 `providers` 段的顺序，调换顺序后，第一个 provider 的当日计数和限流暂停会算到另一个 provider 头上，直到下一个 UTC 日（缓存的探测结果按 provider 区分，不会串）。`providers.<name>.daily_free_limit` 可以单独覆盖某个 provider 的 `testing.daily_free_limit`。备用模型总是和主模型来自同一个 provider。用 `options.providers: [openrouter]` 把目标限制在它的工具有 key 的 provider 上，否则它的 base URL 可能换成别的 provider。细节和资料来源见 [docs/providers.md](https://github.com/ndwlbj/freemodel-sync/blob/main/docs/providers.md)。
 
 ```yaml
 providers:
@@ -103,10 +103,12 @@ targets:
 
 ### 已知限制
 
+- **AstrBot 文件格式**：模型变化时整个 JSON 文件会以 2 空格缩进、保留非 ASCII 字符的格式重新写出（与 AstrBot 自己写入的格式相同），手工排版的文件会被重新排版；模型以外的键和值不变。
 - **AstrBot**：两种结构都对照 AstrBot 源码（v4.29.1）核对过；两种都不匹配时会直接报错，不会静默跳过。AstrBot 运行时把配置放在内存里，WebUI 保存时会覆盖文件，所以**同步后要重启 AstrBot**（也不要同时在 WebUI 里改）。provider 条目没有备用列表，只写主模型；对应到 AstrBot 的 `fallback_provider_ids` 还没实现。
 - **YAML 注释（0.3.0+）**：安装可选依赖（`pipx install "freemodel-sync[yaml-comments]"`）后，`openai-yaml` 会用 ruamel.yaml 修改文件，保留注释、键顺序和引号。不安装时使用 PyYAML，值发生变化时注释会丢失（值没变时不会重写文件）。目标选项 `preserve_comments: auto|true|false`（默认 `auto`）。`dsh` 适配器始终保留注释。
 - **分时段价格**：`:free` 模型的 `pricing.overrides` 里只要有非零价格（比如高峰时段或长上下文），就会被跳过并给出警告。
 - **免费额度**：每日预算来自 `free_model_daily_requests`，不再根据 `is_free_tier` 推断；可用 `testing.daily_free_limit` 覆盖（按 UTC 日计数）。额度在探测前读取一次，而且 OpenRouter 的 `used` 计数可能跟不上已发出的请求，所以显示的额度数据可能滞后；本工具当天（UTC）自己记录的探测次数比上报的 `used` 多时，预算按本地计数算。
+- **超时**：`testing.timeout_s` 只作用于探测请求；获取模型列表和额度时固定使用 30 秒超时。
 - **Provider**：支持 OpenRouter 和 Groq。评估过硅基流动，但它的 API 无法判断哪些模型免费，详见 [docs/providers.md](https://github.com/ndwlbj/freemodel-sync/blob/main/docs/providers.md)。
 
 ## 通知
@@ -132,6 +134,7 @@ targets:
   `snapshots/YYYY-MM-DD.json`。
 - **provider 失败时**：某个 provider 的模型发现失败时，当天的文件标记为 `"partial": true`，`latest.*`
   保持上一份完整快照，公开报告不会把该 provider 的模型显示为已下架。所有 provider 都失败时不提交任何文件，任务失败。
+- **注意日期**：快照用的是维护者自己的 OpenRouter key。key 失效，或者 GitHub 禁用了定时任务（公开仓库 60 天没有活动时会自动禁用），都不会再提交新快照，`latest.*` 只会停在旧的日期。日期见 `latest.md` 的标题和最新的 `YYYY-MM-DD.json` 文件名：超过两天没更新，就当作快照已过期。
 
 表中列出每个模型的状态（`ok`、`403`、`404`、`429`、`timeout` 等）、延迟和上下文长度，以及与上一份快照相比的变化
 和即将过期的模型。结果仅供参考：每个结果只是 GitHub Actions 在某一时刻发出的一次请求，你那边可能不同，

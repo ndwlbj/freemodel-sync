@@ -10,6 +10,7 @@ providers:
     enabled: true
     api_key_env: OPENROUTER_API_KEY
     probe_max_tokens: 16          # completion budget of each probe request
+    # daily_free_limit: 50        # override testing.daily_free_limit for this provider only
   groq:
     enabled: false                # set to true to use Groq as well
     api_key_env: GROQ_API_KEY
@@ -29,9 +30,11 @@ testing:
   max_tests: 5                  # new probe requests per run (cached results are reused)
   cache_ttl_hours: 6
   transient_ttl_minutes: 30     # retry models that hit upstream 429/5xx/timeouts after this
-  timeout_s: 30
+  timeout_s: 30                 # per-read timeout of probe requests only (model list/quota: fixed 30s)
   reserve_requests: 10          # leave this many free requests/day for your real usage
   daily_free_limit: null        # override free requests/day; default: OpenRouter's free_model_daily_requests
+  # Used by the first enabled provider; the others get results.<provider>.json next to it,
+  # so reordering `providers` moves the daily counters (see README).
   cache_path: ~/.cache/freemodel-sync/results.json
 
 ranking:
@@ -52,7 +55,7 @@ output:
 # mode 0600 (or stricter, matching the original). Per-target override:
 # options.keep_backups / options.backup_dir.
 backups:
-  keep: 5                       # 0 disables backups
+  keep: 5                       # 0 disables backups (existing backups are then left alone)
   dir: null                     # default: next to each target file
 
 state_path: ~/.local/state/freemodel-sync/state.json
@@ -60,6 +63,10 @@ state_path: ~/.local/state/freemodel-sync/state.json
 # Files to update. Every target is commented out: uncomment the ones you use
 # and change the paths to your own files. A missing target file is created
 # (with a warning), so a placeholder path left here would create it.
+# Options every target accepts:
+#   providers: [openrouter]   only pick models from these providers (the tool only has their keys)
+#   keep_backups: 5           override backups.keep for this target
+#   backup_dir: ~/backups     override backups.dir for this target
 targets:
   # Generic OpenAI-compatible env file (only these three variables are managed).
   # - adapter: openai-env
@@ -68,12 +75,16 @@ targets:
   #     base_url_var: OPENAI_BASE_URL
   #     model_var: OPENAI_MODEL
   #     fallbacks_var: OPENAI_FALLBACK_MODELS
+  #     providers: [openrouter]
 
   # Generic YAML config: sets base_url / model / fallback_models under `llm`.
   # - adapter: openai-yaml
   #   path: ~/my-app/config.yml
   #   options:
   #     key_path: llm
+  #     # auto (default): keep comments with ruamel.yaml, refuse a lossy PyYAML re-dump;
+  #     # true: require ruamel.yaml; false: always re-dump with PyYAML
+  #     preserve_comments: auto
 
   # dsh (DeepSeek Harness) cordis.patch.yml-style file: manages only the
   # `agent-default-model` entry. Map freemodel-sync provider names to the
@@ -84,6 +95,9 @@ targets:
   #     entry_id: agent-default-model
   #     provider_map:
   #       openrouter: openrouter
+  #     # provider_name: openrouter   # use this dsh provider id whatever the model's provider
+  #     # entry_name: Default model   # `name` of the managed entry (default: keep the existing one)
+  #     # check_model: true           # refuse a model missing from the file's provider `models` list
 
   # AstrBot (experimental): updates the model of an EXISTING provider entry in
   # data/cmd_config.json (top-level `model` on AstrBot >= 4.10, model_config.model

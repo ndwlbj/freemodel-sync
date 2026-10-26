@@ -13,9 +13,15 @@ Sources were checked on 2026-10-22.
   `input_cache_read`, ... including fields added later) is `0` or absent,
   every entry in `pricing.overrides` (prices by time of day or context length)
   is `0` too, and it takes and returns text. A non-zero or unparseable price
-  makes the model paid.
+  makes the model paid. A model priced at `0` without the `:free` suffix is
+  not used, and the `openrouter/*` meta-routers (such as `openrouter/free`,
+  which picks a model for you) are always excluded, because a probe of them
+  says nothing about the model a later request would get.
 - Quota: `GET /api/v1/key`, field `free_model_daily_requests`
-  (`used` / `limit` / `remaining`, per UTC day).
+  (`used` / `limit` / `remaining`, per UTC day). It is read once per run,
+  before probing, and OpenRouter's `used` can trail requests already sent;
+  when freemodel-sync's own probe count for the UTC day is higher, the budget
+  uses the local count. The daily limit is never inferred from `is_free_tier`.
 - Errors before the stream starts (non-200 status):
   - 401/402 and OpenRouter platform 429s are account problems.
   - 403 is an account problem (budget `limit_source`, guardrail, key
@@ -35,7 +41,8 @@ Sources were checked on 2026-10-22.
   failure even without an error object; `content_filter` is a model failure.
 - Probe time limit: `testing.timeout_s` is the per-read timeout; a stream that
   sends no token within twice that time in total (keep-alive comments do not
-  count) is a transient failure.
+  count) is a transient failure. The model list and quota requests use a fixed
+  30-second timeout.
 - Rate-limit headers: `Retry-After` (seconds) wins; otherwise
   `X-RateLimit-Reset` is read as epoch milliseconds (documented), epoch
   seconds, or a relative value (above 3600 it is taken as milliseconds, with a

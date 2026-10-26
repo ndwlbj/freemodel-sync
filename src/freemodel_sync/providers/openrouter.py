@@ -132,7 +132,13 @@ def _supports_text(architecture: Any) -> bool:
 
 
 def _is_free_model(model: Any) -> bool:
-    """Apply OpenRouter's definition of a free text model."""
+    """Apply OpenRouter's definition of a free text model.
+
+    The ``:free`` id suffix is required: OpenRouter marks its free variants this
+    way and the free-request quota applies to them. A model priced at 0 without
+    the suffix is deliberately not treated as free, and neither are the
+    ``openrouter/*`` meta-routers. All prices must be 0 as well.
+    """
 
     if not isinstance(model, dict):
         return False

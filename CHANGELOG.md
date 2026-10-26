@@ -36,6 +36,26 @@ All notable changes to this project are documented here. The format follows
   coverage and now includes `scripts/` (threshold raised from 80% to 85%); an autouse test fixture
   blocks network access and hides real API keys, so a test with a missing mock fails instead of
   sending real requests.
+- **Documentation of existing behaviour** (no behaviour change). The README and README.zh-CN now
+  cover these points:
+  - the limits of the run lock;
+  - `backups.keep: 0` leaving existing backups in place;
+  - AstrBot files being re-indented when the model changes;
+  - zero-priced models without `:free` not being used;
+  - `testing.timeout_s` applying to probes only;
+  - how probe cache files are bound to the provider order;
+  - the per-provider `daily_free_limit`;
+  - checking the date of the daily snapshot, which goes stale if the maintainer's key fails or
+    GitHub disables the schedule after 60 days without activity.
+
+  `docs/providers.md` describes the `openrouter/*` meta-router exclusion, the quota lag and the
+  fixed discovery timeout. The example config lists the per-target options `providers`,
+  `keep_backups` and `backup_dir`, the `openai-yaml` option `preserve_comments`, and the `dsh`
+  options `provider_name`, `entry_name` and `check_model`.
+- **`sync --dry-run` help** no longer contradicts `--probe`: a dry run makes no probes and writes no
+  cache unless `--probe` is given.
+- **CHANGELOG:** 0.1.0 was never tagged or published, so its broken release and compare links are
+  gone; `[0.2.0]` links to the v0.2.0 release.
 
 ### Removed
 
@@ -330,7 +350,9 @@ All notable changes to this project are documented here. The format follows
 
 ## [0.1.0] - 2026-10-22
 
-- Initial release: OpenRouter discovery, budget-aware probing, ranking, and the
+Never tagged or published to PyPI; 0.2.0 is the first published release.
+
+- Initial version: OpenRouter discovery, budget-aware probing, ranking, and the
   `openai-env`, `openai-yaml`, `dsh` and `astrbot` adapters, plus Telegram/webhook notifications.
 
 [Unreleased]: https://github.com/ndwlbj/freemodel-sync/compare/v0.3.3...HEAD
@@ -338,5 +360,4 @@ All notable changes to this project are documented here. The format follows
 [0.3.2]: https://github.com/ndwlbj/freemodel-sync/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/ndwlbj/freemodel-sync/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/ndwlbj/freemodel-sync/compare/v0.2.0...v0.3.0
-[0.2.0]: https://github.com/ndwlbj/freemodel-sync/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/ndwlbj/freemodel-sync/releases/tag/v0.1.0
+[0.2.0]: https://github.com/ndwlbj/freemodel-sync/releases/tag/v0.2.0

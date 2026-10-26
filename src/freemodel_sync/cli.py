@@ -864,7 +864,10 @@ def build_parser() -> argparse.ArgumentParser:
     sync.add_argument(
         "--dry-run",
         action="store_true",
-        help="show diffs only: no target/state/cache writes, no probes (uses cached results)",
+        help=(
+            "show diffs only: no target or state writes; uses cached probe results "
+            "(no probes, no cache writes) unless --probe is given"
+        ),
     )
     sync.add_argument("--no-probe", action="store_true", help="use cached probe results only; send no requests")
     sync.add_argument(

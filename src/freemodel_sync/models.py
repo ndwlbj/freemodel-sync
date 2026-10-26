@@ -75,6 +75,16 @@ class TestResult:
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> TestResult:
+        """Rebuild a cached result.
+
+        Caches written before ``failure_kind`` existed have no kind for their
+        failures. Those are read as ``"model"`` on purpose: the conservative
+        choice blocks the model for ``cache_ttl_hours`` instead of retrying it
+        after ``transient_ttl_minutes``, so an old transient failure is retried
+        a little later than necessary rather than a broken model being probed
+        again too early.
+        """
+
         fields = {k: data.get(k) for k in cls.__dataclass_fields__}  # type: ignore[attr-defined]
         fields["ok"] = bool(fields.get("ok"))
         fields["tested_at"] = float(fields.get("tested_at") or 0.0)
