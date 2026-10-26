@@ -16,6 +16,7 @@ from __future__ import annotations
 import abc
 import difflib
 import hashlib
+import logging
 import os
 from dataclasses import dataclass
 from datetime import datetime
@@ -24,6 +25,8 @@ from typing import Any, Dict, List, Optional, Tuple, Type
 
 from ..fileio import atomic_write_text
 from ..models import Selection
+
+LOG = logging.getLogger(__name__)
 
 
 @dataclass
@@ -180,8 +183,17 @@ class Adapter(abc.ABC):
         keep_backups: int = DEFAULT_KEEP_BACKUPS,
         backup_dir: Optional[Path] = None,
     ) -> WriteResult:
-        current = self.path.read_text(encoding="utf-8") if self.path.exists() else ""
+        exists = self.path.exists()
+        current = self.path.read_text(encoding="utf-8") if exists else ""
         new_text = self.render(selection, current)
+        if not exists:
+            # Usually a typo or a placeholder path copied from the example config.
+            LOG.warning(
+                "%s: target file %s does not exist; %s with only the managed settings",
+                self.name,
+                self.path,
+                "it would be created" if dry_run else "creating it",
+            )
         return write_if_changed(
             self.path,
             new_text,

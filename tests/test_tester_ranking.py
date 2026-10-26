@@ -77,7 +77,10 @@ def test_filter_models():
     assert ids(filter_models(models, require_tools=True)) == ["a/tools:free"]
     assert "a/small:free" not in ids(filter_models(models, min_context=8000))
     assert "a/expiring:free" not in ids(filter_models(models, exclude_expiring_within_days=3, today=today))
-    assert ids(filter_models(models, include=["a/*"], exclude=["*small*"])) == ["a/tools:free", "a/expiring:free"]
+    assert ids(filter_models(models, include=["a/*"], exclude=["*small*"], today=today)) == [
+        "a/tools:free",
+        "a/expiring:free",
+    ]
 
 
 def test_scoring_and_selection():

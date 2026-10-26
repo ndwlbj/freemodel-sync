@@ -151,6 +151,8 @@ def snapshot_provider(
         list(discovered),
         exclude_expiring_within_days=None,
         exclude_non_chat=True,
+        # The snapshot lists the catalog as published, expired entries included.
+        exclude_expired=False,
         today=today,
     )
     models = _static_order(models, today)
@@ -474,13 +476,23 @@ def _positive_int(text: str) -> int:
     return value
 
 
+def _at_least_one(text: str) -> int:
+    """argparse type for ``--max-probes``: 0 would probe nothing yet look like a normal run."""
+
+    value = _positive_int(text)
+    if value < 1:
+        raise argparse.ArgumentTypeError("must be >= 1")
+    return value
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--out", required=True, type=Path, help="snapshots directory (read for the diff, written)")
     parser.add_argument(
         "--max-probes",
-        type=_positive_int,
-        default=int(os.environ.get("SNAPSHOT_MAX_PROBES") or DEFAULT_MAX_PROBES),
+        type=_at_least_one,
+        # A string default goes through ``type`` too, so SNAPSHOT_MAX_PROBES is validated.
+        default=os.environ.get("SNAPSHOT_MAX_PROBES") or str(DEFAULT_MAX_PROBES),
         help=f"probe at most N models per provider (default {DEFAULT_MAX_PROBES}, env SNAPSHOT_MAX_PROBES)",
     )
     parser.add_argument(

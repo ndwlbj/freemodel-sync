@@ -46,6 +46,7 @@ from typing import Any, Dict, List, Mapping, Optional, Union
 
 import yaml
 
+from .flags import parse_bool
 from .ranking import RankWeights
 
 LOG = logging.getLogger(__name__)
@@ -385,7 +386,8 @@ def _parse_testing(raw: Any) -> TestingConfig:
     cache_path = section.get("cache_path", DEFAULT_CACHE_PATH)
     cache_path = _require_str(cache_path, "testing.cache_path")
     return TestingConfig(
-        max_tests=_require_int(section.get("max_tests", 5), "testing.max_tests", minimum=0),
+        # 0 would probe nothing yet report success: at least one probe per run.
+        max_tests=_require_int(section.get("max_tests", 5), "testing.max_tests", minimum=1),
         cache_ttl_hours=_require_number(section.get("cache_ttl_hours", 6), "testing.cache_ttl_hours", positive=True),
         transient_ttl_minutes=_require_number(
             section.get("transient_ttl_minutes", 30), "testing.transient_ttl_minutes", positive=True
@@ -459,15 +461,62 @@ def _parse_backups(raw: Any) -> BackupConfig:
 
 
 def _parse_notify(raw: Any) -> NotifyConfig:
-    section = _require_mapping(raw, "notify")
+    # ``notify:`` with every channel commented out is an empty section.
+    section = _require_mapping(raw if raw is not None else {}, "notify")
 
     def channel(name: str) -> Optional[Dict[str, Any]]:
         value = section.get(name)
         if value is None:
             return None
-        return dict(_require_mapping(value, f"notify.{name}"))
+        settings = dict(_require_mapping(value, f"notify.{name}"))
+        if "enabled" in settings:
+            try:
+                settings["enabled"] = parse_bool(settings["enabled"], name=f"notify.{name}.enabled", default=True)
+            except ValueError as exc:
+                raise ConfigError(str(exc)) from None
+        return settings
 
     return NotifyConfig(telegram=channel("telegram"), webhook=channel("webhook"))
+
+
+#: Keys accepted inside each section (``providers.<name>`` is open: its extra
+#: keys are provider options).
+_SECTION_KEYS: Dict[str, frozenset] = {
+    "filters": frozenset(DEFAULT_CONFIG["filters"]),
+    "testing": frozenset(DEFAULT_CONFIG["testing"]),
+    "ranking": frozenset(DEFAULT_CONFIG["ranking"]),
+    "ranking.weights": frozenset(RankWeights.__dataclass_fields__),  # type: ignore[attr-defined]
+    "output": frozenset(DEFAULT_CONFIG["output"]),
+    "backups": frozenset(DEFAULT_CONFIG["backups"]),
+    "notify": frozenset(DEFAULT_CONFIG["notify"]),
+    "notify.telegram": frozenset({"enabled", "bot_token_env", "chat_id_env"}),
+    "notify.webhook": frozenset({"enabled", "url", "url_env"}),
+    "targets[]": frozenset({"adapter", "path", "options"}),
+}
+
+
+def _unknown_section_keys(data: Mapping[str, Any]) -> List[str]:
+    """Dotted names of keys inside sections that freemodel-sync does not use."""
+
+    def section(path: str) -> Any:
+        node: Any = data
+        for part in path.split("."):
+            node = node.get(part) if isinstance(node, Mapping) else None
+        return node
+
+    unknown: List[str] = []
+    for path, known in _SECTION_KEYS.items():
+        if path == "targets[]":
+            targets = data.get("targets")
+            items = list(enumerate(targets)) if isinstance(targets, list) else []
+            for index, item in items:
+                if isinstance(item, Mapping):
+                    unknown += [f"targets[{index}].{key}" for key in item if key not in known]
+            continue
+        value = section(path)
+        if isinstance(value, Mapping):
+            unknown += [f"{path}.{key}" for key in value if key not in known]
+    return unknown
 
 
 def load_config(
@@ -479,8 +528,9 @@ def load_config(
 
     A missing default config file yields the built-in defaults.  An explicitly
     given path that cannot be read raises :class:`ConfigError`, as do invalid
-    YAML, invalid value types and unknown adapter names.  With ``strict=True``
-    unknown top-level keys are rejected as well.
+    YAML, invalid value types and unknown adapter names.  Unknown keys (a
+    typo such as ``testing.max_test``) are logged as a warning; with
+    ``strict=True`` they are rejected instead.
     """
 
     explicit = path is not None
@@ -504,10 +554,15 @@ def load_config(
     elif explicit:
         raise ConfigError(f"config file not found: {config_path}")
 
-    if strict:
-        unknown = sorted(set(data) - set(DEFAULT_CONFIG))
-        if unknown:
+    unknown = sorted(str(key) for key in set(data) - set(DEFAULT_CONFIG)) + _unknown_section_keys(data)
+    if unknown:
+        if strict:
             raise ConfigError(f"unknown config key(s): {', '.join(unknown)}")
+        LOG.warning(
+            "%s: unknown config key(s) ignored (typo?): %s",
+            config_path,
+            ", ".join(unknown),
+        )
 
     merged = _deep_merge(DEFAULT_CONFIG, data)
     if data.get("providers") is not None:

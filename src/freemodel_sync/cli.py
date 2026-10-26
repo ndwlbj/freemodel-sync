@@ -530,9 +530,11 @@ def _cmd_rank(args: argparse.Namespace, config: Config, providers: Providers) ->
     if output:
         _write_json(Path(output), payload)
 
+    # Same exit code as ``test`` when an account/quota problem cut probing short.
+    status = EXIT_ACCOUNT_ERROR if results.account_problem else 0
     if args.json:
         print(json.dumps(payload, indent=2, ensure_ascii=False))
-        return 0
+        return status
 
     if ranked:
         rows = []
@@ -567,7 +569,7 @@ def _cmd_rank(args: argparse.Namespace, config: Config, providers: Providers) ->
         print("selection: none (no working model)")
     if output:
         print(f"ranking JSON written to {output}")
-    return 0
+    return status
 
 
 def _apply_target(
@@ -643,7 +645,13 @@ def _cmd_sync(args: argparse.Namespace, config: Config, providers: Providers) ->
     failed_targets: List[str] = []
     succeeded: Dict[str, str] = {}
     if not config.targets:
-        print("no targets configured; nothing to write")
+        # Legitimate for a notify-only setup: the selection is still recorded
+        # in the state file and announced when it changes.
+        print(
+            "no targets configured; nothing to write (the selection is still recorded "
+            "in the state file and notified when it changes)",
+            file=sys.stderr,
+        )
     for target in config.targets:
         target_selection = _target_selection(config, target, ranked)
         if target_selection is None:
@@ -779,6 +787,18 @@ def _configure_logging(verbose: bool, debug_http: bool = False) -> None:
         logging.getLogger(name).setLevel(http_level)
 
 
+def _at_least_one(text: str) -> int:
+    """argparse type: an integer >= 1 (0 would probe nothing yet look like success)."""
+
+    try:
+        value = int(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"invalid integer: {text!r}") from None
+    if value < 1:
+        raise argparse.ArgumentTypeError("must be >= 1")
+    return value
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Create the argument parser (exposed for tests and ``--help``)."""
 
@@ -804,7 +824,7 @@ def build_parser() -> argparse.ArgumentParser:
     discover.add_argument("--json", action="store_true", help="print JSON")
 
     test = subparsers.add_parser("test", help="discover, filter and probe models")
-    test.add_argument("--max-tests", type=int, default=None, metavar="N", help="maximum probes")
+    test.add_argument("--max-tests", type=_at_least_one, default=None, metavar="N", help="maximum probes (>= 1)")
 
     rank_parser = subparsers.add_parser("rank", help="rank models and show the selection")
     rank_parser.add_argument("--json", action="store_true", help="print JSON")

@@ -57,45 +57,50 @@ backups:
 
 state_path: ~/.local/state/freemodel-sync/state.json
 
+# Files to update. Every target is commented out: uncomment the ones you use
+# and change the paths to your own files. A missing target file is created
+# (with a warning), so a placeholder path left here would create it.
 targets:
   # Generic OpenAI-compatible env file (only these three variables are managed).
-  - adapter: openai-env
-    path: ~/my-app/.env
-    options:
-      base_url_var: OPENAI_BASE_URL
-      model_var: OPENAI_MODEL
-      fallbacks_var: OPENAI_FALLBACK_MODELS
+  # - adapter: openai-env
+  #   path: ~/my-app/.env
+  #   options:
+  #     base_url_var: OPENAI_BASE_URL
+  #     model_var: OPENAI_MODEL
+  #     fallbacks_var: OPENAI_FALLBACK_MODELS
 
   # Generic YAML config: sets base_url / model / fallback_models under `llm`.
-  - adapter: openai-yaml
-    path: ~/my-app/config.yml
-    options:
-      key_path: llm
+  # - adapter: openai-yaml
+  #   path: ~/my-app/config.yml
+  #   options:
+  #     key_path: llm
 
   # dsh (DeepSeek Harness) cordis.patch.yml-style file: manages only the
   # `agent-default-model` entry. Map freemodel-sync provider names to the
   # provider ids configured in your dsh setup.
-  - adapter: dsh
-    path: ~/path/to/bot-model.yml
-    options:
-      entry_id: agent-default-model
-      provider_map:
-        openrouter: openrouter
+  # - adapter: dsh
+  #   path: ~/path/to/bot-model.yml
+  #   options:
+  #     entry_id: agent-default-model
+  #     provider_map:
+  #       openrouter: openrouter
 
   # AstrBot (experimental): updates the model of an EXISTING provider entry in
   # data/cmd_config.json (top-level `model` on AstrBot >= 4.10, model_config.model
   # on older versions). Create the provider in AstrBot first; restart AstrBot after a sync.
-  - adapter: astrbot
-    path: ~/AstrBot/data/cmd_config.json
-    options:
-      provider_id: openrouter
+  # - adapter: astrbot
+  #   path: ~/AstrBot/data/cmd_config.json
+  #   options:
+  #     provider_id: openrouter
 
+# Notifications when the primary model changes. Commented out: a configured
+# channel whose environment variables are missing logs a warning on every switch.
 notify:
   # Telegram: token and chat id are read from these environment variables.
-  telegram:
-    bot_token_env: TELEGRAM_BOT_TOKEN
-    chat_id_env: TELEGRAM_CHAT_ID
+  # telegram:
+  #   bot_token_env: TELEGRAM_BOT_TOKEN
+  #   chat_id_env: TELEGRAM_CHAT_ID
   # Generic webhook (e.g. a QQ bot bridge). JSON body:
   # {"event": "primary_changed", "old": ..., "new": ..., "fallbacks": [...], "text": ...}
-  webhook:
-    url_env: FREEMODEL_SYNC_WEBHOOK_URL   # keep the URL (it usually has a token) out of this file
+  # webhook:
+  #   url_env: FREEMODEL_SYNC_WEBHOOK_URL   # keep the URL (it usually has a token) out of this file

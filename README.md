@@ -26,12 +26,13 @@ discover ──► filter ──► probe (tiny, cached, budgeted) ──► ran
    `:free`, prompt *and* completion prices are `0`, and it takes and returns text.
    The `openrouter/free` meta-router is excluded.
 2. **Filter** by tool-calling support, minimum context window, id globs, and expiry:
-   models whose `expiration_date` is within N days are dropped, and models expiring within
+   models whose `expiration_date` is within N days are dropped (expired models are always
+   dropped, even with `exclude_expiring_within_days: null`), and models expiring within
    30 days are penalised.
 3. **Probe** each candidate with one tiny streaming request (`max_tokens: 16` by default, `providers.openrouter.probe_max_tokens`) using *your own*
    OpenRouter key, measuring availability and time-to-first-token. Probing is frugal:
    candidates are tried in order of promise, results are cached (6 h by default), at most
-   `max_tests` new probes are made per run, and the round stops while keeping
+   `max_tests` new probes are made per run (at least 1), and the round stops while keeping
    `reserve_requests` of the free requests left today, as reported by
    `free_model_daily_requests.remaining` in `GET /api/v1/key` (UTC day; per OpenRouter's documentation at the time of writing, 50/day below 10
    purchased credits and 1000/day above). If the key endpoint reports nothing, a conservative
@@ -82,7 +83,7 @@ export OPENROUTER_API_KEY=...            # your own key; only read from the envi
 freemodel-sync discover                  # list free models (no key needed)
 freemodel-sync test --max-tests 3        # probe the 3 most promising ones
 freemodel-sync rank --json               # full ranking + selection as JSON
-cp examples/config.example.yml ~/.config/freemodel-sync/config.yml   # then edit targets
+cp examples/config.example.yml ~/.config/freemodel-sync/config.yml   # then uncomment and edit targets
 freemodel-sync sync --dry-run            # show the diffs
 freemodel-sync sync                      # write configs, notify on change
 ```
@@ -99,6 +100,7 @@ Exit codes: `0` success, `1` error (bad config, missing key, a target failed), `
 (no file written), `3` probing was stopped by an account/quota problem such as a platform rate limit
 or missing credits (no file written, no model marked as failed), `4` another run is still in progress
 (`test`, `rank` and `sync` take a lock next to the state file, so overlapping cron runs never probe twice).
+`test` and `rank` both return `3` when an account/quota problem stopped probing.
 
 `sync --dry-run` is zero-cost: it uses only cached probe results (from an earlier `test`/`sync`), sends no chat or `/key` request, needs no API key, and writes no target, state or cache file. It still fetches the public model list. Add `--probe` to probe as usual during a dry run (this spends free-tier requests and updates the cache). `rank --no-probe` and `sync --no-probe` likewise use cached results only.
 
@@ -107,6 +109,18 @@ or missing credits (no file written, no model marked as failed), `4` another run
 Default location: `~/.config/freemodel-sync/config.yml` (override with `-c FILE` or
 `$FREEMODEL_SYNC_CONFIG`). Every key is optional; see
 [`examples/config.example.yml`](https://github.com/ndwlbj/freemodel-sync/blob/main/examples/config.example.yml) for the full annotated file.
+Its targets and notification channels are commented out: uncomment the ones you use and point
+them at your own files.
+
+- An unknown key (usually a typo such as `testing.max_test`) is ignored with a warning that names it.
+  Keys under `providers.<name>` are provider options and are not checked.
+- On/off options (`notify.*.enabled`, the `dsh` option `check_model`, `preserve_comments`) accept
+  `true`/`false`, `yes`/`no`, `on`/`off` and `1`/`0`, quoted or not. Any other value is an error
+  rather than a guess.
+- A target file that does not exist is created with only the managed settings, and a warning
+  is logged (often the path is a typo or a placeholder).
+- With no `targets`, `sync` writes no file but still records the selection in the state file and
+  sends notifications when it changes (a notify-only setup).
 
 ## Providers
 
@@ -138,7 +152,7 @@ targets:
 | --- | --- | --- |
 | `openai-env` | `KEY=VALUE` env file | `OPENAI_BASE_URL`, `OPENAI_MODEL`, `OPENAI_FALLBACK_MODELS` (names configurable). `OPENAI_FALLBACK_MODELS` is not a standard variable: your tool must read it itself. Other lines, comments and your API key are left untouched. |
 | `openai-yaml` | any YAML file | `base_url`, `model`, `fallback_models` under a dotted `key_path` (default `llm`). |
-| `dsh` | dsh (DeepSeek Harness) `cordis.patch.yml`-style list | Replaces only the `agent-default-model` entry with `config: {provider: <p>, model: '<m>'}`; other entries and comments are kept byte-for-byte. Use `provider_map` to map `openrouter` to your dsh provider id. Other keys already in that entry's `config` (e.g. `reasoningEffort`) and its `name` are kept; `entry_name` sets the name. dsh has no fallback-list entry, so fallbacks are not written (`fallback_entry_id` is deprecated and ignored). If the same file declares the provider's `models` list (dsh's `llm-pi-ai` entry), a model missing from it is refused and nothing is written; `check_model: false` turns this off. |
+| `dsh` | dsh (DeepSeek Harness) `cordis.patch.yml`-style list | Replaces only the `agent-default-model` entry with `config: {provider: <p>, model: '<m>'}`; other entries and comments are kept byte-for-byte. Use `provider_map` to map `openrouter` to your dsh provider id. Other keys already in that entry's `config` (e.g. `reasoningEffort`) and its `name` are kept; `entry_name` sets the name. dsh has no fallback-list entry, so fallbacks are not written (`fallback_entry_id` is deprecated and ignored). If the same file declares the provider's `models` list (dsh's `llm-pi-ai` entry), a model missing from it is refused and nothing is written; `check_model: false` turns this off. A file that is not a block-style list (e.g. a flow-style `[...]` list) or that has two entries with the managed id is refused rather than rewritten. |
 | `astrbot` (experimental) | AstrBot `data/cmd_config.json` | Updates the model of an **existing** provider entry (`provider_id`): the top-level `model` field for AstrBot ≥ 4.10 (`provider_sources` layout), `model_config.model` for older versions. Never creates providers or touches keys or provider sources. |
 
 Example `dsh` result:
@@ -157,8 +171,13 @@ Example `dsh` result:
   written; mapping fallbacks to AstrBot's `fallback_provider_ids` is not implemented yet.
 - **YAML comments (0.3.0+):** install the optional extra (`pipx install "freemodel-sync[yaml-comments]"`) and
   `openai-yaml` edits the file with ruamel.yaml, keeping comments, key order and quoting. Without it,
-  PyYAML is used and comments are dropped *when a value changes* (an unchanged file is never
-  rewritten). Target option `preserve_comments: auto|true|false` (default `auto`). The `dsh` adapter
+  PyYAML re-dumps the *whole* document when a value changes (an unchanged file is never
+  rewritten): comments are dropped and unrelated values can be re-typed or re-quoted
+  (`1.10` becomes `1.1`, `yes` becomes `true`, `0755` becomes `493`, `"yes"` becomes `'yes'`).
+  So with the default `preserve_comments: auto` and no ruamel.yaml, a file that would lose anything
+  is refused (the target fails and the file is left unchanged); a file PyYAML writes back as is
+  (for example one freemodel-sync already wrote this way) is still updated. `preserve_comments: true`
+  requires ruamel.yaml; `false` always uses PyYAML and accepts the re-dump. The `dsh` adapter
   always preserves comments.
 - **Time-based pricing:** a `:free` model whose `pricing.overrides` has a non-zero price (for
   example at peak hours or for long contexts) is skipped with a warning.
@@ -178,7 +197,10 @@ Example `dsh` result:
   works but logs a warning, plus another if the config file is readable by other users.
   The POST body is `{"event": "primary_changed", "old", "new", "fallbacks", "text"}`.
 
-Notification failures are logged (without tokens or full URLs) and never fail a sync.
+Notification failures are logged (without tokens or full URLs) and never fail a sync. A configured
+channel whose environment variables are not set logs a warning when a notification is due, so a
+misspelt variable name does not go unnoticed; remove the channel (or set `enabled: false`) if you do
+not use it.
 
 ## Daily health check
 

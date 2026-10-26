@@ -213,9 +213,14 @@ def run_tests(
     limit), when ``X-RateLimit-Remaining`` drops to the reserve, or while a
     previous rate limit's reset time has not passed.  Models that were
     neither cached nor tested are simply absent from the result.
+
+    ``max_tests`` below 1 probes nothing; ``stop_reason`` says so, because a
+    round that cannot send a single request must not look like a normal one.
     """
 
     run = TestRun()
+    if max_tests < 1:
+        run.stop_reason = f"max_tests is {max_tests}: no probe allowed"
     allowed: Optional[int] = None
     if remaining_budget is not None:
         allowed = max(0, remaining_budget - reserve)

@@ -7,9 +7,17 @@ nothing changed the file is left untouched byte-for-byte.
 Comments: if the optional ``ruamel.yaml`` package is installed
 (``pip install "freemodel-sync[yaml-comments]"``) the file is edited in
 round-trip mode, so comments, key order and quoting survive a change.
-Otherwise PyYAML is used, which drops comments when a value changes. The
-``preserve_comments`` option selects ``auto`` (default: ruamel.yaml when
-available), ``true`` (require it) or ``false`` (always PyYAML).
+Otherwise PyYAML is used, which re-dumps the whole document when a value
+changes: comments are dropped and unrelated values are re-typed or re-quoted
+(``1.10`` becomes ``1.1``, ``yes`` becomes ``true``, ``0755`` becomes ``493``).
+The ``preserve_comments`` option selects:
+
+- ``auto`` (default): ruamel.yaml when available. Without it, PyYAML is used
+  only when the re-dump loses nothing (no comments, every value written back
+  unchanged, e.g. a file freemodel-sync itself wrote with PyYAML); otherwise
+  the target fails and the file is left unchanged.
+- ``true``: require ruamel.yaml.
+- ``false``: always PyYAML, accepting the re-dump.
 
 Example for the default ``key_path`` (``"llm"``)::
 
@@ -25,10 +33,12 @@ Example for the default ``key_path`` (``"llm"``)::
 from __future__ import annotations
 
 import io
-from typing import Any, Dict, List, Optional
+import re
+from typing import Any, Dict, List, Optional, Tuple
 
 import yaml
 
+from ..flags import parse_bool
 from ..models import Selection
 from .base import Adapter, register_adapter
 from .openai_env import resolve_base_url
@@ -42,6 +52,36 @@ def _load_ruamel() -> Optional[Any]:
     except ImportError:
         return None
     return ruamel_yaml
+
+
+#: A ``#`` at the start of a line or after whitespace: a comment, or (rarely) a
+#: string containing " #". False positives only make the check stricter.
+_COMMENT_RE = re.compile(r"(^|\s)#")
+
+
+def _scalars(text: str) -> List[Tuple[str, Optional[str]]]:
+    """The scalar tokens of *text* as ``(value, style)`` pairs, in order."""
+
+    return [(token.value, token.style) for token in yaml.scan(text) if isinstance(token, yaml.ScalarToken)]
+
+
+def _pyyaml_dump(data: Any) -> str:
+    return yaml.safe_dump(data, sort_keys=False, allow_unicode=True, default_flow_style=False)
+
+
+def _pyyaml_is_lossless(text: str, data: Any) -> bool:
+    """True when re-dumping *data* with PyYAML keeps everything in *text*.
+
+    That is: *text* has no comments and every scalar is written back with the
+    same spelling and quoting (layout such as indentation may still change).
+    """
+
+    if _COMMENT_RE.search(text):
+        return False
+    try:
+        return _scalars(text) == _scalars(_pyyaml_dump(data))
+    except yaml.YAMLError:  # pragma: no cover - text was already parsed once
+        return False
 
 
 def _parse_key_path(key_path: str) -> List[str]:
@@ -67,20 +107,27 @@ class OpenAIYamlAdapter(Adapter):
 
     name = "openai-yaml"
 
-    def _ruamel(self) -> Optional[Any]:
+    def _mode(self) -> str:
+        """``"auto"``, ``"true"`` or ``"false"`` from ``preserve_comments``."""
+
         mode = self.options.get("preserve_comments", "auto")
-        if isinstance(mode, str):
-            mode = mode.strip().lower()
-        if mode in (False, "false", "no", "off"):
+        if mode is None or (isinstance(mode, str) and mode.strip().lower() == "auto"):
+            return "auto"
+        try:
+            return "true" if parse_bool(mode, name="preserve_comments", default=False) else "false"
+        except ValueError:
+            raise ValueError(f"preserve_comments must be auto, true or false, got {mode!r}") from None
+
+    def _ruamel(self) -> Optional[Any]:
+        mode = self._mode()
+        if mode == "false":
             return None
         module = _load_ruamel()
-        if module is None and mode in (True, "true", "yes", "on"):
+        if module is None and mode == "true":
             raise ValueError(
                 "preserve_comments is true but ruamel.yaml is not installed; "
                 'run: pip install "freemodel-sync[yaml-comments]"'
             )
-        if mode not in ("auto", True, "true", "yes", "on"):
-            raise ValueError(f"preserve_comments must be auto, true or false, got {mode!r}")
         return module
 
     def render(self, selection: Selection, current_text: str) -> str:
@@ -149,10 +196,15 @@ class OpenAIYamlAdapter(Adapter):
             rt.dump(data, out)
             return out.getvalue()
 
+        if self._mode() == "auto" and current_text.strip():
+            original = yaml.safe_load(current_text)
+            if not _pyyaml_is_lossless(current_text, original):
+                raise ValueError(
+                    "refusing to rewrite this YAML without ruamel.yaml: PyYAML would drop its "
+                    "comments and could change unrelated values (e.g. 1.10 -> 1.1, yes -> true, "
+                    '0755 -> 493). Install ruamel.yaml (pip install "freemodel-sync[yaml-comments]") '
+                    "or set preserve_comments: false in this target's options to accept a plain re-dump; "
+                    "nothing was written"
+                )
         leaf.update(desired)
-        return yaml.safe_dump(
-            data,
-            sort_keys=False,
-            allow_unicode=True,
-            default_flow_style=False,
-        )
+        return _pyyaml_dump(data)

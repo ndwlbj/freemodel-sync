@@ -36,6 +36,42 @@ All notable changes to this project are documented here. The format follows
 - An error response whose body cannot be read is classified by its status code instead of raising
   `ResponseNotRead` out of the probe.
 
+### Changed
+
+- **`openai-yaml` without ruamel.yaml no longer rewrites a file it would damage.** PyYAML re-dumps
+  the whole document, which dropped comments and silently re-typed unrelated values (`1.10` became
+  `1.1`, `yes` became `true`, `0755` became `493`). With the default `preserve_comments: auto`, such
+  a file is now refused: the target fails and the file is left unchanged. Install the
+  `yaml-comments` extra, or set `preserve_comments: false` to accept the re-dump. A file that
+  PyYAML writes back as is, including one freemodel-sync already wrote this way, is still updated.
+- **`dsh` refuses files it cannot edit in place.** A flow-style list (`[{id: ...}, ...]`) used to
+  be re-dumped without its comments and with no warning. Two entries with the managed id used to
+  get only the first one updated. Both now fail the target and leave the file unchanged. A file
+  that only has comments now keeps them above the new entry.
+- **`testing.max_tests` and `test --max-tests` must be at least 1.** `0` or a negative value used
+  to send no request and still exit 0. The same applies to `daily_snapshot.py --max-probes` and
+  `SNAPSHOT_MAX_PROBES`. A library call to `run_tests(max_tests=0)` now sets `stop_reason`.
+- **Unknown keys inside config sections** (for example `testing.max_test` or
+  `notify.telegram.chat_env`) are logged as a warning; `load_config(strict=True)` rejects them.
+  Before, only unknown top-level keys were noticed, and only in strict mode.
+- **One parser for on/off options.** `notify.<channel>.enabled`, `check_model` and
+  `preserve_comments` accept `true/false`, `yes/no`, `on/off` and `1/0` (quoted or not). Any other
+  value is an error. Before, `enabled: "false"` left a channel on, and `check_model: "off"` kept
+  the check on.
+- **`rank` exits with 3** when an account or quota problem stopped probing, as `test` does. It
+  used to always exit 0.
+- **Expired models are always dropped**, even with `exclude_expiring_within_days: null`. Before,
+  they could be probed or selected and were shown as "expires in -N days". The daily snapshot
+  still lists them.
+- **No more silent setup mistakes:**
+  - A configured Telegram or webhook channel whose environment variables are not set now logs a
+    warning instead of an INFO message, which the default log level hid.
+  - Creating a target file that does not exist logs a warning.
+  - `sync` without targets says that it still records and announces the selection.
+- **The example config ships with its targets and notification channels commented out**, so
+  copying it no longer creates files at placeholder paths. An empty `notify:` section is now
+  accepted.
+
 ## [0.3.2] - 2026-10-24
 
 ### Fixed

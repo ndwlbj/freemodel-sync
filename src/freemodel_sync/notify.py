@@ -15,6 +15,7 @@ from urllib.parse import urlsplit
 
 import httpx
 
+from .flags import parse_bool
 from .models import Selection
 
 logger = logging.getLogger(__name__)
@@ -75,7 +76,9 @@ def _send_telegram(
     chat_id = os.environ.get(chat_env)
     missing = [name for name, value in ((token_env, token), (chat_env, chat_id)) if not value]
     if missing:
-        logger.info("telegram notification skipped: missing %s", ", ".join(missing))
+        # The channel is configured, so a missing variable is a setup mistake
+        # (often a typo in the name): say so at the default log level.
+        logger.warning("telegram notification not sent: environment variable(s) not set: %s", ", ".join(missing))
         return False
     if dry_run:
         logger.info("telegram notification skipped (dry run)")
@@ -101,11 +104,14 @@ def _send_webhook(
     """Send *payload* to the configured webhook; return ``True`` when handled."""
 
     url = config.get("url")
+    env_name = str(config.get("url_env") or DEFAULT_WEBHOOK_URL_ENV)
     if not url:
-        env_name = str(config.get("url_env") or DEFAULT_WEBHOOK_URL_ENV)
         url = os.environ.get(env_name)
     if not url:
-        logger.info("webhook notification skipped: no URL configured")
+        logger.warning(
+            "webhook notification not sent: no url in the config and environment variable %s is not set",
+            env_name,
+        )
         return False
     url = str(url)
     if dry_run:
@@ -122,6 +128,16 @@ def _send_webhook(
         )
         return False
     return True
+
+
+def _enabled(config: Mapping[str, Any], channel: str) -> bool:
+    """``enabled`` of a channel (default true); an invalid value disables it with a warning."""
+
+    try:
+        return parse_bool(config.get("enabled"), name=f"notify.{channel}.enabled", default=True)
+    except ValueError as exc:
+        logger.warning("%s notification not sent: %s", channel, exc)
+        return False
 
 
 def notify_switch(
@@ -168,10 +184,10 @@ def notify_switch(
         active_client = httpx.Client(timeout=10.0)
 
     try:
-        if isinstance(telegram, Mapping) and telegram.get("enabled", True) is not False:
+        if isinstance(telegram, Mapping) and _enabled(telegram, "telegram"):
             if _send_telegram(active_client, telegram, text, dry_run=dry_run):
                 channels.append("telegram")
-        if isinstance(webhook, Mapping) and webhook.get("enabled", True) is not False:
+        if isinstance(webhook, Mapping) and _enabled(webhook, "webhook"):
             if _send_webhook(active_client, webhook, payload, dry_run=dry_run):
                 channels.append("webhook")
     finally:

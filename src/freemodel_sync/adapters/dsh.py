@@ -28,6 +28,12 @@ If the provider or its ``models`` list is not in this file (for example a
 built-in dsh provider or one declared in another patch), nothing can be
 checked and the entry is written as before. ``check_model: false`` disables
 the check.
+
+The file is edited line by line so other entries and comments stay
+byte-for-byte. A layout that cannot be edited that way (for example a
+flow-style list ``[{id: a, ...}]``) is refused with ``ValueError`` instead of
+being re-dumped without its comments, and so is a file with two entries using
+the managed ``entry_id`` (which one dsh would apply is not defined).
 """
 
 from __future__ import annotations
@@ -38,10 +44,14 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import yaml
 
+from ..flags import parse_bool
 from ..models import Selection
 from .base import Adapter, register_adapter
 
 LOG = logging.getLogger(__name__)
+
+#: A ``#`` at the start of a line or after whitespace (a YAML comment).
+_COMMENT_RE = re.compile(r"(^|\s)#")
 
 #: Values matching this pattern can be emitted as plain YAML scalars.
 _PLAIN_RE = re.compile(r"^[A-Za-z0-9_./:@+-]+$")
@@ -74,17 +84,6 @@ def _flow_value(value: Any) -> str:
     elif text.endswith("..."):
         text = text[:-3].strip()
     return text
-
-
-def _dump_other_entry(entry: Any) -> str:
-    """Dump a non-managed entry as a YAML list item."""
-
-    return yaml.safe_dump(
-        [entry],
-        sort_keys=False,
-        allow_unicode=True,
-        default_flow_style=False,
-    )
 
 
 def _declared_models(entries: List[Any], provider: str) -> Optional[List[str]]:
@@ -230,7 +229,7 @@ class DshAdapter(Adapter):
 
         provider = self._provider_name(selection)
         model_id = selection.primary.model.id
-        if self.options.get("check_model", True) not in (False, "false", "False", 0, "0", "no"):
+        if parse_bool(self.options.get("check_model"), name="check_model", default=True):
             declared = _declared_models(entries, provider)
             if declared is None:
                 LOG.info(
@@ -246,7 +245,13 @@ class DshAdapter(Adapter):
                     "was written. Add the model to that provider, map to another provider with "
                     "provider_map/provider_name, or set check_model: false"
                 )
-        existing = next((e for e in entries if isinstance(e, dict) and str(e.get("id")) == entry_id), None)
+        matching = [e for e in entries if isinstance(e, dict) and e.get("id") is not None and str(e["id"]) == entry_id]
+        if len(matching) > 1:
+            raise ValueError(
+                f"{len(matching)} entries have id {entry_id!r}; which one dsh applies is not defined, "
+                "so nothing was written. Remove the duplicates"
+            )
+        existing = matching[0] if matching else None
         name = self.options.get("entry_name") or (existing or {}).get("name")
         old_config = (existing or {}).get("config")
         extra = (
@@ -264,34 +269,43 @@ class DshAdapter(Adapter):
             )
         }
 
-        chunks = _split_top_level_items(current_text)
+        chunks: Optional[List[Tuple[str, str]]] = _split_top_level_items(current_text)
         if chunks is None or len(chunks) != len(entries):
-            # Unusual layout (e.g. a flow-style list): fall back to re-dumping.
-            chunks = [None] * len(entries)
+            if entries or _COMMENT_RE.search(current_text):
+                # Unusual layout (e.g. a flow-style list): re-dumping would drop
+                # comments and reformat every entry, so refuse instead.
+                raise ValueError(
+                    "cannot edit this file in place: it is not a block-style YAML list with one "
+                    "'- id: ...' item per entry (e.g. it uses a flow-style [ ... ] list). Rewriting it "
+                    "would drop its comments and reformat other entries, so nothing was written. "
+                    "Convert it to a block-style list"
+                )
+            chunks = []  # e.g. "[]": nothing to keep
+            rendered: List[str] = []
+        else:
+            # Before the first entry, or the whole file when it only has
+            # comments: kept as is.
+            rendered = [] if chunks else [current_text]
 
         found: set = set()
-        rendered: List[str] = []
         for entry, chunk in zip(entries, chunks):
             entry_name: Optional[str] = None
             if isinstance(entry, dict):
                 raw_id = entry.get("id")
                 if raw_id is not None:
                     entry_name = str(raw_id)
-            if entry_name is not None and entry_name in managed and entry_name not in found:
-                prefix = chunk[0] if chunk is not None else ""
-                rendered.append(prefix + managed[entry_name])
+            if entry_name is not None and entry_name in managed:
+                rendered.append(chunk[0] + managed[entry_name])
                 found.add(entry_name)
-            elif chunk is not None:
+            else:
                 # Keep unmanaged entries byte-for-byte, comments included.
                 rendered.append(chunk[0] + chunk[1])
-            else:
-                rendered.append(_dump_other_entry(entry))
 
         text = "".join(rendered)
         if text and not text.endswith("\n"):
             text += "\n"
         if entry_id not in found:
             text += managed[entry_id]
-        if chunks and chunks[-1] is not None:
+        if chunks:
             text += _trailing_text(current_text)
         return text

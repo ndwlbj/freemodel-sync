@@ -71,12 +71,15 @@ def filter_models(
     exclude: Optional[Sequence[str]] = None,
     today: Optional[date] = None,
     exclude_non_chat: bool = True,
+    exclude_expired: bool = True,
 ) -> List[ModelInfo]:
     """Return models passing the configured filters, preserving input order.
 
     ``exclude_non_chat`` drops models matching :data:`NON_CHAT_PATTERNS`
     (safety classifiers, embedding, rerank, speech) unless they are matched
-    explicitly by ``include``.
+    explicitly by ``include``. ``exclude_expired`` drops models whose
+    expiration date has passed, even when ``exclude_expiring_within_days`` is
+    ``None``: they cannot be used, so probing or selecting them is wasted.
     """
 
     kept: List[ModelInfo] = []
@@ -87,8 +90,10 @@ def filter_models(
             continue
         if model.context_length < min_context:
             continue
+        days = model.days_until_expiry(today)
+        if days is not None and exclude_expired and days < 0:
+            continue
         if exclude_expiring_within_days is not None:
-            days = model.days_until_expiry(today)
             if days is not None and days <= exclude_expiring_within_days:
                 continue
         if include and not _matches_any(model.id, include):
@@ -133,7 +138,7 @@ def score_model(
     days = model.days_until_expiry(today)
     if days is not None and days < 30:
         score -= weights.expiry_penalty * (30 - max(days, 0)) / 30.0
-        reasons.append(f"expires in {days} days")
+        reasons.append(f"expired {-days} day(s) ago" if days < 0 else f"expires in {days} days")
 
     return score, reasons
 

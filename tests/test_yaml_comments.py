@@ -74,9 +74,47 @@ def test_ruamel_creates_missing_sections(tmp_path):
     assert yaml.safe_load(text)["app"]["llm"]["model"] == "vendor/a:free"
 
 
-def test_pyyaml_path_when_ruamel_missing(tmp_path, monkeypatch):
+def test_auto_without_ruamel_refuses_a_lossy_rewrite(tmp_path, monkeypatch):
+    """Review A3: PyYAML would drop the comments, so auto mode refuses."""
     monkeypatch.setattr(openai_yaml, "_load_ruamel", lambda: None)
-    text, result = apply(tmp_path, DOC)
+    with pytest.raises(ValueError, match="preserve_comments: false"):
+        apply(tmp_path, DOC)
+    assert (tmp_path / "c.yml").read_text() == DOC
+
+
+@pytest.mark.parametrize(
+    "line",
+    ["version: 1.10", "enabled: yes", "mode: 0755", 'keep: "yes"', "name: 'quoted'", "x: 1 # note"],
+)
+def test_auto_without_ruamel_refuses_value_retyping(tmp_path, monkeypatch, line):
+    monkeypatch.setattr(openai_yaml, "_load_ruamel", lambda: None)
+    text = f"{line}\napp:\n  llm:\n    model: old/model\n"
+    with pytest.raises(ValueError, match="1.10 -> 1.1"):
+        apply(tmp_path, text)
+    assert (tmp_path / "c.yml").read_text() == text
+
+
+def test_auto_without_ruamel_rewrites_a_lossless_file(tmp_path, monkeypatch):
+    """A file PyYAML writes back unchanged (e.g. one it wrote before) still works."""
+    monkeypatch.setattr(openai_yaml, "_load_ruamel", lambda: None)
+    plain = "version: '1.10'\napp:\n  llm:\n    model: old/model\n    temperature: 0.2\nother: true\n"
+    text, result = apply(tmp_path, plain)
+    assert result.changed and yaml.safe_load(text)["app"]["llm"] == EXPECTED
+    assert yaml.safe_load(text)["version"] == "1.10"
+    # what it wrote is itself lossless, so the next change works too
+    assert openai_yaml._pyyaml_is_lossless(text, yaml.safe_load(text))
+
+
+def test_auto_without_ruamel_creates_a_new_file(tmp_path, monkeypatch):
+    monkeypatch.setattr(openai_yaml, "_load_ruamel", lambda: None)
+    text, result = apply(tmp_path, "")
+    assert result.changed and yaml.safe_load(text)["app"]["llm"]["model"] == "vendor/a:free"
+
+
+@pytest.mark.parametrize("value", [False, "false", "no", "off", "0"])
+def test_preserve_comments_false_accepts_the_pyyaml_rewrite(tmp_path, monkeypatch, value):
+    monkeypatch.setattr(openai_yaml, "_load_ruamel", lambda: None)
+    text, result = apply(tmp_path, DOC, preserve_comments=value)
     assert result.changed and yaml.safe_load(text)["app"]["llm"] == EXPECTED
     assert "#" not in text  # PyYAML drops comments (documented)
 
@@ -142,6 +180,8 @@ def test_per_provider_yaml_targets_in_one_sync(tmp_path, monkeypatch, use_ruamel
         pytest.importorskip("ruamel.yaml")
     else:
         monkeypatch.setattr(openai_yaml, "_load_ruamel", lambda: None)
+    # Without ruamel.yaml the commented file needs an explicit opt-in (review A3).
+    mode = "auto" if use_ruamel else False
     monkeypatch.setenv("OPENROUTER_API_KEY", "fake-or")
     monkeypatch.setenv("GROQ_API_KEY", "fake-gq")
     models = {"openrouter": ["vendor/a:free", "vendor/b:free"], "groq": ["llama-big", "llama-small"]}
@@ -160,12 +200,12 @@ def test_per_provider_yaml_targets_in_one_sync(tmp_path, monkeypatch, use_ruamel
                     {
                         "adapter": "openai-yaml",
                         "path": str(groq_file),
-                        "options": {"key_path": "app.llm", "providers": ["groq"], "preserve_comments": "auto"},
+                        "options": {"key_path": "app.llm", "providers": ["groq"], "preserve_comments": mode},
                     },
                     {
                         "adapter": "openai-yaml",
                         "path": str(or_file),
-                        "options": {"key_path": "app.llm", "providers": ["openrouter"]},
+                        "options": {"key_path": "app.llm", "providers": ["openrouter"], "preserve_comments": mode},
                     },
                 ],
             },

@@ -116,12 +116,21 @@ def test_build_message():
     assert msg.startswith("freemodel-sync: primary model changed: none -> openrouter|vendor/a:free")
 
 
-def test_example_config_is_valid():
+def test_example_config_is_valid(tmp_path):
+    import re
     from pathlib import Path
 
     example = Path(__file__).resolve().parents[1] / "examples" / "config.example.yml"
     cfg = load_config(example)
+    # Placeholder targets and notify channels ship commented out (review D10/C15/B7).
+    assert cfg.targets == [] and cfg.notify.telegram is None and cfg.notify.webhook is None
+    # ...and are valid once uncommented.
+    text = re.sub(r"(?m)^(  )# ((?:- |  |telegram:|webhook:).*)$", r"\1\2", example.read_text())
+    uncommented = tmp_path / "config.yml"
+    uncommented.write_text(text)
+    cfg = load_config(uncommented)
     assert {t.adapter for t in cfg.targets} == {"openai-env", "openai-yaml", "dsh", "astrbot"}
+    assert cfg.notify.telegram and cfg.notify.webhook
 
 
 def test_inline_webhook_url_warns_and_checks_permissions(tmp_path, caplog):
