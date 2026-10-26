@@ -35,6 +35,8 @@ def healthy():
             model("a/one:free"),
             model("b/two:free", expires="2026-01-10"),
             model("c/three:free", expires="2026-03-01"),
+            model("e/four:free"),
+            model("f/five:free"),
             model("d/paid", prompt="0.000001"),
         ]
     }
@@ -43,7 +45,7 @@ def healthy():
 def test_check_counts_free_and_lists_expiring():
     report = cw.check(healthy(), today=TODAY)
     assert report["anomalies"] == []
-    assert report["total"] == 4 and report["free"] == 3
+    assert report["total"] == 6 and report["free"] == 5
     assert report["expiring"] == [{"id": "b/two:free", "expires": "2026-01-10", "days": 9}]
     assert "`b/two:free`: 2026-01-10 (9 days)" in cw.render(report)
 
@@ -129,8 +131,53 @@ def test_main_opens_issue_with_token(monkeypatch, capsys):
             return {"data": []}
         return gh(method, url, token, body)
 
-    assert cw.main(["--open-issue"], http=http) == 0
+    # E8: the issue is opened and the run still fails, so the badge turns red
+    assert cw.main(["--open-issue"], http=http) == 1
     assert "issue: opened" in capsys.readouterr().out
+
+
+def test_main_returns_zero_with_open_issue_when_healthy(monkeypatch, capsys):
+    monkeypatch.setenv("GITHUB_TOKEN", "t")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "o/r")
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+    gh = FakeGitHub()
+
+    def http(method, url, token=None, body=None):
+        return healthy() if url == cw.MODELS_URL else gh(method, url, token, body)
+
+    assert cw.main(["--open-issue"], http=http) == 0
+    assert "issue: none" in capsys.readouterr().out
+
+
+def test_default_min_free_catches_a_collapse():
+    two = {"data": [model("a/one:free"), model("b/two:free")]}
+    report = cw.check(two, today=TODAY)
+    assert report["anomalies"] == ["only 2 free models detected (expected at least 5)"]
+    assert cw.check(two, today=TODAY, min_free=1)["anomalies"] == []
+    assert cw.DEFAULT_MIN_FREE == 5
+
+
+def test_min_free_option(monkeypatch):
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+    two = {"data": [model("a/one:free"), model("b/two:free")]}
+    assert cw.main([], http=lambda *a, **k: two) == 1
+    assert cw.main(["--min-free", "2"], http=lambda *a, **k: two) == 0
+
+
+def test_fingerprint_changes_when_the_free_count_falls_to_another_bucket():
+    base = {"anomalies": ["field `name` missing from 9/10 models"], "free": 17}
+    assert cw.fingerprint(base) == cw.fingerprint({**base, "free": 15})
+    assert cw.fingerprint(base) != cw.fingerprint({**base, "free": 12})
+    assert cw.fingerprint(base) != cw.fingerprint({**base, "free": 3})
+
+
+def test_expired_models_are_listed_separately():
+    payload = {"data": [model(f"m/{i}:free") for i in range(5)] + [model("old/gone:free", expires="2025-12-29")]}
+    report = cw.check(payload, today=TODAY)
+    assert report["expiring"] == []
+    assert report["expired"] == [{"id": "old/gone:free", "expires": "2025-12-29", "days": -3}]
+    text = cw.render(report)
+    assert "(-3 days)" not in text and "expired 2025-12-29 (3 days ago)" in text
 
 
 @pytest.mark.parametrize("workflow", ["ci.yml", "catalog-watch.yml", "release.yml"])

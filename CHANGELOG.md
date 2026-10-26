@@ -6,6 +6,28 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **Daily snapshot: a failed provider no longer produces a misleading public report.** When model
+  discovery failed for one provider (for example Groq), the run still wrote and committed
+  `latest.json`/`latest.md` without that provider and listed all its models as "Removed". Such a
+  snapshot is now marked `"partial": true` with `failed_providers`, its diff does not count that
+  provider's models as removed, only the dated file is written (`latest.*` keep the last complete
+  snapshot), the Markdown has a banner, and the next day's diff compares with the last complete
+  snapshot. When discovery fails for every provider, nothing is written and the exit code is 1.
+- **Daily snapshot files are written atomically** (`atomic_write_text`), so an interrupted run
+  cannot leave a truncated `latest.json` or a JSON and Markdown that disagree. The files keep mode
+  0644.
+- **Daily snapshot: expired models are no longer probed** and no longer listed as "expiring soon"
+  with a negative number of days. Their ids are recorded under the provider as `expired`.
+- **Catalog watch fails the run whenever it finds an anomaly**, also with `--open-issue`. It used
+  to exit 0 after opening the issue, so the scheduled run and its badge stayed green during a real
+  schema change.
+- **Catalog watch notices a collapse of the free catalog.** The default `--min-free` is now 5
+  (was 1, so a drop from 16 free models to 2 was not reported), and the issue fingerprint includes
+  the free-model count in buckets of 5, so a further drop while the issue is open is posted again.
+  Expired free models are listed separately instead of as expiring in "-N days".
+
 ## [0.3.3] - 2026-10-26
 
 ### Fixed

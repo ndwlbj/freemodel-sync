@@ -283,11 +283,13 @@ def test_missing_key_fails_with_hint(tmp_path, capsys):
     assert "OPENROUTER_API_KEY is not set" in capsys.readouterr().err
 
 
-def test_discovery_failure_is_recorded_and_fails(tmp_path):
+def test_discovery_failure_everywhere_fails_and_writes_nothing(tmp_path, capsys):
     provider = FakeProvider(discover_error="OpenRouter model discovery failed: ConnectError")
     code, out = run(tmp_path, [("openrouter", provider)])
     assert code == 1
-    assert load(out)["providers"]["openrouter"]["status"] == "error"
+    assert not out.exists() or not list(out.iterdir())
+    captured = capsys.readouterr()
+    assert "nothing was written" in captured.err and "::error::openrouter" in captured.out
 
 
 def test_non_chat_models_are_not_probed(tmp_path):
@@ -427,3 +429,122 @@ def test_no_probe_quota_estimate_equals_reported(tmp_path):
     quota = load(out)["providers"]["openrouter"]["quota"]
     assert "remaining_estimate" not in quota and quota["daily_free_remaining"] == 43
     assert "- used / 43 left before this run (data may lag)" in (out / "latest.md").read_text()
+
+
+# -- batch 3: E1, E2, E6, C6 -------------------------------------------------
+def _seed_complete(out, day="2026-10-21"):
+    out.mkdir(parents=True, exist_ok=True)
+    prev = {
+        "date": day,
+        "models": [
+            {"key": "openrouter|v/a:free", "provider": "openrouter", "status": "ok"},
+            {"key": "groq|g/one", "provider": "groq", "status": "ok"},
+        ],
+    }
+    for name in (f"{day}.json", "latest.json"):
+        (out / name).write_text(json.dumps(prev))
+    (out / "latest.md").write_text("# previous complete snapshot\n")
+    return prev
+
+
+def test_partial_snapshot_keeps_latest_and_does_not_report_removals(tmp_path, capsys):
+    out = tmp_path / "snapshots"
+    _seed_complete(out)
+    groq = FakeProvider(name="groq", discover_error="Groq model discovery failed: ConnectError")
+    code, out = run(tmp_path, [("openrouter", FakeProvider(models=["v/a:free"])), ("groq", groq)])
+    assert code == 0
+    dated = load(out, "2026-10-22.json")
+    assert dated["partial"] is True and dated["failed_providers"] == ["groq"]
+    assert dated["diff"]["removed"] == []  # groq's models are unknown, not gone
+    # latest.* still show the last complete snapshot
+    assert load(out)["date"] == "2026-10-21"
+    assert (out / "latest.md").read_text() == "# previous complete snapshot\n"
+    assert "::warning::partial snapshot" in capsys.readouterr().out
+
+
+def test_partial_snapshot_markdown_has_a_banner():
+    snap = ds.build_snapshot(
+        [("openrouter", FakeProvider(models=["v/a:free"])), ("groq", FakeProvider(name="groq", discover_error="x"))],
+        {},
+        today=TODAY,
+        now=NOW,
+        previous=None,
+        max_probes=1,
+        reserve=0,
+        probe=False,
+        timeout=1.0,
+        expiring_days=14,
+        secrets=[],
+    )
+    assert "**Partial snapshot:** discovery failed for groq" in ds.render_markdown(snap)
+
+
+def test_next_diff_skips_a_partial_snapshot(tmp_path):
+    out = tmp_path / "snapshots"
+    _seed_complete(out, "2026-10-20")
+    (out / "2026-10-21.json").write_text(
+        json.dumps({"date": "2026-10-21", "partial": True, "models": [{"key": "openrouter|v/a:free"}]})
+    )
+    previous = ds.find_previous(out, TODAY)
+    assert previous["date"] == "2026-10-20"
+
+
+def test_find_previous_skips_an_unreadable_newest_file(tmp_path):
+    (tmp_path / "2026-10-20.json").write_text(json.dumps({"date": "2026-10-20", "models": []}))
+    (tmp_path / "2026-10-21.json").write_text("not json")
+    assert ds.find_previous(tmp_path, TODAY)["date"] == "2026-10-20"
+
+
+def test_complete_snapshot_after_partial_compares_with_last_complete(tmp_path):
+    out = tmp_path / "snapshots"
+    _seed_complete(out, "2026-10-20")
+    (out / "2026-10-21.json").write_text(json.dumps({"date": "2026-10-21", "partial": True, "models": []}))
+    groq = FakeProvider(name="groq", models=["g/one"])
+    code, out = run(tmp_path, [("openrouter", FakeProvider(models=["v/a:free"])), ("groq", groq)])
+    snap = load(out)
+    assert code == 0 and "partial" not in snap
+    assert snap["diff"]["previous_date"] == "2026-10-20"
+    assert snap["diff"]["added"] == [] and snap["diff"]["removed"] == []
+
+
+def test_files_are_written_atomically(tmp_path, monkeypatch):
+    calls = []
+    real = ds.atomic_write_text
+
+    def spy(path, text):
+        calls.append(Path(path).name)
+        real(path, text)
+
+    monkeypatch.setattr(ds, "atomic_write_text", spy)
+    code, out = run(tmp_path, [("openrouter", FakeProvider(models=["v/a:free"]))])
+    assert code == 0
+    assert calls == ["2026-10-22.json", "latest.json", "latest.md"]
+    assert all((out / name).stat().st_mode & 0o777 == 0o644 for name in calls)
+    assert not [p for p in out.iterdir() if p.name not in calls]  # no temp files left
+
+
+def test_expired_models_are_not_probed_or_listed(tmp_path):
+    expired = ModelInfo("openrouter", "v/old:free", "Old", 8192, expiration_date=date(2026, 10, 19))
+    today = ModelInfo("openrouter", "v/last:free", "Last", 8192, expiration_date=TODAY)
+    provider = FakeProvider(models=["v/a:free", expired, today])
+    code, out = run(tmp_path, [("openrouter", provider)])
+    snap = load(out)
+    assert code == 0
+    assert "v/old:free" not in provider.probed
+    assert {m["id"] for m in snap["models"]} == {"v/a:free", "v/last:free"}
+    info = snap["providers"]["openrouter"]
+    assert info["expired"] == ["openrouter|v/old:free"] and info["discovered"] == 2
+    assert snap["diff"]["expiring_soon"] == [
+        {"key": "openrouter|v/last:free", "expiration_date": "2026-10-22", "days_until_expiry": 0}
+    ]
+    md = (out / "latest.md").read_text()
+    assert "1 expired model(s) not probed" in md and "-3 days" not in md
+
+
+def test_expiring_soon_has_a_lower_bound():
+    rows = [
+        {"key": "p|old", "expiration_date": "2026-10-19", "days_until_expiry": -3, "status": "ok"},
+        {"key": "p|soon", "expiration_date": "2026-10-25", "days_until_expiry": 3, "status": "ok"},
+    ]
+    diff = ds.compute_diff(rows, None, expiring_days=14)
+    assert [item["key"] for item in diff["expiring_soon"]] == ["p|soon"]

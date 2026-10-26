@@ -3,9 +3,10 @@
 
 Fetches ``GET /api/v1/models``, checks that the fields freemodel-sync relies on
 are still present, counts free models with freemodel-sync's own rules and lists
-free models that expire soon. With ``--open-issue`` it opens (or updates) a
-single GitHub issue when something looks wrong and closes it once the catalog
-is healthy again. Only the standard library is used for HTTP; ``GITHUB_TOKEN``
+free models that expire soon. Any anomaly makes the exit code 1, with or
+without ``--open-issue``, so a scheduled run turns red. With ``--open-issue``
+it also opens (or updates) a single GitHub issue when something looks wrong
+and closes it once the catalog is healthy again. Only the standard library is used for HTTP; ``GITHUB_TOKEN``
 and ``GITHUB_REPOSITORY`` come from the GitHub Actions environment.
 """
 
@@ -38,6 +39,11 @@ KEY_FIELDS = (
     "supported_parameters",
 )
 
+#: below this many free models the catalog is reported as an anomaly (about 16-20 is usual)
+DEFAULT_MIN_FREE = 5
+#: free-model counts are grouped in buckets of this size for the issue fingerprint
+FREE_BUCKET = 5
+
 Fetch = Callable[..., Any]
 
 
@@ -54,7 +60,7 @@ def check(
     *,
     today: Optional[date] = None,
     expiring_days: int = 14,
-    min_free: int = 1,
+    min_free: int = DEFAULT_MIN_FREE,
     max_missing_ratio: float = 0.5,
 ) -> Dict[str, Any]:
     """Return a report dict; ``report["anomalies"]`` is empty when all is well."""
@@ -68,6 +74,7 @@ def check(
             "free": 0,
             "missing": {},
             "expiring": [],
+            "expired": [],
             "anomalies": ["response has no `data` list (schema change?)"],
         }
     models = [m for m in data if isinstance(m, dict)]
@@ -79,12 +86,27 @@ def check(
     if len(free) < min_free:
         anomalies.append(f"only {len(free)} free models detected (expected at least {min_free})")
     expiring = []
+    expired = []
     for model in free:
         expires = _parse_expiration_date(model.get("expiration_date"))
-        if expires is not None and (expires - today).days <= expiring_days:
-            expiring.append({"id": model.get("id"), "expires": expires.isoformat(), "days": (expires - today).days})
+        if expires is None:
+            continue
+        days = (expires - today).days
+        item = {"id": model.get("id"), "expires": expires.isoformat(), "days": days}
+        if days < 0:
+            expired.append(item)
+        elif days <= expiring_days:
+            expiring.append(item)
     expiring.sort(key=lambda item: (item["days"], str(item["id"])))
-    return {"total": len(models), "free": len(free), "missing": missing, "expiring": expiring, "anomalies": anomalies}
+    expired.sort(key=lambda item: (item["days"], str(item["id"])))
+    return {
+        "total": len(models),
+        "free": len(free),
+        "missing": missing,
+        "expiring": expiring,
+        "expired": expired,
+        "anomalies": anomalies,
+    }
 
 
 def render(report: Dict[str, Any], expiring_days: int = 14) -> str:
@@ -96,11 +118,20 @@ def render(report: Dict[str, Any], expiring_days: int = 14) -> str:
         lines += ["", "### Anomalies", ""] + [f"- {a}" for a in report["anomalies"]]
     lines += ["", f"### Free models expiring within {expiring_days} days", ""]
     lines += [f"- `{e['id']}`: {e['expires']} ({e['days']} days)" for e in report["expiring"]] or ["- none"]
+    expired = report.get("expired") or []
+    if expired:
+        lines += ["", "### Free models past their expiration date (still listed)", ""]
+        lines += [f"- `{e['id']}`: expired {e['expires']} ({-e['days']} days ago)" for e in expired]
     return "\n".join(lines) + "\n"
 
 
 def fingerprint(report: Dict[str, Any]) -> str:
-    return hashlib.sha256("\n".join(sorted(report["anomalies"])).encode()).hexdigest()[:16]
+    """Identifies the problem for the issue: the anomalies plus the free-model count
+    rounded down to a bucket of ``FREE_BUCKET``, so a further collapse while an
+    anomaly is open is posted again, but small day-to-day changes are not."""
+
+    parts = sorted(report["anomalies"]) + [f"free-bucket:{int(report.get('free') or 0) // FREE_BUCKET}"]
+    return hashlib.sha256("\n".join(parts).encode()).hexdigest()[:16]
 
 
 def _http(method: str, url: str, token: Optional[str] = None, body: Any = None, timeout: float = 30) -> Any:
@@ -153,7 +184,12 @@ def main(argv: Optional[List[str]] = None, *, http: Fetch = _http) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--url", default=MODELS_URL)
     parser.add_argument("--expiring-days", type=int, default=14)
-    parser.add_argument("--min-free", type=int, default=1)
+    parser.add_argument(
+        "--min-free",
+        type=int,
+        default=DEFAULT_MIN_FREE,
+        help=f"report an anomaly below this many free models (default {DEFAULT_MIN_FREE})",
+    )
     parser.add_argument("--open-issue", action="store_true", help="open/update/close the GitHub issue")
     args = parser.parse_args(argv)
 
@@ -166,6 +202,7 @@ def main(argv: Optional[List[str]] = None, *, http: Fetch = _http) -> int:
             "free": 0,
             "missing": {},
             "expiring": [],
+            "expired": [],
             "anomalies": [f"could not fetch the model list: {type(exc).__name__}"],
         }
     else:
@@ -185,7 +222,9 @@ def main(argv: Optional[List[str]] = None, *, http: Fetch = _http) -> int:
             print("error: GITHUB_TOKEN and GITHUB_REPOSITORY are required for --open-issue", file=sys.stderr)
             return 1
         print(f"issue: {sync_issue(report, body, repo=repo, token=token, http=http)}")
-    return 1 if report["anomalies"] and not args.open_issue else 0
+    # Non-zero on any anomaly, also after the issue was opened, so the scheduled run
+    # (and the workflow badge) shows the problem instead of staying green.
+    return 1 if report["anomalies"] else 0
 
 
 if __name__ == "__main__":

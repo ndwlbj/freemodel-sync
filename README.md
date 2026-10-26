@@ -214,12 +214,17 @@ The repository runs an automated daily health check of free models with GitHub A
   configured and the Groq organization is confirmed to be on the Free plan). It then probes at most
   **15 models per provider**, best static score first, with one tiny request each, staying within
   the free-request quota and keeping 10 requests in reserve. An account or quota error stops
-  probing for that provider.
+  probing for that provider. Models past their expiration date are not probed; the snapshot only
+  lists their ids under the provider.
 - **Where:** results are committed to the public
   [`data`](https://github.com/ndwlbj/freemodel-sync/tree/data/snapshots) branch (`main` is never
   touched): **[latest snapshot](https://github.com/ndwlbj/freemodel-sync/blob/data/snapshots/latest.md)**,
   plus `latest.json` and one `snapshots/YYYY-MM-DD.json` per day in the
   [snapshot folder](https://github.com/ndwlbj/freemodel-sync/tree/data/snapshots).
+- **When a provider fails:** if model discovery fails for one provider, that day's file is marked
+  `"partial": true` and `latest.*` keep the last complete snapshot, so the public report never
+  shows that provider's models as gone. If discovery fails for every provider, nothing is
+  committed and the run fails.
 
 The table shows each model's status (`ok`, `403`, `404`, `429`, `timeout`, ...), latency and
 context length, plus the changes since the previous snapshot and models expiring soon. It is

@@ -125,11 +125,13 @@ targets:
   繁忙时也可能跳过；也可以手动触发。
 - **内容**：发现 OpenRouter 的免费模型（Groq 只有在配置了 Groq key、并确认其组织是 Free 计划时才会检查），
   然后按静态评分从高到低，**每个 provider 最多探测 15 个模型**，每个只发一次极小的请求，不超出免费额度，
-  并预留 10 次请求。遇到账号或额度错误时，停止探测该 provider。
+  并预留 10 次请求。遇到账号或额度错误时，停止探测该 provider。已过期的模型不探测，快照只在该 provider 下记录其 id。
 - **结果**：提交到公开的 [`data`](https://github.com/ndwlbj/freemodel-sync/tree/data/snapshots) 分支
   （不会改动 `main`）：**[最新快照](https://github.com/ndwlbj/freemodel-sync/blob/data/snapshots/latest.md)**，
   另有 `latest.json`，以及[快照目录](https://github.com/ndwlbj/freemodel-sync/tree/data/snapshots)里每天一份的
   `snapshots/YYYY-MM-DD.json`。
+- **provider 失败时**：某个 provider 的模型发现失败时，当天的文件标记为 `"partial": true`，`latest.*`
+  保持上一份完整快照，公开报告不会把该 provider 的模型显示为已下架。所有 provider 都失败时不提交任何文件，任务失败。
 
 表中列出每个模型的状态（`ok`、`403`、`404`、`429`、`timeout` 等）、延迟和上下文长度，以及与上一份快照相比的变化
 和即将过期的模型。结果仅供参考：每个结果只是 GitHub Actions 在某一时刻发出的一次请求，你那边可能不同，

@@ -17,8 +17,15 @@ What it does, reusing freemodel-sync's own providers and tester:
    stops probing of that provider, exactly like ``freemodel-sync test``.
    ``--no-probe`` sends no chat request at all (discovery and quota only).
 3. Writes ``<out>/YYYY-MM-DD.json``, ``<out>/latest.json`` and
-   ``<out>/latest.md``, with a diff against the most recent earlier snapshot
-   in ``<out>`` (added, removed, expiring soon, status changes).
+   ``<out>/latest.md`` (each atomically), with a diff against the most recent
+   earlier complete snapshot in ``<out>`` (added, removed, expiring soon,
+   status changes). Models past their ``expiration_date`` are not probed or
+   listed as models; their ids are recorded under the provider as ``expired``.
+4. When discovery fails for some providers but not all, the snapshot is
+   *partial*: it is marked ``"partial": true``, the failed providers' models
+   are not reported as removed, only the dated file is written (``latest.*``
+   keep the last complete snapshot) and later diffs skip it. When discovery
+   fails for every provider nothing is written and the exit code is 1.
 
 API keys never reach the output: error texts are redacted (``sk-or-...``,
 ``gsk_...``, ``Bearer ...`` and the exact key values) and the finished JSON is
@@ -39,6 +46,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from freemodel_sync import __version__
+from freemodel_sync.fileio import atomic_write_text
 from freemodel_sync.models import QUOTA_LAG_NOTE, ModelInfo, QuotaInfo, TestResult
 from freemodel_sync.providers import ProviderError, get_provider_class
 from freemodel_sync.ranking import RankWeights, filter_models, score_model
@@ -151,12 +159,17 @@ def snapshot_provider(
         list(discovered),
         exclude_expiring_within_days=None,
         exclude_non_chat=True,
-        # The snapshot lists the catalog as published, expired entries included.
         exclude_expired=False,
         today=today,
     )
-    models = _static_order(models, today)
+    # Expired models are not usable (the CLI never selects them), so they get no
+    # probe and no model row; their ids are kept here for the record.
+    expired = sorted(m.key for m in models if (m.days_until_expiry(today) or 0) < 0)
+    expired_keys = set(expired)
+    models = _static_order([m for m in models if m.key not in expired_keys], today)
     info["discovered"] = len(models)
+    if expired:
+        info["expired"] = expired
 
     quota: Optional[QuotaInfo] = None
     quota_fn = getattr(provider, "quota", None)
@@ -241,9 +254,9 @@ def snapshot_provider(
 def find_previous(out_dir: Path, today: date) -> Optional[Dict[str, Any]]:
     """The most recent ``YYYY-MM-DD.json`` in *out_dir* dated before *today*."""
 
-    best: Optional[Tuple[date, Path]] = None
     if not out_dir.is_dir():
         return None
+    dated: List[Tuple[date, Path]] = []
     for path in out_dir.iterdir():
         match = _DATED_FILE.match(path.name)
         if not match:
@@ -252,15 +265,19 @@ def find_previous(out_dir: Path, today: date) -> Optional[Dict[str, Any]]:
             day = date.fromisoformat(match.group(1))
         except ValueError:
             continue
-        if day < today and (best is None or day > best[0]):
-            best = (day, path)
-    if best is None:
-        return None
-    try:
-        data = json.loads(best[1].read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
-    return data if isinstance(data, dict) else None
+        if day < today:
+            dated.append((day, path))
+    # Newest first. Unreadable files and partial snapshots (a provider's discovery
+    # failed) are skipped; otherwise that provider's models would show up as
+    # "added" the next day.
+    for _day, path in sorted(dated, reverse=True):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if isinstance(data, dict) and not data.get("partial"):
+            return data
+    return None
 
 
 def compute_diff(
@@ -268,12 +285,16 @@ def compute_diff(
     previous: Optional[Dict[str, Any]],
     *,
     expiring_days: int,
+    failed_providers: Sequence[str] = (),
 ) -> Dict[str, Any]:
+    """Compare *rows* with *previous*. Models of *failed_providers* (discovery failed
+    this run) are not reported as removed: their absence says nothing about them."""
+
     expiring = sorted(
         (
             {"key": r["key"], "expiration_date": r["expiration_date"], "days_until_expiry": r["days_until_expiry"]}
             for r in rows
-            if r.get("days_until_expiry") is not None and r["days_until_expiry"] <= expiring_days
+            if r.get("days_until_expiry") is not None and 0 <= r["days_until_expiry"] <= expiring_days
         ),
         key=lambda item: (item["days_until_expiry"], item["key"]),
     )
@@ -291,7 +312,11 @@ def compute_diff(
     now_rows = {r["key"]: r for r in rows}
     diff["previous_date"] = previous.get("date")
     diff["added"] = sorted(set(now_rows) - set(prev_rows))
-    diff["removed"] = sorted(set(prev_rows) - set(now_rows))
+    diff["removed"] = sorted(
+        key
+        for key in set(prev_rows) - set(now_rows)
+        if (prev_rows[key].get("provider") or str(key).split("|")[0]) not in set(failed_providers)
+    )
     for key in sorted(set(now_rows) & set(prev_rows)):
         before, after = prev_rows[key].get("status"), now_rows[key]["status"]
         if before != after and "not_probed" not in (before, after):
@@ -323,9 +348,14 @@ def render_markdown(snapshot: Dict[str, Any]) -> str:
     ]
     if snapshot["mode"] == "no-probe":
         lines += ["**This run sent no probe requests** (discovery and quota only).", ""]
+    if snapshot.get("partial"):
+        failed = ", ".join(snapshot.get("failed_providers") or [])
+        lines += [f"**Partial snapshot:** discovery failed for {failed}, so its models are missing below.", ""]
     lines += ["## Providers", "", "| Provider | Status | Free models | Probes sent | Notes |", "|---|---|---|---|---|"]
     for name, info in snapshot["providers"].items():
         notes = [info.get("reason"), info.get("error"), info.get("stop_reason"), info.get("probing")]
+        if info.get("expired"):
+            notes.append(f"{len(info['expired'])} expired model(s) not probed")
         quota = info.get("quota")
         if quota and quota.get("daily_free_limit") is not None:
             notes.append(f"daily free limit {quota['daily_free_limit']}")
@@ -427,7 +457,8 @@ def build_snapshot(
 
     ok = sum(1 for r in rows if r["status"] == "ok")
     not_probed = sum(1 for r in rows if r["status"] == "not_probed")
-    return {
+    failed_providers = sorted(name for name, info in provider_info.items() if info["status"] == "error")
+    snapshot: Dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "date": today.isoformat(),
         "generated_at": now.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -438,19 +469,34 @@ def build_snapshot(
         "providers": provider_info,
         "summary": {"models": len(rows), "ok": ok, "failed": len(rows) - ok - not_probed, "not_probed": not_probed},
         "models": rows,
-        "diff": compute_diff(rows, previous, expiring_days=expiring_days),
+        "diff": compute_diff(rows, previous, expiring_days=expiring_days, failed_providers=failed_providers),
     }
+    if failed_providers:
+        snapshot["partial"] = True
+        snapshot["failed_providers"] = failed_providers
+    return snapshot
 
 
 def write_snapshot(out_dir: Path, snapshot: Dict[str, Any], secrets: Sequence[str]) -> List[Path]:
+    """Write the dated JSON and, for a complete snapshot, ``latest.json`` and ``latest.md``.
+
+    Each file is replaced atomically, so a crash never leaves a half-written file.
+    A partial snapshot only writes the dated file: ``latest.*`` keep showing the
+    last complete one instead of a misleading health report.
+    """
+
     rendered_json = json.dumps(snapshot, indent=2, ensure_ascii=False) + "\n"
     rendered_md = render_markdown(snapshot)
     assert_no_secrets(rendered_json + rendered_md, secrets)
     out_dir.mkdir(parents=True, exist_ok=True)
-    paths = [out_dir / f"{snapshot['date']}.json", out_dir / "latest.json", out_dir / "latest.md"]
-    for path, text in zip(paths, (rendered_json, rendered_json, rendered_md)):
-        path.write_text(text, encoding="utf-8")
-    return paths
+    files = [(out_dir / f"{snapshot['date']}.json", rendered_json)]
+    if not snapshot.get("partial"):
+        files += [(out_dir / "latest.json", rendered_json), (out_dir / "latest.md", rendered_md)]
+    for path, text in files:
+        atomic_write_text(path, text)
+        # atomic_write_text creates new files 0600; these are public reports.
+        path.chmod(0o644)
+    return [path for path, _ in files]
 
 
 def resolve_providers(env: Dict[str, str]) -> Tuple[List[Tuple[str, Any]], Dict[str, str]]:
@@ -543,6 +589,12 @@ def main(
         expiring_days=args.expiring_days,
         secrets=secrets,
     )
+    if all(info["status"] == "error" for info in snapshot["providers"].values() if info["status"] != "skipped"):
+        for name, info in snapshot["providers"].items():
+            if info["status"] == "error":
+                print(f"::error::{name}: discovery failed: {info.get('error') or ''}".rstrip())
+        print("error: discovery failed for every provider; nothing was written", file=sys.stderr)
+        return 1
     try:
         paths = write_snapshot(args.out, snapshot, secrets)
     except SecretLeakError as exc:
@@ -563,9 +615,11 @@ def main(
             print(f"{name}: skipped ({info['reason']})")
     for path in paths:
         print(f"wrote {path}")
-    if all(info["status"] == "error" for info in snapshot["providers"].values() if info["status"] != "skipped"):
-        print("error: discovery failed for every provider", file=sys.stderr)
-        return 1
+    if snapshot.get("partial"):
+        print(
+            f"::warning::partial snapshot (discovery failed for {', '.join(snapshot['failed_providers'])}): "
+            "only the dated file was written; latest.json and latest.md were left unchanged"
+        )
     return 0
 
 
