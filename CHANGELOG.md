@@ -6,35 +6,37 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-10-26
+
 ### Fixed
 
 - **A stream that ends with `finish_reason: "error"` is no longer a successful probe.** Without a
   separate `error` object, such a stream was counted as working (and could be selected and written
   to your configs). It is now a transient failure; `finish_reason: "content_filter"` is a model
-  failure. `stop`, `length` and `tool_calls` are unchanged.
+  failure. `stop`, `length` and `tool_calls` are unchanged. (#21)
 - **`"error": null` in a normal stream chunk no longer fails a healthy model.** Only a non-empty
   `error` value counts; before, the key alone marked the model temporarily unavailable with the
-  message `None`.
+  message `None`. (#21)
 - **OpenRouter 403 with only `metadata.provider_name`** is an account error again. `provider_name`
   is ordinary routing metadata, so on its own it no longer turns a 403 into a model failure (which
   let probing continue, and spend quota, on an account-level block). Routing or moderation metadata
-  (`reasons`, `model_slug`, `failed_routing_step`, ...) still marks a 403 as model-specific.
+  (`reasons`, `model_slug`, `failed_routing_step`, ...) still marks a 403 as model-specific. (#21)
 - **Errors inside the stream follow the provider's own rules.** A Groq `498` (flex capacity) that
   arrives after HTTP 200 is transient, as it is before the stream, instead of a model failure
-  cached for hours; a Groq in-stream `403` is an account error.
+  cached for hours; a Groq in-stream `403` is an account error. (#21)
 - **Probes have a total time limit.** `testing.timeout_s` is httpx's per-read timeout, which every
   keep-alive comment resets, so a model that never answered could hold a run for a long time. A
-  stream that sends no token within twice `timeout_s` is now a transient failure.
+  stream that sends no token within twice `timeout_s` is now a transient failure. (#21)
 - **Every OpenRouter price field must be zero.** A `:free` model with a non-zero `request`, `image`,
   `input_cache_read` or any other price field (or an unparseable one) is treated as paid and
-  skipped; only `prompt` and `completion` were checked before.
+  skipped; only `prompt` and `completion` were checked before. (#21)
 - **`X-RateLimit-Reset`**: a relative value above 3600 is read as milliseconds (with a warning)
   instead of seconds, so `30000` pauses probing for 30 seconds, not 8 hours. Every pause taken from
-  `Retry-After` or `X-RateLimit-Reset` is capped at 24 hours.
+  `Retry-After` or `X-RateLimit-Reset` is capped at 24 hours. (#21)
 - **`X-RateLimit-Remaining: "0.0"`** (an integral decimal) is now understood, so the
-  `reserve_requests` guard applies; such values were ignored before.
+  `reserve_requests` guard applies; such values were ignored before. (#21)
 - An error response whose body cannot be read is classified by its status code instead of raising
-  `ResponseNotRead` out of the probe.
+  `ResponseNotRead` out of the probe. (#21)
 
 ### Changed
 
@@ -43,34 +45,34 @@ All notable changes to this project are documented here. The format follows
   `1.1`, `yes` became `true`, `0755` became `493`). With the default `preserve_comments: auto`, such
   a file is now refused: the target fails and the file is left unchanged. Install the
   `yaml-comments` extra, or set `preserve_comments: false` to accept the re-dump. A file that
-  PyYAML writes back as is, including one freemodel-sync already wrote this way, is still updated.
+  PyYAML writes back as is, including one freemodel-sync already wrote this way, is still updated. (#22)
 - **`dsh` refuses files it cannot edit in place.** A flow-style list (`[{id: ...}, ...]`) used to
   be re-dumped without its comments and with no warning. Two entries with the managed id used to
   get only the first one updated. Both now fail the target and leave the file unchanged. A file
-  that only has comments now keeps them above the new entry.
+  that only has comments now keeps them above the new entry. (#22)
 - **`testing.max_tests` and `test --max-tests` must be at least 1.** `0` or a negative value used
   to send no request and still exit 0. The same applies to `daily_snapshot.py --max-probes` and
-  `SNAPSHOT_MAX_PROBES`. A library call to `run_tests(max_tests=0)` now sets `stop_reason`.
+  `SNAPSHOT_MAX_PROBES`. A library call to `run_tests(max_tests=0)` now sets `stop_reason`. (#22)
 - **Unknown keys inside config sections** (for example `testing.max_test` or
   `notify.telegram.chat_env`) are logged as a warning; `load_config(strict=True)` rejects them.
-  Before, only unknown top-level keys were noticed, and only in strict mode.
+  Before, only unknown top-level keys were noticed, and only in strict mode. (#22)
 - **One parser for on/off options.** `notify.<channel>.enabled`, `check_model` and
   `preserve_comments` accept `true/false`, `yes/no`, `on/off` and `1/0` (quoted or not). Any other
   value is an error. Before, `enabled: "false"` left a channel on, and `check_model: "off"` kept
-  the check on.
+  the check on. (#22)
 - **`rank` exits with 3** when an account or quota problem stopped probing, as `test` does. It
-  used to always exit 0.
+  used to always exit 0. (#22)
 - **Expired models are always dropped**, even with `exclude_expiring_within_days: null`. Before,
   they could be probed or selected and were shown as "expires in -N days". The daily snapshot
-  still lists them.
+  still lists them. (#22)
 - **No more silent setup mistakes:**
   - A configured Telegram or webhook channel whose environment variables are not set now logs a
     warning instead of an INFO message, which the default log level hid.
   - Creating a target file that does not exist logs a warning.
-  - `sync` without targets says that it still records and announces the selection.
+  - `sync` without targets says that it still records and announces the selection. (#22)
 - **The example config ships with its targets and notification channels commented out**, so
   copying it no longer creates files at placeholder paths. An empty `notify:` section is now
-  accepted.
+  accepted. (#22)
 
 ## [0.3.2] - 2026-10-24
 
@@ -260,7 +262,8 @@ All notable changes to this project are documented here. The format follows
 - Initial release: OpenRouter discovery, budget-aware probing, ranking, and the
   `openai-env`, `openai-yaml`, `dsh` and `astrbot` adapters, plus Telegram/webhook notifications.
 
-[Unreleased]: https://github.com/ndwlbj/freemodel-sync/compare/v0.3.2...HEAD
+[Unreleased]: https://github.com/ndwlbj/freemodel-sync/compare/v0.3.3...HEAD
+[0.3.3]: https://github.com/ndwlbj/freemodel-sync/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/ndwlbj/freemodel-sync/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/ndwlbj/freemodel-sync/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/ndwlbj/freemodel-sync/compare/v0.2.0...v0.3.0
