@@ -6,6 +6,36 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **A stream that ends with `finish_reason: "error"` is no longer a successful probe.** Without a
+  separate `error` object, such a stream was counted as working (and could be selected and written
+  to your configs). It is now a transient failure; `finish_reason: "content_filter"` is a model
+  failure. `stop`, `length` and `tool_calls` are unchanged.
+- **`"error": null` in a normal stream chunk no longer fails a healthy model.** Only a non-empty
+  `error` value counts; before, the key alone marked the model temporarily unavailable with the
+  message `None`.
+- **OpenRouter 403 with only `metadata.provider_name`** is an account error again. `provider_name`
+  is ordinary routing metadata, so on its own it no longer turns a 403 into a model failure (which
+  let probing continue, and spend quota, on an account-level block). Routing or moderation metadata
+  (`reasons`, `model_slug`, `failed_routing_step`, ...) still marks a 403 as model-specific.
+- **Errors inside the stream follow the provider's own rules.** A Groq `498` (flex capacity) that
+  arrives after HTTP 200 is transient, as it is before the stream, instead of a model failure
+  cached for hours; a Groq in-stream `403` is an account error.
+- **Probes have a total time limit.** `testing.timeout_s` is httpx's per-read timeout, which every
+  keep-alive comment resets, so a model that never answered could hold a run for a long time. A
+  stream that sends no token within twice `timeout_s` is now a transient failure.
+- **Every OpenRouter price field must be zero.** A `:free` model with a non-zero `request`, `image`,
+  `input_cache_read` or any other price field (or an unparseable one) is treated as paid and
+  skipped; only `prompt` and `completion` were checked before.
+- **`X-RateLimit-Reset`**: a relative value above 3600 is read as milliseconds (with a warning)
+  instead of seconds, so `30000` pauses probing for 30 seconds, not 8 hours. Every pause taken from
+  `Retry-After` or `X-RateLimit-Reset` is capped at 24 hours.
+- **`X-RateLimit-Remaining: "0.0"`** (an integral decimal) is now understood, so the
+  `reserve_requests` guard applies; such values were ignored before.
+- An error response whose body cannot be read is classified by its status code instead of raising
+  `ResponseNotRead` out of the probe.
+
 ## [0.3.2] - 2026-10-24
 
 ### Fixed

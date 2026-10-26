@@ -11,7 +11,7 @@ import json
 import logging
 import time
 from datetime import date, datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import httpx
 
@@ -24,6 +24,14 @@ logger = logging.getLogger(__name__)
 DEFAULT_PROBE_MAX_TOKENS = 16
 
 _DEFAULT_TIMEOUT = 30.0
+
+#: a probe may take at most ``timeout * _PROBE_DEADLINE_FACTOR`` seconds in total
+#: before its first token; ``timeout`` itself is httpx's per-read timeout,
+#: which every keep-alive comment resets
+_PROBE_DEADLINE_FACTOR = 2.0
+
+#: longest wait honoured from ``Retry-After`` / ``X-RateLimit-Reset``
+_MAX_RETRY_AFTER_S = 24 * 3600.0
 
 
 def _parse_expiration_date(value: Any) -> Optional[date]:
@@ -58,13 +66,27 @@ def _as_float(value: Any) -> Optional[float]:
 
 
 def _is_free_pricing(pricing: Any) -> bool:
-    """Return ``True`` when both prompt and completion prices are exactly zero."""
+    """Return ``True`` when every price in *pricing* is exactly zero.
+
+    ``prompt`` and ``completion`` must be present and ``0``. Every other price
+    field (``request``, ``image``, ``input_cache_read``, fields added later...)
+    must be ``0`` or absent: a non-zero or unparseable value makes the model
+    paid, so a new kind of charge never makes a paid model look free.
+    ``overrides`` is checked separately by :func:`_priced_overrides`.
+    """
 
     if not isinstance(pricing, dict):
         return False
     prompt = _as_float(pricing.get("prompt"))
     completion = _as_float(pricing.get("completion"))
-    return prompt == 0.0 and completion == 0.0 and not _priced_overrides(pricing)
+    if prompt != 0.0 or completion != 0.0:
+        return False
+    for key, value in pricing.items():
+        if key == "overrides" or value is None:
+            continue
+        if _as_float(value) != 0.0:
+            return False
+    return not _priced_overrides(pricing)
 
 
 def _priced_overrides(pricing: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -155,9 +177,10 @@ class OpenRouterProvider(Provider):
     def _rate_limit_hints(headers: Any) -> Tuple[Optional[float], Optional[int]]:
         return _rate_limit_hints(headers)
 
-    @staticmethod
-    def _classify_stream_error(code: Optional[int], error_obj: Dict[str, Any]) -> str:
-        return _classify_stream_error(code, error_obj)
+    def _classify_stream_error(self, code: Optional[int], error_obj: Dict[str, Any]) -> str:
+        # Instance method so that a subclass's own ``_classify`` rules (e.g.
+        # Groq's 403/498) also apply to errors that arrive inside the stream.
+        return _classify_stream_error(code, error_obj, classify=self._classify)
 
     def __init__(
         self,
@@ -248,6 +271,12 @@ class OpenRouterProvider(Provider):
         * An error event inside the stream (after HTTP 200), such as a
           mid-stream rate limit, is classified by :func:`_classify_stream_error`:
           ``"transient"`` unless it carries an explicit account code.
+          ``"error": null`` (or an empty error) in a normal chunk is ignored.
+        * A stream that ends with ``finish_reason: "error"`` is a transient
+          failure even without an error object (``"content_filter"`` is a
+          model failure); ``stop``/``length``/``tool_calls`` are normal ends.
+        * A stream that sends no token within ``timeout * 2`` seconds in total
+          (keep-alive comments do not count) is a transient failure.
         """
 
         if not self.api_key:
@@ -291,11 +320,12 @@ class OpenRouterProvider(Provider):
                 retry_after_s, rl_remaining = self._rate_limit_hints(response.headers)
                 if status_code != 200:
                     try:
-                        body = response.read()
-                    except Exception:  # pragma: no cover - defensive
-                        body = getattr(response, "text", "") or ""
-                    if isinstance(body, bytes):
-                        body = body.decode("utf-8", errors="replace")
+                        raw_body = response.read()
+                    except Exception:  # noqa: BLE001 - the status code alone still classifies the failure
+                        # Do not fall back to ``response.text``: on an unread
+                        # streaming response it raises ResponseNotRead.
+                        raw_body = b""
+                    body = raw_body.decode("utf-8", errors="replace")
                     error_obj = _error_object(body)
                     message = error_obj.get("message") if error_obj else None
                     error = (str(message) if message else str(body).strip())[:200] or f"HTTP {status_code}"
@@ -311,7 +341,14 @@ class OpenRouterProvider(Provider):
                         rate_limit_remaining=rl_remaining,
                     )
 
+                deadline = start + timeout * _PROBE_DEADLINE_FACTOR
                 for line in response.iter_lines():
+                    if not token_seen and time.perf_counter() > deadline:
+                        # Keep-alive comments reset httpx's per-read timeout, so a
+                        # model that never answers needs its own wall-clock limit.
+                        error = f"no token within {timeout * _PROBE_DEADLINE_FACTOR:g}s"
+                        failure_kind = "transient"
+                        break
                     if not line:
                         continue
                     if isinstance(line, bytes):
@@ -331,10 +368,11 @@ class OpenRouterProvider(Provider):
                         continue
                     if not isinstance(chunk, dict):
                         continue
-                    if "error" in chunk:
+                    err = chunk.get("error")
+                    if err:
                         # HTTP 200 was already sent: the request was admitted, so
                         # this is about the model or its upstream, not the account.
-                        err = chunk.get("error")
+                        # (``"error": null`` / ``{}`` in a normal chunk is not an error.)
                         if isinstance(err, dict):
                             error = str(err.get("message") or err.get("code") or err)
                             failure_kind = self._classify_stream_error(_as_int(err.get("code")), err)
@@ -353,8 +391,18 @@ class OpenRouterProvider(Provider):
                             token_seen = True
                             if ttft_ms is None:
                                 ttft_ms = (time.perf_counter() - start) * 1000.0
-                    if choice.get("finish_reason") is not None:
+                    finish = choice.get("finish_reason")
+                    if finish is not None:
                         saw_finish = True
+                        if finish == "error":
+                            # Generation failed upstream, even if some tokens came first.
+                            error = "stream ended with finish_reason 'error'"
+                            failure_kind = "transient"
+                            break
+                        if finish == "content_filter":
+                            error = "stream ended with finish_reason 'content_filter'"
+                            failure_kind = "model"
+                            break
         except httpx.HTTPError as exc:
             error = f"{type(exc).__name__}: {exc}"
             failure_kind = "transient"
@@ -420,12 +468,19 @@ class OpenRouterProvider(Provider):
 
 
 def _as_int(value: Any) -> Optional[int]:
+    """Parse an integer, also from integral decimal strings such as ``"0.0"``."""
+
     if value is None or isinstance(value, bool):
         return None
     try:
         return int(value)
     except (TypeError, ValueError):
+        pass
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
         return None
+    return int(number) if number.is_integer() else None
 
 
 def _error_object(body: str) -> Dict[str, Any]:
@@ -449,7 +504,6 @@ _MODEL_SPECIFIC_403_KEYS = (
     "reasons",
     "flagged_input",
     "model_slug",
-    "provider_name",
 )
 _MODEL_SPECIFIC_403_TYPES = ("content_policy_violation", "refusal")
 
@@ -473,6 +527,8 @@ def _classify(status_code: Optional[int], error_obj: Dict[str, Any]) -> str:
     key permissions) and model-specific refusals (a free endpoint gated to
     agentic harnesses, moderation flags). Only the latter carry routing or
     moderation metadata; a bare 403 stays an account error to be safe.
+    ``metadata.provider_name`` alone is ordinary routing information, not a
+    model-specific signal, so it does not make a 403 a model failure.
     """
 
     if status_code in (401, 402):
@@ -492,7 +548,11 @@ def _classify(status_code: Optional[int], error_obj: Dict[str, Any]) -> str:
     return "model"
 
 
-def _classify_stream_error(code: Optional[int], error_obj: Dict[str, Any]) -> str:
+def _classify_stream_error(
+    code: Optional[int],
+    error_obj: Dict[str, Any],
+    classify: Optional[Callable[[Optional[int], Dict[str, Any]], str]] = None,
+) -> str:
     """Classify an error that arrived inside the SSE stream, after HTTP 200.
 
     Platform limits (free-model per-minute/per-day caps, budgets, bad keys)
@@ -502,15 +562,20 @@ def _classify_stream_error(code: Optional[int], error_obj: Dict[str, Any]) -> st
     concerns this model and is ``"transient"`` (cached briefly, probing goes
     on). Only an explicit ``401``/``402`` code, or a ``403`` that the pre-stream
     rules treat as an account error, still stops the round. Other ``4xx``
-    codes (``400``, ``404``, ...) are ``"model"`` failures.
+    codes (``400``, ``404``, ...) are ``"model"`` failures, unless the
+    provider's pre-stream rules call that code transient (Groq's ``498``).
+
+    *classify* is the provider's pre-stream classifier (default: OpenRouter's
+    :func:`_classify`), used for ``403`` and non-standard ``4xx`` codes.
     """
 
+    classify = classify or _classify
     if code in (401, 402):
         return "account"
     if code == 403:
-        return _classify(403, error_obj)
+        return classify(403, error_obj)
     if code is not None and 400 <= code < 500 and code not in (408, 429):
-        return "model"
+        return "transient" if classify(code, error_obj) == "transient" else "model"
     return "transient"
 
 
@@ -533,14 +598,23 @@ def _rate_limit_hints(headers: Any) -> Tuple[Optional[float], Optional[int]]:
     if retry_after is None and raw_reset:
         try:
             reset = float(raw_reset)
-            if reset > 1e11:  # epoch milliseconds
-                reset /= 1000.0
-            if reset > 1e9:  # absolute epoch seconds
+        except ValueError:
+            reset = None
+        if reset is not None:
+            if reset > 1e11:  # epoch milliseconds (OpenRouter's documented format)
+                retry_after = max(0.0, reset / 1000.0 - time.time())
+            elif reset > 1e9:  # epoch seconds
                 retry_after = max(0.0, reset - time.time())
+            elif reset > 3600:
+                # Not an epoch time: a relative value this large is almost
+                # certainly milliseconds (30000 means 30 s, not 8 hours).
+                logger.warning("X-RateLimit-Reset %r read as relative milliseconds", raw_reset)
+                retry_after = reset / 1000.0
             else:  # relative seconds
                 retry_after = max(0.0, reset)
-        except ValueError:
-            retry_after = None
     if raw_remaining:
         remaining = _as_int(raw_remaining)
+    if retry_after is not None and retry_after > _MAX_RETRY_AFTER_S:
+        logger.warning("rate-limit reset %.0fs away; capping the pause at 24h", retry_after)
+        retry_after = _MAX_RETRY_AFTER_S
     return retry_after, remaining

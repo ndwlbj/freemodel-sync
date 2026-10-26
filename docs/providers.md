@@ -9,13 +9,38 @@ Sources were checked on 2026-10-22.
 
 - Model list: `GET https://openrouter.ai/api/v1/models`, public, no key needed.
 - A model is free when its id ends in `:free`, `pricing.prompt` and
-  `pricing.completion` are `0`, every entry in `pricing.overrides` (prices by
-  time of day or context length) is `0` too, and it takes and returns text.
+  `pricing.completion` are `0`, every other price field (`request`, `image`,
+  `input_cache_read`, ... including fields added later) is `0` or absent,
+  every entry in `pricing.overrides` (prices by time of day or context length)
+  is `0` too, and it takes and returns text. A non-zero or unparseable price
+  makes the model paid.
 - Quota: `GET /api/v1/key`, field `free_model_daily_requests`
   (`used` / `limit` / `remaining`, per UTC day).
-- Errors: 401/402/403 and OpenRouter platform 429s are account problems.
-  Upstream-provider 429s (with `error.metadata.provider_name`), 408 and 5xx are
-  transient.
+- Errors before the stream starts (non-200 status):
+  - 401/402 and OpenRouter platform 429s are account problems.
+  - 403 is an account problem (budget `limit_source`, guardrail, key
+    permissions, or no metadata) unless its `error.metadata` marks it as
+    specific to the model: `failed_routing_step`, `routing_funnel`, `reasons`,
+    `flagged_input` or `model_slug`, or `error_type` `content_policy_violation`
+    / `refusal`. `provider_name` alone is routing information and does not
+    count.
+  - Upstream-provider 429s (with `error.metadata.provider_name` or
+    `provider_code`), 408 and 5xx are transient.
+  - If the error body cannot be read, the status code alone decides.
+- Errors inside the stream (after HTTP 200): an `error` object is transient
+  (a mid-stream rate limit or provider failure) unless its code is 401/402, a
+  403 that the rules above treat as an account problem, or another 4xx (a
+  model failure). `"error": null` or an empty error in a normal chunk is
+  ignored. A stream that ends with `finish_reason: "error"` is a transient
+  failure even without an error object; `content_filter` is a model failure.
+- Probe time limit: `testing.timeout_s` is the per-read timeout; a stream that
+  sends no token within twice that time in total (keep-alive comments do not
+  count) is a transient failure.
+- Rate-limit headers: `Retry-After` (seconds) wins; otherwise
+  `X-RateLimit-Reset` is read as epoch milliseconds (documented), epoch
+  seconds, or a relative value (above 3600 it is taken as milliseconds, with a
+  warning). Pauses are capped at 24 hours. `X-RateLimit-Remaining` may be an
+  integer or an integral decimal such as `"0.0"`.
 - Sources: <https://openrouter.ai/docs/api/api-reference/models/get-models>,
   <https://openrouter.ai/docs/api-reference/limits>.
 
@@ -49,7 +74,9 @@ Endpoints and fields:
 - Errors: 401/403 are account problems. 429 is treated as an account problem
   too, conservatively: Groq probing stops for that run and resumes after
   `retry-after`. 498 (flex capacity), 408 and 5xx are transient; other 4xx
-  count as a model failure.
+  count as a model failure. The same rules apply to an error event inside the
+  stream (for example a 498 or 403 after HTTP 200), except that a mid-stream
+  429 is transient.
 - Sources: <https://console.groq.com/docs/models>,
   <https://console.groq.com/docs/api-reference#models-list>,
   <https://console.groq.com/docs/rate-limits>,
