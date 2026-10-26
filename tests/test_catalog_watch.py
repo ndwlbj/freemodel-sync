@@ -200,6 +200,11 @@ def test_release_workflow_uses_trusted_publishing_with_minimal_permissions():
     assert wf["permissions"] == {"contents": "read"}
     build, publish = wf["jobs"]["build"], wf["jobs"]["publish"]
     assert "permissions" not in build
+    assert build["if"] == "github.repository == 'ndwlbj/freemodel-sync'"  # F7: forks never publish
+    names = [step.get("name", "") for step in build["steps"]]
+    test_step = names.index("Run the tests on the tagged commit")
+    assert test_step < names.index("Build sdist and wheel")  # F7: tests gate the build
+    assert "pytest" in build["steps"][test_step]["run"]
     assert publish["needs"] == "build"
     assert publish["permissions"] == {"id-token": "write"}
     assert publish["environment"]["name"] == "pypi"

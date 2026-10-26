@@ -288,7 +288,7 @@ class DshAdapter(Adapter):
             rendered = [] if chunks else [current_text]
 
         found: set = set()
-        for entry, chunk in zip(entries, chunks):
+        for entry, chunk in zip(entries, chunks, strict=True):
             entry_name: Optional[str] = None
             if isinstance(entry, dict):
                 raw_id = entry.get("id")

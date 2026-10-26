@@ -11,16 +11,20 @@ python -m venv .venv && . .venv/bin/activate
 python -m pip install -e ".[dev]"
 ruff check src tests scripts
 ruff format --check src tests scripts
+mypy
 pytest
 ```
 
-Python 3.9 is the oldest supported version; please do not use newer syntax
-(ruff targets `py39`).
+Python 3.10 is the oldest supported version; please do not use newer syntax
+(ruff and mypy target 3.10). The ruff and mypy versions are pinned once, in the
+`dev` extra of `pyproject.toml`.
 
 ## Ground rules
 
 - **Tests never touch the network.** Mock HTTP with `httpx.MockTransport`.
-  Run tests with `OPENROUTER_API_KEY` unset; no test may spend real requests.
+  An autouse fixture in `tests/conftest.py` blocks internet sockets and DNS
+  and hides real API keys from every test, so a missing mock fails loudly
+  instead of spending real requests.
 - **Never commit secrets or personal data**: API keys, tokens, webhook URLs,
   IP addresses, chat/user ids, your own configs or home paths. Use obvious
   placeholders (`vendor/model:free`, `example.com`).
@@ -51,9 +55,10 @@ version you checked.
 
 ## Pull requests
 
-Fill in the pull request template. CI runs ruff, the test suite on Python
-3.9-3.13 and with the minimum dependency versions, and a package build with
-`twine check`.
+Fill in the pull request template. CI runs ruff, mypy, the test suite on Python
+3.10-3.14 (Linux, plus Windows and macOS on 3.10 and 3.14) and with the minimum
+dependency versions, and a package build with `twine check`. Coverage (branch
+coverage, including `scripts/`) must stay at 85% or more.
 
 Dependabot opens weekly grouped PRs for pip dependencies and GitHub Actions.
 Actions stay pinned to a commit SHA with a version comment; check the release

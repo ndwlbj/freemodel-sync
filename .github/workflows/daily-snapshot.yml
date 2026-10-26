@@ -5,6 +5,9 @@ name: Daily snapshot
 # one tiny request each, and commits snapshots/ to the orphan `data` branch.
 # main is never touched.
 #
+# Two jobs: `snapshot` runs the probes with a read-only token and uploads the
+# files; only `push`, which runs no project code, gets `contents: write`.
+#
 # Secrets: OPENROUTER_API_KEY (required), GROQ_API_KEY (optional).
 # Variable: GROQ_PLAN=free confirms the Groq organization is on the Free plan;
 # without it Groq is skipped (on Groq's Developer plan every request is billed).
@@ -24,7 +27,7 @@ on:
         default: false
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: daily-snapshot
@@ -35,6 +38,8 @@ jobs:
     if: github.repository == 'ndwlbj/freemodel-sync'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -55,6 +60,55 @@ jobs:
           fi
 
       - name: Fetch previous snapshots (data branch)
+        env:
+          GITHUB_TOKEN: ${{ github.token }} # read-only in this job
+        run: |
+          basic="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 -w0)"
+          echo "::add-mask::$basic"
+          auth="AUTHORIZATION: basic $basic"
+          mkdir -p "$RUNNER_TEMP/data" && cd "$RUNNER_TEMP/data"
+          git init -q
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          set +e
+          git -c http.extraheader="$auth" ls-remote --exit-code --heads origin data > /dev/null
+          found=$?
+          set -e
+          if [ "$found" -eq 0 ]; then
+            git -c http.extraheader="$auth" fetch -q --depth=1 origin data
+            git checkout -q -b data FETCH_HEAD
+          elif [ "$found" -eq 2 ]; then
+            echo "data branch does not exist yet; the push job will create it"
+            git checkout -q --orphan data
+          else
+            echo "::error::could not query the data branch (git ls-remote exit $found)"
+            exit 1
+          fi
+
+      - name: Generate snapshot
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GROQ_PLAN: ${{ vars.GROQ_PLAN }}
+          SNAPSHOT_MAX_PROBES: ${{ inputs.max_probes || '15' }}
+          NO_PROBE: ${{ inputs.no_probe && '1' || '' }}
+        run: |
+          python scripts/daily_snapshot.py --out "$RUNNER_TEMP/data/snapshots" ${NO_PROBE:+--no-probe}
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: snapshots
+          path: ${{ runner.temp }}/data/snapshots/
+          if-no-files-found: error
+          retention-days: 3
+
+  push:
+    needs: snapshot
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the data branch
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
@@ -79,15 +133,10 @@ jobs:
             exit 1
           fi
 
-      - name: Generate snapshot
-        env:
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          GROQ_PLAN: ${{ vars.GROQ_PLAN }}
-          SNAPSHOT_MAX_PROBES: ${{ inputs.max_probes || '15' }}
-          NO_PROBE: ${{ inputs.no_probe && '1' || '' }}
-        run: |
-          python scripts/daily_snapshot.py --out "$RUNNER_TEMP/data/snapshots" ${NO_PROBE:+--no-probe}
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: snapshots
+          path: ${{ runner.temp }}/data/snapshots/
 
       - name: Commit to the data branch
         env:

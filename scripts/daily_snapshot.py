@@ -576,19 +576,24 @@ def main(
     resolved, skipped = providers if providers is not None else resolve_providers(env)
 
     started = time.monotonic()
-    snapshot = build_snapshot(
-        resolved,
-        skipped,
-        today=today,
-        now=now,
-        previous=find_previous(args.out, today),
-        max_probes=args.max_probes,
-        reserve=args.reserve,
-        probe=not args.no_probe,
-        timeout=args.timeout,
-        expiring_days=args.expiring_days,
-        secrets=secrets,
-    )
+    try:
+        snapshot = build_snapshot(
+            resolved,
+            skipped,
+            today=today,
+            now=now,
+            previous=find_previous(args.out, today),
+            max_probes=args.max_probes,
+            reserve=args.reserve,
+            probe=not args.no_probe,
+            timeout=args.timeout,
+            expiring_days=args.expiring_days,
+            secrets=secrets,
+        )
+    finally:
+        if providers is None:  # only close what this run created
+            for _name, provider in resolved:
+                provider.close()
     if all(info["status"] == "error" for info in snapshot["providers"].values() if info["status"] != "skipped"):
         for name, info in snapshot["providers"].items():
             if info["status"] == "error":

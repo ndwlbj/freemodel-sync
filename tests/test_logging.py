@@ -74,3 +74,37 @@ def test_redacting_filter_patterns():
     text = RedactingFilter.redact(f"POST https://api.telegram.org/bot{TOKEN}/sendMessage Authorization: Bearer abc.def")
     assert TOKEN not in text and "abc.def" not in text
     assert "bot<redacted>/sendMessage" in text
+
+
+def test_redacting_formatter_covers_tracebacks(capsys):
+    """B15: a secret inside an exception (exc_info) is redacted, not only the message."""
+
+    from freemodel_sync import cli
+
+    cli._configure_logging(verbose=True)  # replaces any handler left by an earlier main() call
+    try:
+        try:
+            raise RuntimeError(f"POST https://api.telegram.org/bot{TOKEN}/sendMessage failed")
+        except RuntimeError:
+            logging.getLogger("freemodel_sync.test").debug("send failed", exc_info=True)
+            logging.getLogger("freemodel_sync.test").debug("stack", stack_info=True)
+    finally:
+        logging.getLogger().removeHandler(cli._LOG_HANDLER)
+        cli._LOG_HANDLER = None
+    err = capsys.readouterr().err
+    assert "RuntimeError" in err and "send failed" in err
+    assert TOKEN not in err
+    assert "api.telegram.org/bot<redacted>/sendMessage" in err
+
+
+def test_redacting_formatter_redacts_cached_exc_text():
+    import sys
+
+    from freemodel_sync.cli import RedactingFormatter
+
+    try:
+        raise ValueError(f"Bearer {TOKEN}")
+    except ValueError:
+        record = logging.LogRecord("x", logging.ERROR, __file__, 1, "boom", None, sys.exc_info())
+    out = RedactingFormatter("%(message)s").format(record)
+    assert TOKEN not in out and TOKEN not in (record.exc_text or "")

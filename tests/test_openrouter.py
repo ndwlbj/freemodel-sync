@@ -220,3 +220,71 @@ def test_pricing_overrides_with_prices_are_not_free(caplog):
         ids = [m.id for m in provider.discover()]
     assert ids == ["a/plain:free", "b/zero-overrides:free", "e/empty:free"]
     assert "c/peak-priced:free" in caplog.text and "pricing.overrides" in caplog.text
+
+
+def test_openrouter_namespace_is_excluded_even_with_free_suffix():
+    """C2: the old ``== "openrouter/free"`` check was redundant; any openrouter/* router id is excluded."""
+
+    from freemodel_sync.providers.openrouter import _is_free_model
+
+    free_pricing = {"prompt": "0", "completion": "0"}
+    text = {"input_modalities": ["text"], "output_modalities": ["text"]}
+    base = {"pricing": free_pricing, "architecture": text}
+    assert _is_free_model({"id": "vendor/foo:free", **base}) is True
+    assert _is_free_model({"id": "openrouter/foo:free", **base}) is False
+    assert _is_free_model({"id": "openrouter/free", **base}) is False
+
+
+class _ClosingTransport(httpx.MockTransport):
+    def __init__(self, handler):
+        super().__init__(handler)
+        self.closed = False
+
+    def close(self):
+        self.closed = True
+
+
+def test_provider_close_closes_only_its_own_client(monkeypatch):
+    """B14: a provider closes the client it created, never one the caller passed in."""
+
+    transports = []
+    real_client = httpx.Client
+
+    def make_client(**kwargs):
+        transport = _ClosingTransport(lambda request: httpx.Response(200, json={"data": []}))
+        transports.append(transport)
+        return real_client(transport=transport)
+
+    monkeypatch.setattr("freemodel_sync.providers.openrouter.httpx.Client", make_client)
+    with OpenRouterProvider(api_key=None) as provider:
+        assert provider.discover() == []
+        assert provider.client is not None
+    assert transports[0].closed and provider.client is None
+    provider.close()  # idempotent
+    assert provider.discover() == []  # usable again: a new client is created
+    provider.close()
+    assert len(transports) == 2 and transports[1].closed
+
+    own = _ClosingTransport(lambda request: httpx.Response(200, json={"data": []}))
+    caller_client = real_client(transport=own)
+    with OpenRouterProvider(api_key=None, client=caller_client) as provider:
+        provider.discover()
+    assert own.closed is False and provider.client is caller_client
+    caller_client.close()
+
+
+def test_base_provider_close_is_a_noop():
+    from freemodel_sync.providers.base import Provider
+
+    class Minimal(Provider):
+        name = "minimal"
+
+        def discover(self):
+            return []
+
+        def test(self, model, timeout=30.0):  # pragma: no cover - not called
+            raise AssertionError
+
+    with Minimal() as provider:
+        assert provider.discover() == []
+    provider.close()

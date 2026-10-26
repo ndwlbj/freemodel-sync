@@ -85,6 +85,18 @@ def _resolve_providers(
     return providers
 
 
+def _close_providers(providers: Providers) -> None:
+    """Close each provider's HTTP client (injected test doubles may lack ``close``)."""
+
+    for _name, provider in providers:
+        close = getattr(provider, "close", None)
+        if callable(close):
+            try:
+                close()
+            except Exception:  # cleanup must not change the exit code (logged below)
+                logger.debug("closing provider %s failed", _name, exc_info=True)
+
+
 def _resolve_provider(
     config: Config,
     provider_factory: Optional[ProviderFactory] = None,
@@ -753,12 +765,29 @@ class RedactingFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         try:
             message = record.getMessage()
-        except Exception:  # pragma: no cover - defensive
+        except Exception:  # noqa: BLE001  # pragma: no cover - a bad format string must not break logging
             return True
         redacted = self.redact(message)
         if redacted != message:
             record.msg, record.args = redacted, None
         return True
+
+
+class RedactingFormatter(logging.Formatter):
+    """Redacts the whole formatted record, including tracebacks and stack info.
+
+    :class:`RedactingFilter` only sees the message; the traceback text of
+    ``exc_info`` is added later by the formatter, so a secret inside an
+    exception message (e.g. a Telegram URL in an ``httpx`` error) would pass
+    through. Redacting here covers everything the handler writes.
+    """
+
+    def format(self, record: logging.LogRecord) -> str:
+        text = RedactingFilter.redact(super().format(record))
+        if record.exc_text:
+            # Formatter caches the traceback on the record; other handlers reuse it.
+            record.exc_text = RedactingFilter.redact(record.exc_text)
+        return text
 
 
 _LOG_HANDLER: Optional[logging.Handler] = None
@@ -777,7 +806,7 @@ def _configure_logging(verbose: bool, debug_http: bool = False) -> None:
     if _LOG_HANDLER is not None:
         root.removeHandler(_LOG_HANDLER)
     handler = logging.StreamHandler(sys.stderr)
-    handler.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
+    handler.setFormatter(RedactingFormatter("%(levelname)s %(name)s: %(message)s"))
     handler.addFilter(RedactingFilter())
     root.addHandler(handler)
     _LOG_HANDLER = handler
@@ -904,10 +933,12 @@ def main(
     except (ConfigError, ProviderError, ValueError, OSError, MissingKeyError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
-    except Exception as exc:  # noqa: BLE001 - the CLI reports errors instead of tracebacks
+    except Exception as exc:
         logger.debug("command failed", exc_info=True)
         print(f"error: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 1
+    finally:
+        _close_providers(providers)
 
     parser.error(f"unknown command: {args.command}")
     return 1

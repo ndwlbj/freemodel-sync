@@ -42,6 +42,19 @@ class Provider(abc.ABC):
         """Return quota information, or ``None`` if the provider cannot report it."""
         return None
 
+    def close(self) -> None:  # noqa: B027 - optional hook, a no-op by default
+        """Release network resources (e.g. an HTTP client the provider created).
+
+        Safe to call more than once; the provider can still be used afterwards
+        (it creates a new client on demand).
+        """
+
+    def __enter__(self) -> Provider:
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.close()
+
 
 _REGISTRY: Dict[str, Type[Provider]] = {}
 

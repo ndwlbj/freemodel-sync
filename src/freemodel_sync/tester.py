@@ -249,7 +249,7 @@ def run_tests(
 
         try:
             result = provider.test(model, timeout=timeout)
-        except Exception as exc:  # providers normally catch their own errors
+        except Exception as exc:  # noqa: BLE001 - providers catch their own errors; a bug must not abort the run
             result = TestResult(
                 key=model.key,
                 ok=False,

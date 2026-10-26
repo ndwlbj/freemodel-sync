@@ -388,15 +388,22 @@ def test_workflow_is_minimal_and_safe():
     triggers = data[True]  # YAML 1.1 reads the bare key `on` as True
     assert triggers["schedule"] == [{"cron": "17 1 * * *"}]
     assert "workflow_dispatch" in triggers
-    assert data["permissions"] == {"contents": "write"}
+    assert data["permissions"] == {"contents": "read"}
     assert data["concurrency"]["cancel-in-progress"] is False
-    job = data["jobs"]["snapshot"]
+    assert set(data["jobs"]) == {"snapshot", "push"}
+    job, push = data["jobs"]["snapshot"], data["jobs"]["push"]
+    # F14: only the push job, which runs no project code, can write
+    assert job["permissions"] == {"contents": "read"}
+    assert push["permissions"] == {"contents": "write"} and push["needs"] == "snapshot"
+    assert not any("python" in step.get("run", "") for step in push["steps"])
+    assert not any("secrets." in str(step) for step in push["steps"])
     steps = job["steps"]
     checkout = steps[0]
     assert checkout["uses"].startswith("actions/checkout@") and checkout["with"]["persist-credentials"] is False
-    for step in steps:
+    for step in steps + push["steps"]:
         if "uses" in step:
             assert len(step["uses"].split("@", 1)[1].split()[0]) == 40  # pinned to a commit SHA
+    assert "git push" not in text.split("\n  push:")[0]  # the snapshot job never pushes
     assert "41898282+github-actions[bot]@users.noreply.github.com" in text
     assert "refs/heads/data" in text and "--orphan data" in text
     assert "push --force" not in text and " -f " not in text
@@ -548,3 +555,20 @@ def test_expiring_soon_has_a_lower_bound():
     ]
     diff = ds.compute_diff(rows, None, expiring_days=14)
     assert [item["key"] for item in diff["expiring_soon"]] == ["p|soon"]
+
+
+def test_main_closes_the_providers_it_created(tmp_path, monkeypatch):
+    """B14: providers built by resolve_providers() are closed after the run."""
+
+    closed = []
+
+    class Failing:
+        def discover(self):
+            raise ProviderError("down")
+
+        def close(self):
+            closed.append(True)
+
+    monkeypatch.setattr(ds, "resolve_providers", lambda env: ([("openrouter", Failing())], {}))
+    code = ds.main(["--out", str(tmp_path), "--no-probe"], env={"OPENROUTER_API_KEY": "k"})
+    assert code == 1 and closed == [True]

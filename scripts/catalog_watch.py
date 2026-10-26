@@ -144,7 +144,8 @@ def _http(method: str, url: str, token: Optional[str] = None, body: Any = None, 
         data = json.dumps(body).encode()
         headers["Content-Type"] = "application/json"
     request = urllib.request.Request(url, data=data, headers=headers, method=method)
-    with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310 - fixed https URLs
+    # callers only pass fixed https:// URLs (S310 does not apply)
+    with urllib.request.urlopen(request, timeout=timeout) as response:
         text = response.read().decode("utf-8")
     return json.loads(text) if text else None
 

@@ -35,7 +35,15 @@ class RankWeights:
 NON_CHAT_PATTERNS = (
     "*content-safety*",
     "*safeguard*",
-    "*guard*",
+    # "guard" as its own word/segment (llama-guard, prompt-guard, "Llama Guard"),
+    # not inside other words such as "guardian"
+    "*-guard",
+    "*-guard[-:_ ]*",
+    "* guard",
+    "* guard[-:_ ]*",
+    "guard[-:_ ]*",
+    "*/guard[-:_ ]*",
+    "*guardrail*",
     "*moderation*",
     "*classifier*",
     "*embed*",
@@ -56,9 +64,12 @@ def is_non_chat(model: ModelInfo) -> bool:
 
 
 def _matches_any(model_id: str, patterns: Optional[Sequence[str]]) -> bool:
+    """Case-insensitive glob match, like :func:`is_non_chat`."""
+
     if not patterns:
         return False
-    return any(fnmatch.fnmatchcase(model_id, pattern) for pattern in patterns)
+    lowered = model_id.lower()
+    return any(fnmatch.fnmatchcase(lowered, str(pattern).lower()) for pattern in patterns)
 
 
 def filter_models(

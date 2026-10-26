@@ -1,7 +1,7 @@
 # freemodel-sync
 
 [![CI](https://github.com/ndwlbj/freemodel-sync/actions/workflows/ci.yml/badge.svg)](https://github.com/ndwlbj/freemodel-sync/actions/workflows/ci.yml)
-![Python](https://img.shields.io/badge/python-3.9%2B-blue)
+![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 
 [English](https://github.com/ndwlbj/freemodel-sync/blob/main/README.md) | [简体中文](https://github.com/ndwlbj/freemodel-sync/blob/main/README.zh-CN.md)
@@ -38,7 +38,7 @@ uvx --from git+https://github.com/ndwlbj/freemodel-sync freemodel-sync --help
 pipx install .
 ```
 
-需要 Python 3.9+（Python 3.9 已停止维护，计划在之后的版本中要求 3.10+），运行依赖只有 `httpx` 和 `PyYAML`。
+需要 Python 3.10+（0.3.3 是最后一个支持 3.9 的版本），运行依赖只有 `httpx` 和 `PyYAML`。
 
 ## 快速开始
 

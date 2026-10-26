@@ -533,8 +533,8 @@ def load_config(
     ``strict=True`` they are rejected instead.
     """
 
+    config_path = _expand_path(path) if path is not None else _default_path()
     explicit = path is not None
-    config_path = _expand_path(path) if explicit else _default_path()
 
     data: Dict[str, Any] = {}
     if config_path.exists():

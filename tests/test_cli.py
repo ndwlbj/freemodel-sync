@@ -283,3 +283,32 @@ def test_package_ships_py_typed():
     import freemodel_sync
 
     assert (Path(freemodel_sync.__file__).parent / "py.typed").exists()
+
+
+class ClosableStub(StubProvider):
+    closed = 0
+
+    def close(self):
+        self.closed += 1
+
+
+@pytest.mark.parametrize("command", ["discover", "rank", "sync"])
+def test_cli_closes_providers(setup, command):
+    """B14: every command that built providers closes them, even on error."""
+
+    _, cfg, _ = setup
+    provider = ClosableStub({"mid/model:free"})
+    main(["-c", str(cfg), command], provider_factory=lambda name, **kw: provider)
+    assert provider.closed == 1
+
+
+def test_cli_closes_providers_when_a_command_raises(setup):
+    _, cfg, _ = setup
+    provider = ClosableStub(set())
+
+    def boom():
+        raise RuntimeError("discovery exploded")
+
+    provider.discover = boom
+    assert main(["-c", str(cfg), "discover"], provider_factory=lambda name, **kw: provider) == 1
+    assert provider.closed == 1

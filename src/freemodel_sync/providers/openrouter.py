@@ -139,7 +139,7 @@ def _is_free_model(model: Any) -> bool:
     model_id = model.get("id")
     if not isinstance(model_id, str) or not model_id:
         return False
-    if model_id == "openrouter/free" or model_id.startswith("openrouter/"):
+    if model_id.startswith("openrouter/"):  # meta-routers such as openrouter/free, not real models
         return False
     if not model_id.endswith(":free"):
         return False
@@ -192,11 +192,21 @@ class OpenRouterProvider(Provider):
         # Keep a caller-supplied client (useful in tests); otherwise create one
         # lazily on first use so constructing a provider has no side effects.
         self.client = client
+        self._owns_client = False
+
+    def close(self) -> None:
+        """Close the HTTP client this provider created; a caller-supplied client is left open."""
+
+        if self._owns_client and self.client is not None:
+            self.client.close()
+            self.client = None
+            self._owns_client = False
 
     # -- helpers ---------------------------------------------------------
     def _get_client(self) -> httpx.Client:
         if self.client is None:
             self.client = httpx.Client(timeout=_DEFAULT_TIMEOUT)
+            self._owns_client = True
         return self.client
 
     def _auth_headers(self) -> Dict[str, str]:
@@ -289,7 +299,7 @@ class OpenRouterProvider(Provider):
             )
 
         try:
-            max_tokens = int(self.options.get("probe_max_tokens", DEFAULT_PROBE_MAX_TOKENS))
+            max_tokens = int(self.options.get("probe_max_tokens", DEFAULT_PROBE_MAX_TOKENS))  # type: ignore[call-overload]
         except (TypeError, ValueError):
             max_tokens = DEFAULT_PROBE_MAX_TOKENS
         max_tokens = max(1, max_tokens)

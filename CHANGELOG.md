@@ -6,6 +6,43 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Python 3.14** is supported and tested.
+- **`Provider.close()` and context-manager support** (`with OpenRouterProvider() as p: ...`). A
+  provider closes the HTTP client it created; a client passed in by the caller is left open. The
+  CLI and the daily snapshot script now close their providers when they finish, so library and
+  script use no longer leaks connections.
+- **CI on Windows and macOS** (Python 3.10 and 3.14), next to the Linux matrix.
+- **Type checking:** CI runs mypy on `src/` (a lenient configuration to start with), backing the
+  `py.typed` marker the package already ships.
+
+### Changed
+
+- **`filters.include` / `filters.exclude` globs are case-insensitive**, like the built-in non-chat
+  list. `"*qwen*"` now also matches `Qwen/Qwen3-Coder:free`; before, include/exclude used
+  case-sensitive matching while the non-chat list did not.
+- **Non-chat filter:** "guard" only matches as its own word or id segment (`llama-guard-4`,
+  `prompt-guard`, "Llama Guard", `*guardrail*`). The old `*guard*` also dropped chat models
+  whose name merely contains it, e.g. `guardian` or `vanguard`.
+- **Daily snapshot workflow:** the job that runs the probes now has a read-only token and uploads
+  the snapshot as an artifact; a separate `push` job, which runs no project code, is the only
+  one with `contents: write` and commits it to the `data` branch.
+- **Release workflow:** runs only in `ndwlbj/freemodel-sync` (forks cannot try to publish), and
+  runs the test suite on the tagged commit before building.
+- **Development:** ruff and mypy are pinned once, in the `dev` extra (the second ruff pin in CI is
+  gone); the CI build job pins `build`/`twine` like the release workflow; ruff also checks
+  `BLE` (blind `except Exception`) and `RUF100` (unused `noqa`); coverage is measured with branch
+  coverage and now includes `scripts/` (threshold raised from 80% to 85%); an autouse test fixture
+  blocks network access and hides real API keys, so a test with a missing mock fails instead of
+  sending real requests.
+
+### Removed
+
+- **Python 3.9 support.** `requires-python` is now `>=3.10`; 0.3.3 is the last release that
+  installs on 3.9. This is the change announced as planned for 0.3.0, which had been deferred
+  until now.
+
 ### Fixed
 
 - **Daily snapshot: a failed provider no longer produces a misleading public report.** When model
@@ -27,6 +64,16 @@ All notable changes to this project are documented here. The format follows
   (was 1, so a drop from 16 free models to 2 was not reported), and the issue fingerprint includes
   the free-model count in buckets of 5, so a further drop while the issue is open is posted again.
   Expired free models are listed separately instead of as expiring in "-N days".
+- **Windows: the run lock works.** `test`, `rank` and `sync` used to skip locking entirely on
+  Windows (no `fcntl`), so overlapping runs probed twice and exit code 4 never happened there. The
+  lock now uses `msvcrt.locking` on Windows; like `flock` on POSIX it is released by the operating
+  system if the process dies.
+
+### Security
+
+- **Log redaction covers tracebacks.** Secrets (Telegram bot URLs, bearer tokens, `sk-` keys) were
+  only masked in the log message itself; a traceback logged with `-v` (`exc_info`) was added
+  later by the formatter and was not redacted. Redaction now runs on the fully formatted record.
 
 ## [0.3.3] - 2026-10-26
 

@@ -9,7 +9,7 @@ description = "Discover, test and rank free LLMs, then sync a primary model + fa
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 authors = [{ name = "ndwlbj" }]
 maintainers = [{ name = "ndwlbj" }]
 keywords = ["llm", "openrouter", "free-models", "model-routing", "config", "cli"]
@@ -20,11 +20,11 @@ classifiers = [
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
   "Topic :: Utilities",
   "Typing :: Typed",
@@ -36,7 +36,7 @@ dependencies = [
 
 [project.optional-dependencies]
 yaml-comments = ["ruamel.yaml>=0.17.22"]
-dev = ["pytest>=7", "pytest-cov>=4", "ruff==0.17.2"]
+dev = ["pytest>=7", "pytest-cov>=4", "ruff==0.17.2", "mypy==2.4.0"]
 
 [project.scripts]
 freemodel-sync = "freemodel_sync.cli:main"
@@ -72,12 +72,22 @@ packages = ["src/freemodel_sync"]
 testpaths = ["tests"]
 addopts = "-q"
 
+[tool.coverage.run]
+branch = true
+
+[tool.mypy]
+# Lenient start (F1): check src/ only, no strict mode; tighten over time.
+files = ["src"]
+python_version = "3.10"
+ignore_missing_imports = true
+warn_redundant_casts = true
+
 [tool.ruff]
 line-length = 120
-target-version = "py39"
+target-version = "py310"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "B", "UP"]
+select = ["E", "F", "W", "I", "B", "UP", "BLE", "RUF100"]
 ignore = ["UP006", "UP007", "UP035", "UP045"]
 
 [tool.ruff.lint.per-file-ignores]

@@ -5,7 +5,7 @@ import time
 from datetime import date
 
 from freemodel_sync.models import ModelInfo, TestResult
-from freemodel_sync.ranking import RankWeights, filter_models, rank, score_model, select
+from freemodel_sync.ranking import RankWeights, filter_models, is_non_chat, rank, score_model, select
 from freemodel_sync.tester import ResultCache, run_tests
 
 
@@ -157,3 +157,31 @@ def test_default_config_enables_non_chat_filter(tmp_path, monkeypatch):
 
     monkeypatch.setenv("FREEMODEL_SYNC_CONFIG", str(tmp_path / "none.yml"))
     assert load_config().filters.exclude_non_chat is True
+
+
+def test_guard_pattern_does_not_hit_other_words():
+    """C3: "*guard*" used to drop chat models such as "...guardian..."."""
+
+    guard = [
+        ModelInfo("p", "meta-llama/llama-guard-4-12b:free"),
+        ModelInfo("p", "meta-llama/llama-prompt-guard-2-86m:free"),
+        ModelInfo("p", "vendor/guard-7b:free"),
+        ModelInfo("p", "vendor/x:free", name="Llama Guard 3"),
+        ModelInfo("p", "vendor/shield-guardrail:free"),
+    ]
+    chat = [
+        ModelInfo("p", "vendor/guardian-7b:free"),
+        ModelInfo("p", "vendor/chat:free", name="Vendor: Guardian Angel"),
+        ModelInfo("p", "vendor/vanguard-chat:free"),
+    ]
+    assert all(is_non_chat(m) for m in guard), [m.id for m in guard if not is_non_chat(m)]
+    assert not any(is_non_chat(m) for m in chat), [m.id for m in chat if is_non_chat(m)]
+
+
+def test_include_exclude_globs_are_case_insensitive():
+    """C4: include/exclude used fnmatchcase without lowercasing, unlike the non-chat list."""
+
+    models = [ModelInfo("p", "Qwen/Qwen3-Coder:free"), ModelInfo("p", "deepseek/r1:free")]
+    assert [m.id for m in filter_models(models, include=["*qwen*"])] == ["Qwen/Qwen3-Coder:free"]
+    assert [m.id for m in filter_models(models, include=["DeepSeek/*"])] == ["deepseek/r1:free"]
+    assert [m.id for m in filter_models(models, exclude=["QWEN/*"])] == ["deepseek/r1:free"]

@@ -52,9 +52,11 @@ def _hostname(url: str) -> str:
         return "webhook"
 
 
-def _post_json(client: httpx.Client, url: str, payload: Dict[str, Any]) -> None:
+def _post_json(client: Optional[httpx.Client], url: str, payload: Dict[str, Any]) -> None:
     """POST *payload* as JSON and raise on an obvious HTTP error status."""
 
+    if client is None:  # only a dry run has no client, and it returns before posting
+        raise RuntimeError("no HTTP client")
     response = client.post(url, json=payload)
     status = getattr(response, "status_code", None)
     if isinstance(status, int) and status >= 400:
@@ -62,7 +64,7 @@ def _post_json(client: httpx.Client, url: str, payload: Dict[str, Any]) -> None:
 
 
 def _send_telegram(
-    client: httpx.Client,
+    client: Optional[httpx.Client],
     config: Mapping[str, Any],
     text: str,
     *,
@@ -95,7 +97,7 @@ def _send_telegram(
 
 
 def _send_webhook(
-    client: httpx.Client,
+    client: Optional[httpx.Client],
     config: Mapping[str, Any],
     payload: Dict[str, Any],
     *,
@@ -194,7 +196,7 @@ def notify_switch(
         if owns_client and active_client is not None:
             try:
                 active_client.close()
-            except Exception:  # pragma: no cover - defensive
+            except Exception:  # noqa: BLE001  # pragma: no cover - closing must not hide the send result
                 pass
 
     return channels
