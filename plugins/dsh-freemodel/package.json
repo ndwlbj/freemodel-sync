@@ -1,0 +1,75 @@
+{
+  "name": "dsh-freemodel",
+  "displayName": "DSH FreeModel",
+  "description": "Free models for DeepSeek Harness: finds currently free models on OpenRouter and Groq, probes them, and lists the ones that work. Keys stay in dsh's credential store.",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "free-models",
+    "openrouter",
+    "groq",
+    "model-provider"
+  ],
+  "type": "module",
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0",
+    "dsh": ">=0.2.1-rc.1 <0.3.0-0"
+  },
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "bin": {
+    "dsh-freemodel": "lib/bin.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./locale/*.json": "./locale/*.json",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "locale",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "check": "npm run typecheck && npm run test && npm run build"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ndwlbj/freemodel-sync.git",
+    "directory": "plugins/dsh-freemodel"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": ">=4.0.2 <5.0.0",
+    "@deepseek-ai/dsh-credentials": ">=0.2.1-rc.1 <0.3.0-0",
+    "@deepseek-ai/dsh-llm": ">=0.2.1-rc.1 <0.3.0-0",
+    "@deepseek-ai/schemastery": ">=3.18.2 <4.0.0"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "4.0.5",
+    "@deepseek-ai/dsh-credentials": "0.2.1-rc.3",
+    "@deepseek-ai/dsh-llm": "0.2.1-rc.3",
+    "@deepseek-ai/schemastery": "3.18.5",
+    "@types/node": "^22.20.5",
+    "tsdown": "~0.22.14",
+    "typescript": "~5.9.3",
+    "vitest": "^4.1.12"
+  },
+  "packageManager": "pnpm@10.34.6"
+}

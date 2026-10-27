@@ -168,6 +168,9 @@ ruff format --check src tests scripts
 pytest
 ```
 
+dsh 插件骨架在 `plugins/dsh-freemodel/`（TypeScript，用 pnpm；见其 README 和
+[docs/dsh-plugin-verification.md](https://github.com/ndwlbj/freemodel-sync/blob/main/docs/dsh-plugin-verification.md)）。
+
 测试完全不联网（HTTP 用 `httpx.MockTransport` 模拟）。贡献指南见 [CONTRIBUTING.md](https://github.com/ndwlbj/freemodel-sync/blob/main/CONTRIBUTING.md)。
 
 ## 安全

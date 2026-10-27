@@ -8,6 +8,15 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **dsh plugin skeleton** in `plugins/dsh-freemodel/` (TypeScript, its own version 0.1.0, not
+  published). It loads in dsh `>=0.2.1-rc.1 <0.3.0-0` and shows a live settings form: OpenRouter
+  (on) and Groq (off, and blocked until `freePlanConfirmed`), each with a credential reference
+  for its key, so the key goes into dsh's credential store and never into the plugin config. It
+  bundles `spec/`, registers no route and never changes the default model. `dsh-freemodel
+  status|doctor` check Node.js, dsh, the spec and key presence without printing keys. A new
+  `plugin` CI job type-checks, tests, builds and packs it on Linux, Windows and macOS with Node.js
+  22.19 and 24. `scripts/verify-host/verify-host.sh` loads it into a real dsh in a throwaway home;
+  results for dsh 0.2.1-rc.3 are in `docs/dsh-plugin-verification.md`.
 - **Shared rules in `spec/` (spec_version 1):** `providers.json` (OpenRouter and Groq: base URL,
   key variable, free rule, catalogue fields, probe request, error classification, rate-limit
   headers, key formats, sources), `ranking.json` (default weights, score constants, non-chat

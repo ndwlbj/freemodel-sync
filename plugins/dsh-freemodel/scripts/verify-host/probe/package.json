@@ -1,0 +1,21 @@
+{
+  "name": "dsh-freemodel-verify-probe",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Throwaway probe for scripts/verify-host: checks dsh-freemodel inside a real dsh host, then stops the host. Never install it into a profile you use.",
+  "type": "module",
+  "main": "index.js",
+  "engines": {
+    "dsh": ">=0.2.1-rc.1 <0.3.0-0"
+  },
+  "exports": {
+    ".": "./index.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

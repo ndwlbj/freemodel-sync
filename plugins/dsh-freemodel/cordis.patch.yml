@@ -1,0 +1,6 @@
+# Mount dsh-freemodel without touching the profile's default model or any
+# other entry. Keys are saved through dsh's credential store; this entry only
+# carries the environment-variable names (credential-ref fields).
+- insert:
+    - id: dsh-freemodel
+      name: dsh-freemodel

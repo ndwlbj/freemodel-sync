@@ -1,0 +1,3 @@
+- insert:
+    - id: fm-verify-probe
+      name: dsh-freemodel-verify-probe
