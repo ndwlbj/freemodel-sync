@@ -170,9 +170,10 @@ jobs:
       - name: Package contents
         shell: bash
         run: |
-          pnpm pack --pack-destination "$RUNNER_TEMP"
-          tar -tzf "$RUNNER_TEMP"/dsh-freemodel-*.tgz | sort | tee "$RUNNER_TEMP/files.txt"
-          if grep -Ev '^package/(lib/|locale/|cordis\.patch\.yml$|package\.json$|README\.md$|LICENSE$)' "$RUNNER_TEMP/files.txt"; then
+          # Relative paths: GNU tar on Windows reads "D:\..." as a remote host.
+          pnpm pack --pack-destination .pack
+          tar -tzf .pack/dsh-freemodel-*.tgz | sort | tee .pack/files.txt
+          if grep -Ev '^package/(lib/|locale/|cordis\.patch\.yml$|package\.json$|README\.md$|LICENSE$)' .pack/files.txt; then
             echo "unexpected files in the package"; exit 1
           fi
 
