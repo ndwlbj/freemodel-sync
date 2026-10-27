@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ndwlbj/freemodel-sync/spec/state.schema.json",
+  "title": "dsh-freemodel state file ($DSH_HOME/freemodel/state.json)",
+  "description": "Catalogue cache, probe results and daily probe counters of the dsh plugin. Never holds a key; error texts are redacted. Written with mode 0600.",
+  "type": "object",
+  "required": ["schemaVersion", "plugin", "updatedAt", "channels"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "plugin": { "const": "dsh-freemodel" },
+    "updatedAt": { "type": "string", "description": "ISO 8601 time of the last write" },
+    "channels": {
+      "type": "object",
+      "required": ["openrouter", "groq"],
+      "additionalProperties": false,
+      "properties": {
+        "openrouter": { "$ref": "#/$defs/channel" },
+        "groq": { "$ref": "#/$defs/channel" }
+      }
+    }
+  },
+  "$defs": {
+    "nullableNumber": { "type": ["number", "null"] },
+    "nullableString": { "type": ["string", "null"] },
+    "channel": {
+      "type": "object",
+      "required": ["catalog", "results", "daily", "blockedUntil", "lastRound"],
+      "additionalProperties": false,
+      "properties": {
+        "catalog": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "required": ["fetchedAt", "models", "error", "errorAt"],
+              "additionalProperties": false,
+              "properties": {
+                "fetchedAt": { "type": "number", "description": "Unix seconds of the last successful read (0: never)" },
+                "models": { "type": "array", "items": { "$ref": "#/$defs/model" } },
+                "error": { "$ref": "#/$defs/nullableString", "description": "Redacted error of the last failed read" },
+                "errorAt": { "$ref": "#/$defs/nullableNumber" }
+              }
+            }
+          ]
+        },
+        "results": {
+          "type": "object",
+          "description": "Latest probe result per model key (\"<provider>|<model id>\"); account failures are never stored",
+          "additionalProperties": { "$ref": "#/$defs/result" }
+        },
+        "daily": {
+          "type": "object",
+          "required": ["date", "count"],
+          "additionalProperties": false,
+          "properties": {
+            "date": { "type": "string", "description": "UTC day (YYYY-MM-DD), or empty before the first probe" },
+            "count": { "type": "integer", "minimum": 0, "description": "Probes sent that day" }
+          }
+        },
+        "blockedUntil": { "$ref": "#/$defs/nullableNumber", "description": "Unix seconds; no probes before" },
+        "lastRound": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "required": ["at", "probes", "stopReason"],
+              "additionalProperties": false,
+              "properties": {
+                "at": { "type": "number" },
+                "probes": { "type": "integer", "minimum": 0 },
+                "stopReason": { "$ref": "#/$defs/nullableString" }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "model": {
+      "type": "object",
+      "required": ["provider", "id", "name", "contextLength", "tools", "input", "maxTokens", "expirationDate"],
+      "additionalProperties": false,
+      "properties": {
+        "provider": { "enum": ["openrouter", "groq"] },
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string" },
+        "contextLength": { "type": "integer", "minimum": 0 },
+        "tools": { "type": ["boolean", "null"], "description": "null: the catalogue does not say (Groq)" },
+        "input": { "type": "array", "items": { "enum": ["text", "image"] } },
+        "maxTokens": { "type": ["integer", "null"] },
+        "expirationDate": { "type": ["string", "null"], "pattern": "^\\d{4}-\\d{2}-\\d{2}$" }
+      }
+    },
+    "result": {
+      "type": "object",
+      "required": ["key", "ok", "ttftMs", "totalMs", "error", "statusCode", "testedAt", "failureKind", "retryAfterS", "rateLimitRemaining"],
+      "additionalProperties": false,
+      "properties": {
+        "key": { "type": "string" },
+        "ok": { "type": "boolean" },
+        "ttftMs": { "$ref": "#/$defs/nullableNumber" },
+        "totalMs": { "$ref": "#/$defs/nullableNumber" },
+        "error": { "$ref": "#/$defs/nullableString", "description": "Redacted" },
+        "statusCode": { "type": ["integer", "null"] },
+        "testedAt": { "type": "number", "description": "Unix seconds" },
+        "failureKind": { "enum": [null, "model", "transient", "account"] },
+        "retryAfterS": { "$ref": "#/$defs/nullableNumber" },
+        "rateLimitRemaining": { "type": ["integer", "null"] }
+      }
+    }
+  }
+}

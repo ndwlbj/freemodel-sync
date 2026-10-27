@@ -7,13 +7,15 @@ import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { type ChannelState, channelStates, defaultProviders, type FreemodelConfig } from "./channels.ts";
+import { type ChannelState, channelStates, defaultProviders, type FreemodelConfig, rankingOf } from "./channels.ts";
+import { filterModels, rank } from "./rank.ts";
 import { satisfies } from "./semver.ts";
 import { providersSpec, SUPPORTED_SPEC_VERSION } from "./spec.ts";
+import { loadState, requestsToday, type StateData } from "./state.ts";
 import { DSH_RANGE, NODE_RANGE, PLUGIN_VERSION } from "./version.ts";
 
-/** Report format version for `--json` consumers. */
-export const STATUS_SCHEMA_VERSION = 1;
+/** Report format version for `--json` consumers (2: per-channel models from the state file). */
+export const STATUS_SCHEMA_VERSION = 2;
 
 /** Presence facts for one key reference, as dsh's credential service describes them. */
 export interface KeyPresence {
@@ -25,8 +27,25 @@ export interface KeyPresence {
 /** Look up a key reference without reading its value. */
 export type DescribeKey = (ref: string) => Promise<KeyPresence>;
 
+/** What the state file says about one channel's models. */
+export interface ModelsReport {
+  /** Unix seconds of the last catalogue read; null before the first. */
+  catalogFetchedAt: number | null;
+  catalogError: string | null;
+  /** Free models after the listing filters. */
+  candidates: number;
+  /** Models whose latest probe passed: these are the ones the route lists. */
+  listed: Array<{ id: string; ttftMs: number | null; testedAt: number }>;
+  /** Models kept out of the picker, with the reason. */
+  hidden: Array<{ id: string; reason: string }>;
+  probesToday: number;
+  lastRound: { at: number; probes: number; stopReason: string | null } | null;
+  blockedUntil: number | null;
+}
+
 export interface ChannelReport extends ChannelState {
   key: KeyPresence | "unknown";
+  models: ModelsReport;
 }
 
 export interface StatusReport {
@@ -37,8 +56,6 @@ export interface StatusReport {
   statePath: string;
   stateExists: boolean;
   channels: ChannelReport[];
-  /** P3: no routes are registered yet. */
-  routesRegistered: string[];
 }
 
 /** `$DSH_HOME`, else `~/.dsh`, as dsh itself resolves it. */
@@ -47,7 +64,7 @@ export function dshHome(env: NodeJS.ProcessEnv = process.env): string {
   return configured !== undefined && configured !== "" ? configured : join(homedir(), ".dsh");
 }
 
-/** Where the plugin will keep its cache (plan 6.3; written from P4 on). */
+/** Where the plugin keeps its cache (plan 6.3). */
 export function statePath(env: NodeJS.ProcessEnv = process.env): string {
   return join(dshHome(env), "freemodel", "state.json");
 }
@@ -57,6 +74,29 @@ export function describeFromEnv(env: NodeJS.ProcessEnv = process.env): DescribeK
   return async (ref) => {
     const value = env[ref];
     return value !== undefined && value !== "" ? { configured: true, source: "env" } : { configured: false };
+  };
+}
+
+/** Listed and hidden models of one channel, as the state file has them. */
+export function modelsReport(state: StateData, config: FreemodelConfig, id: ChannelState["id"], now: number = Date.now()): ModelsReport {
+  const channel = state.channels[id];
+  const ranking = rankingOf(config);
+  const today = new Date(now).toISOString().slice(0, 10);
+  const candidates = filterModels(channel.catalog?.models ?? [], { ...ranking, today });
+  const ranked = rank(candidates, channel.results, undefined, today);
+  return {
+    catalogFetchedAt: channel.catalog?.fetchedAt ?? null,
+    catalogError: channel.catalog?.error ?? null,
+    candidates: candidates.length,
+    listed: ranked
+      .filter((r) => r.test?.ok === true)
+      .map((r) => ({ id: r.model.id, ttftMs: r.test?.ttftMs ?? null, testedAt: r.test?.testedAt ?? 0 })),
+    hidden: ranked
+      .filter((r) => r.test?.ok !== true)
+      .map((r) => ({ id: r.model.id, reason: r.test === null ? "not probed yet" : (r.reasons[0] ?? "failed") })),
+    probesToday: requestsToday(channel, now),
+    lastRound: channel.lastRound,
+    blockedUntil: channel.blockedUntil,
   };
 }
 
@@ -71,20 +111,21 @@ export async function buildStatus(
   describe?: DescribeKey,
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<StatusReport> {
+  const path = statePath(env);
+  const state = loadState(path);
   const channels: ChannelReport[] = [];
-  for (const state of channelStates(config)) {
+  for (const entry of channelStates(config)) {
     let key: ChannelReport["key"] = "unknown";
     if (describe !== undefined) {
       try {
-        const info = await describe(state.apiKeyEnv);
+        const info = await describe(entry.apiKeyEnv);
         key = info.source === undefined ? { configured: info.configured } : { configured: info.configured, source: info.source };
       } catch {
         key = "unknown";
       }
     }
-    channels.push({ ...state, key });
+    channels.push({ ...entry, key, models: modelsReport(state, config, entry.id) });
   }
-  const path = statePath(env);
   return {
     schemaVersion: STATUS_SCHEMA_VERSION,
     plugin: "dsh-freemodel",
@@ -93,7 +134,6 @@ export async function buildStatus(
     statePath: path,
     stateExists: existsSync(path),
     channels,
-    routesRegistered: [],
   };
 }
 

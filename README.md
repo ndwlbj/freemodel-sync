@@ -281,7 +281,7 @@ ruff format --check src tests scripts
 pytest
 ```
 
-The dsh plugin skeleton lives in `plugins/dsh-freemodel/` (TypeScript, pnpm; see its README and
+The dsh plugin (lists free OpenRouter/Groq models in the dsh picker) lives in `plugins/dsh-freemodel/` (TypeScript, pnpm; see its README and
 [docs/dsh-plugin-verification.md](https://github.com/ndwlbj/freemodel-sync/blob/main/docs/dsh-plugin-verification.md)).
 
 Tests never touch the network (HTTP is mocked with `httpx.MockTransport`). See

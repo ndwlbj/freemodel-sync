@@ -46,12 +46,26 @@ def _params(area):
 # -- the spec files themselves ----------------------------------------------
 def test_spec_files_validate_against_their_schemas():
     jsonschema = pytest.importorskip("jsonschema")
-    pairs = [("providers.json", "providers.schema.json"), ("ranking.json", "ranking.schema.json")]
+    pairs = [
+        ("providers.json", "providers.schema.json"),
+        ("ranking.json", "ranking.schema.json"),
+        ("state.example.json", "state.schema.json"),
+    ]
     pairs += [(f"conformance/{p.name}", "conformance.schema.json") for p in sorted(CONFORMANCE.glob("*.json"))]
     for data_name, schema_name in pairs:
         schema = json.loads((SPEC / schema_name).read_text(encoding="utf-8"))
         jsonschema.Draft202012Validator.check_schema(schema)
         jsonschema.validate(json.loads((SPEC / data_name).read_text(encoding="utf-8")), schema)
+
+
+def test_state_schema_rejects_a_stored_key_field():
+    """The plugin's state file has a closed schema, so a key field cannot slip in."""
+    jsonschema = pytest.importorskip("jsonschema")
+    schema = json.loads((SPEC / "state.schema.json").read_text(encoding="utf-8"))
+    state = json.loads((SPEC / "state.example.json").read_text(encoding="utf-8"))
+    state["channels"]["openrouter"]["apiKey"] = "x"
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(state, schema)
 
 
 def test_every_conformance_file_has_a_runner():

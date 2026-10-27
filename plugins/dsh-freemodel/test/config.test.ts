@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { channelStates, defaultProviders, providersOf, routeOf } from "../src/channels.ts";
+import { channelStates, defaultProviders, defaultRanking, defaultRefresh, providersOf, rankingOf, refreshOf, routeOf } from "../src/channels.ts";
 import { Config } from "../src/config.ts";
 import { providerSpec } from "../src/spec.ts";
 
@@ -86,5 +86,35 @@ describe("channelStates", () => {
     expect(groq?.blocked).toBe("freePlanConfirmed is off");
     const confirmed = channelStates(Config({ providers: { groq: { enabled: true, freePlanConfirmed: true } } }))[1];
     expect(confirmed?.blocked).toBeUndefined();
+  });
+});
+
+describe("ranking and refresh settings", () => {
+  it("default to the plan's values", () => {
+    const config = Config({});
+    expect(rankingOf(config)).toEqual(defaultRanking());
+    expect(refreshOf(config)).toEqual(defaultRefresh());
+    expect(defaultRanking()).toEqual({ requireTools: true, minContext: 32000 });
+    expect(defaultRefresh()).toEqual({
+      onStartup: true,
+      catalogHours: 6,
+      probeHours: 12,
+      probeTopN: 5,
+      reserveRequests: 10,
+      dailyProbeLimit: 0,
+    });
+  });
+
+  it("accept overrides and refuse out-of-range values", () => {
+    expect(refreshOf(Config({ refresh: { probeTopN: 3 } })).probeTopN).toBe(3);
+    expect(rankingOf(Config({ ranking: { minContext: 8000 } })).minContext).toBe(8000);
+    expect(() => Config({ refresh: { probeTopN: 0 } })).toThrow();
+    expect(() => Config({ refresh: { catalogHours: 0.5 } })).toThrow();
+    expect(() => Config({ ranking: { minContext: -1 } })).toThrow();
+  });
+
+  it("are live, so edits apply without a restart", () => {
+    expect(field("ranking").meta.volatile).toBe(true);
+    expect(field("refresh").meta.volatile).toBe(true);
   });
 });

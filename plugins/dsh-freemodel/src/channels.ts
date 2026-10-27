@@ -33,8 +33,32 @@ export interface Live<T> {
   get(): T;
 }
 
+/** Which models are listed (plan 6.3). */
+export interface RankingConfig {
+  /** Hide models whose catalogue says they cannot call tools (unknown, e.g. Groq, still passes). */
+  requireTools: boolean;
+  /** Hide models with a smaller context window (tokens). */
+  minContext: number;
+}
+
+/** When the catalogue is read and models are probed (plan 6.3). */
+export interface RefreshConfig {
+  /** Register from the cached state at startup, then refresh in the background. */
+  onStartup: boolean;
+  catalogHours: number;
+  probeHours: number;
+  /** Models probed per round and channel. */
+  probeTopN: number;
+  /** Free requests per day left untouched for real use. */
+  reserveRequests: number;
+  /** Probes per UTC day and channel; 0 = what the channel reports (OpenRouter), else 50. */
+  dailyProbeLimit: number;
+}
+
 export interface FreemodelConfig {
   providers: Live<ProvidersConfig> | ProvidersConfig;
+  ranking?: Live<RankingConfig> | RankingConfig;
+  refresh?: Live<RefreshConfig> | RefreshConfig;
 }
 
 /** What a user (or a patch file) may write: every field optional. */
@@ -43,6 +67,16 @@ export interface FreemodelConfigInput {
     openrouter?: Partial<OpenRouterChannelConfig>;
     groq?: Partial<GroqChannelConfig>;
   };
+  ranking?: Partial<RankingConfig>;
+  refresh?: Partial<RefreshConfig>;
+}
+
+export function defaultRanking(): RankingConfig {
+  return { requireTools: true, minContext: 32000 };
+}
+
+export function defaultRefresh(): RefreshConfig {
+  return { onStartup: true, catalogHours: 6, probeHours: 12, probeTopN: 5, reserveRequests: 10, dailyProbeLimit: 0 };
 }
 
 /** The settings every field defaults to (key variable names come from spec/providers.json). */
@@ -65,10 +99,25 @@ export function providersOf(config: FreemodelConfig): ProvidersConfig {
   return isLive(config.providers) ? config.providers.get() : config.providers;
 }
 
+function liveOr<T extends object>(value: Live<T> | T | undefined, fallback: T): T {
+  if (value === undefined) return fallback;
+  return { ...fallback, ...(isLive(value) ? value.get() : value) };
+}
+
+/** Current ranking settings (defaults filled in). */
+export function rankingOf(config: FreemodelConfig): RankingConfig {
+  return liveOr(config.ranking, defaultRanking());
+}
+
+/** Current refresh settings (defaults filled in). */
+export function refreshOf(config: FreemodelConfig): RefreshConfig {
+  return liveOr(config.refresh, defaultRefresh());
+}
+
 /** One channel's effective state, for logs, status and doctor. Never holds a key. */
 export interface ChannelState {
   id: ChannelId;
-  /** The model route the channel will register (P4). */
+  /** The model route the channel registers once it is active. */
   route: string;
   enabled: boolean;
   apiKeyEnv: string;

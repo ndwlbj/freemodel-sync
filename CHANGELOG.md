@@ -8,6 +8,17 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **dsh plugin lists free models (P4).** With a key, `dsh-freemodel` reads the OpenRouter (and,
+  once `freePlanConfirmed`, Groq) catalogue, applies the `spec/` rules, ranks and probes the top
+  candidates within the daily limit, and registers the routes `freemodel-openrouter` /
+  `freemodel-groq` through `@deepseek-ai/dsh-llm-pi-ai`, so the models that answered appear in the
+  picker labelled `· 免费`. Failed models are hidden with their reason (`dsh-freemodel status`, the
+  provider directory). State goes to `$DSH_HOME/freemodel/state.json` (mode 600, no keys), described
+  by the new `spec/state.schema.json`. New settings `ranking.*` and `refresh.*`. A TypeScript
+  conformance runner checks the plugin against every `spec/` example. `verify-host.sh` gained an
+  opt-in live run (`FMS_VERIFY_LIVE=1`); results in `docs/dsh-plugin-verification.md`. The
+  plugin's `status --json` schema is now 2. The default model is never changed.
+
 - **dsh plugin skeleton** in `plugins/dsh-freemodel/` (TypeScript, its own version 0.1.0, not
   published). It loads in dsh `>=0.2.1-rc.1 <0.3.0-0` and shows a live settings form: OpenRouter
   (on) and Groq (off, and blocked until `freePlanConfirmed`), each with a credential reference

@@ -1,7 +1,7 @@
 /**
- * Plugin settings (plan section 6.3). P3 ships only the channel switches and
- * the key references; ranking, refresh and manual registration follow in
- * later steps.
+ * Plugin settings (plan section 6.3): channel switches and key references,
+ * which models are listed, and the refresh cadence. Manual registration and
+ * the default-model switch follow in later steps.
  *
  * `apiKeyEnv` fields carry the `credential-ref` role: the settings page stores
  * only the environment-variable NAME here and saves the key itself through
@@ -12,6 +12,8 @@ import z from "@deepseek-ai/schemastery";
 import {
   CHANNEL_LABELS,
   defaultProviders,
+  defaultRanking,
+  defaultRefresh,
   type FreemodelConfig,
   type FreemodelConfigInput,
   type GroqChannelConfig,
@@ -68,7 +70,51 @@ const providersSchema = z
   .description("Channels")
   .volatile();
 
+const RANKING = defaultRanking();
+const REFRESH = defaultRefresh();
+
+const rankingSchema = z
+  .object({
+    requireTools: z
+      .boolean()
+      .default(RANKING.requireTools)
+      .description("Hide models whose catalogue says they cannot call tools (dsh's agent needs tools). Groq does not say; its models stay listed."),
+    minContext: z.natural().default(RANKING.minContext).description("Hide models with a smaller context window (tokens)."),
+  })
+  .default({})
+  .description("Which models are listed")
+  .volatile();
+
+const refreshSchema = z
+  .object({
+    onStartup: z
+      .boolean()
+      .default(REFRESH.onStartup)
+      .description("At startup, list the cached models at once and refresh in the background."),
+    catalogHours: z.number().min(1).max(168).default(REFRESH.catalogHours).description("Read each catalogue every N hours."),
+    probeHours: z
+      .number()
+      .min(1)
+      .max(168)
+      .default(REFRESH.probeHours)
+      .description("Probe models again after N hours (one tiny request per model)."),
+    probeTopN: z.natural().min(1).max(20).default(REFRESH.probeTopN).description("Models probed per round and channel."),
+    reserveRequests: z
+      .natural()
+      .default(REFRESH.reserveRequests)
+      .description("Free requests per day the probes never touch, kept for your own use."),
+    dailyProbeLimit: z
+      .natural()
+      .default(REFRESH.dailyProbeLimit)
+      .description("Daily free-request budget per channel; 0 = what the channel reports (OpenRouter's /key), else 50."),
+  })
+  .default({})
+  .description("Refresh")
+  .volatile();
+
 export const Config: z<FreemodelConfigInput, FreemodelConfig> = z.object({
   providers: providersSchema,
+  ranking: rankingSchema,
+  refresh: refreshSchema,
 }) as unknown as z<FreemodelConfigInput, FreemodelConfig>;
 

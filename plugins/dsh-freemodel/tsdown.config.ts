@@ -10,5 +10,5 @@ export default defineConfig({
   dts: true,
   clean: true,
   // The host provides these; bundling them would give the plugin a second copy.
-  deps: { neverBundle: [/^@deepseek-ai\//] },
+  deps: { neverBundle: [/^@deepseek-ai\//, /^@earendil-works\//] },
 });

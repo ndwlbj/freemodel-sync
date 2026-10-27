@@ -57,7 +57,16 @@ function formatStatus(report: StatusReport): string[] {
     lines.push(`  ${c.id.padEnd(11)} ${c.enabled ? "on " : "off"}  route ${c.route}  key ${c.apiKeyEnv}: ${key}${blocked}`);
   }
   lines.push(`  state file  ${report.statePath}${report.stateExists ? "" : " (not created yet)"}`);
-  lines.push("  routes      none registered (skeleton release)");
+  for (const c of report.channels) {
+    const m = c.models;
+    if (m.catalogFetchedAt === null && m.listed.length === 0 && m.hidden.length === 0) continue;
+    const when = m.catalogFetchedAt === null ? "never" : new Date(m.catalogFetchedAt * 1000).toISOString().slice(0, 16).replace("T", " ") + " UTC";
+    lines.push(`  ${c.id}: catalogue read ${when}, ${m.candidates} candidates, ${m.listed.length} listed, probes today ${m.probesToday}`);
+    if (m.catalogError !== null) lines.push(`    catalogue error: ${m.catalogError}`);
+    for (const l of m.listed) lines.push(`    + ${l.id}${l.ttftMs === null ? "" : `  (TTFT ${Math.round(l.ttftMs)} ms)`}`);
+    for (const h of m.hidden) lines.push(`    - ${h.id}  ${h.reason}`);
+    if (m.lastRound?.stopReason) lines.push(`    last round stopped: ${m.lastRound.stopReason}`);
+  }
   return lines;
 }
 

@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { main } from "../src/bin.ts";
+import { emptyState, saveState } from "../src/state.ts";
 import { describeFromEnv, installedDshVersion, runDoctor, statePath } from "../src/status.ts";
 
 function run(argv: string[], env: NodeJS.ProcessEnv = {}, cwd = tmpdir(), dshCli?: string) {
@@ -50,10 +51,27 @@ describe("dsh-freemodel CLI", () => {
     writeFileSync(join(home, "freemodel", "state.json"), "{}");
     const result = await run(["status", "--json"], { DSH_HOME: home, OPENROUTER_API_KEY: fakeKey });
     const report = JSON.parse(result.out);
-    expect(report).toMatchObject({ schemaVersion: 1, plugin: "dsh-freemodel", version: "0.1.0", stateExists: true });
+    expect(report).toMatchObject({ schemaVersion: 2, plugin: "dsh-freemodel", version: "0.1.0", stateExists: true });
     expect(report.channels.map((c: { route: string }) => c.route)).toEqual(["freemodel-openrouter", "freemodel-groq"]);
-    expect(report.routesRegistered).toEqual([]);
+    expect(report.channels[0].models).toMatchObject({ catalogFetchedAt: null, listed: [], hidden: [] });
     expect(result.out).not.toContain(fakeKey);
+  });
+
+  it("status lists the models that passed and why the others are hidden, from the state file", async () => {
+    const home = mkdtempSync(join(tmpdir(), "fm-home-"));
+    const state = emptyState();
+    const nowS = Date.now() / 1000;
+    const m = (id: string) => ({ provider: "openrouter" as const, id, name: id, contextLength: 131072, tools: true, input: ["text" as const], maxTokens: null, expirationDate: null });
+    state.channels.openrouter.catalog = { fetchedAt: nowS, models: [m("good:free"), m("bad:free"), m("new:free")], error: null, errorAt: null };
+    const base = { totalMs: 1, testedAt: nowS, retryAfterS: null, rateLimitRemaining: null };
+    state.channels.openrouter.results["openrouter|good:free"] = { ...base, key: "openrouter|good:free", ok: true, ttftMs: 321, error: null, statusCode: 200, failureKind: null };
+    state.channels.openrouter.results["openrouter|bad:free"] = { ...base, key: "openrouter|bad:free", ok: false, ttftMs: null, error: "No endpoints found", statusCode: 404, failureKind: "model" };
+    saveState(statePath({ DSH_HOME: home }), state);
+    const result = await run(["status"], { DSH_HOME: home });
+    expect(result.out).toContain("+ good:free  (TTFT 321 ms)");
+    expect(result.out).toContain("- bad:free  failed: No endpoints found");
+    expect(result.out).toContain("- new:free  not probed yet");
+    expect(result.out).toMatch(/openrouter: catalogue read .* UTC, 3 candidates, 1 listed/);
   });
 
   it("doctor finds the dsh runtime from a profile directory", async () => {

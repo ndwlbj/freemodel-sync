@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "plugin": "dsh-freemodel",
+  "updatedAt": "2026-10-27T12:00:00.000Z",
+  "channels": {
+    "openrouter": {
+      "catalog": {
+        "fetchedAt": 1793102400,
+        "models": [
+          {
+            "provider": "openrouter",
+            "id": "vendor/good:free",
+            "name": "Vendor Good (free)",
+            "contextLength": 131072,
+            "tools": true,
+            "input": ["text"],
+            "maxTokens": 4096,
+            "expirationDate": null
+          },
+          {
+            "provider": "openrouter",
+            "id": "vendor/gone:free",
+            "name": "Vendor Gone (free)",
+            "contextLength": 65536,
+            "tools": true,
+            "input": ["text", "image"],
+            "maxTokens": null,
+            "expirationDate": "2026-11-30"
+          }
+        ],
+        "error": null,
+        "errorAt": null
+      },
+      "results": {
+        "openrouter|vendor/good:free": {
+          "key": "openrouter|vendor/good:free",
+          "ok": true,
+          "ttftMs": 412.5,
+          "totalMs": 690.1,
+          "error": null,
+          "statusCode": 200,
+          "testedAt": 1793102410,
+          "failureKind": null,
+          "retryAfterS": null,
+          "rateLimitRemaining": 19
+        },
+        "openrouter|vendor/gone:free": {
+          "key": "openrouter|vendor/gone:free",
+          "ok": false,
+          "ttftMs": null,
+          "totalMs": 120.4,
+          "error": "No endpoints found for vendor/gone:free.",
+          "statusCode": 404,
+          "testedAt": 1793102411,
+          "failureKind": "model",
+          "retryAfterS": null,
+          "rateLimitRemaining": null
+        }
+      },
+      "daily": { "date": "2026-10-27", "count": 2 },
+      "blockedUntil": null,
+      "lastRound": { "at": 1793102412, "probes": 2, "stopReason": null }
+    },
+    "groq": {
+      "catalog": null,
+      "results": {},
+      "daily": { "date": "", "count": 0 },
+      "blockedUntil": null,
+      "lastRound": null
+    }
+  }
+}

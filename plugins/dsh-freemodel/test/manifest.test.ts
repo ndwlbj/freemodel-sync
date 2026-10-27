@@ -7,6 +7,8 @@ const manifest = JSON.parse(readFileSync(new URL("package.json", root), "utf8"))
 
 /** The dsh runtime this plugin is verified on (docs/dsh-plugin-verification.md). */
 const VERIFIED_DSH = "0.2.1-rc.3";
+/** The pi-ai that runtime ships (its dsh-llm-pi-ai peers on ^1.1.0). */
+const VERIFIED_PI_AI = "1.4.0";
 
 describe("package.json", () => {
   it("declares a dsh range that covers the verified runtime and stops before 0.3", () => {
@@ -17,9 +19,10 @@ describe("package.json", () => {
 
   it("peers on the host packages it uses, in ranges that cover the runtime", () => {
     for (const [name, range] of Object.entries<string>(manifest.peerDependencies)) {
-      expect(name.startsWith("@deepseek-ai/")).toBe(true);
+      expect(name.startsWith("@deepseek-ai/") || name === "@earendil-works/pi-ai", name).toBe(true);
       if (/^@deepseek-ai\/dsh(-|$)/.test(name)) expect(satisfies(VERIFIED_DSH, range), name).toBe(true);
     }
+    expect(satisfies(VERIFIED_PI_AI, manifest.peerDependencies["@earendil-works/pi-ai"])).toBe(true);
     expect(manifest.dependencies ?? {}).toEqual({});
   });
 
@@ -62,10 +65,21 @@ describe("locale", () => {
 
 describe("CLI independence", () => {
   it("the bin's modules import no host package, so `dsh plugin exec` works without the host", () => {
-    for (const file of ["bin.ts", "status.ts", "channels.ts", "spec.ts", "semver.ts", "version.ts"]) {
-      const source = readFileSync(new URL(`src/${file}`, root), "utf8");
-      expect(source, file).not.toMatch(/from\s+["']@deepseek-ai\//);
-      expect(source, file).not.toMatch(/from\s+["']\.\/(config|index)\.ts["']/);
+    // Walk the bin's local imports transitively.
+    const seen = new Set<string>();
+    const queue = [new URL("src/bin.ts", root)];
+    while (queue.length > 0) {
+      const url = queue.pop() as URL;
+      if (seen.has(url.href)) continue;
+      seen.add(url.href);
+      const source = readFileSync(url, "utf8");
+      const file = url.pathname.slice(new URL("src/", root).pathname.length);
+      expect(source, file).not.toMatch(/from\s+["']@(deepseek-ai|earendil-works)\//);
+      expect(file).not.toMatch(/^(config|index|adapter|service)\.ts$/);
+      for (const m of source.matchAll(/from\s+["'](\.{1,2}\/[^"']+\.(?:ts|json))["']/g)) {
+        if ((m[1] as string).endsWith(".ts")) queue.push(new URL(m[1] as string, url));
+      }
     }
+    expect(seen.size).toBeGreaterThan(5);
   });
 });

@@ -59,13 +59,17 @@
     "@deepseek-ai/cordis": ">=4.0.2 <5.0.0",
     "@deepseek-ai/dsh-credentials": ">=0.2.1-rc.1 <0.3.0-0",
     "@deepseek-ai/dsh-llm": ">=0.2.1-rc.1 <0.3.0-0",
-    "@deepseek-ai/schemastery": ">=3.18.2 <4.0.0"
+    "@deepseek-ai/dsh-llm-pi-ai": ">=0.2.1-rc.1 <0.3.0-0",
+    "@deepseek-ai/schemastery": ">=3.18.2 <4.0.0",
+    "@earendil-works/pi-ai": "^1.1.0"
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "4.0.5",
     "@deepseek-ai/dsh-credentials": "0.2.1-rc.3",
     "@deepseek-ai/dsh-llm": "0.2.1-rc.3",
+    "@deepseek-ai/dsh-llm-pi-ai": "0.2.1-rc.3",
     "@deepseek-ai/schemastery": "3.18.5",
+    "@earendil-works/pi-ai": "1.4.0",
     "@types/node": "^22.20.5",
     "tsdown": "~0.22.14",
     "typescript": "~5.9.3",
