@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from freemodel_sync.models import ModelInfo, RankedModel, Selection, TestResult
+from freemodel_sync.redact import clear_secrets
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -14,6 +15,8 @@ FIXTURES = Path(__file__).parent / "fixtures"
 _REAL_ENV = (
     "OPENROUTER_API_KEY",
     "GROQ_API_KEY",
+    "SENSENOVA_API_KEY",
+    "DASHSCOPE_API_KEY",
     "GROQ_PLAN",
     "TELEGRAM_BOT_TOKEN",
     "TELEGRAM_CHAT_ID",
@@ -66,6 +69,15 @@ def _no_network(request, monkeypatch):
     monkeypatch.setattr(socket.socket, "connect_ex", connect_ex)
     monkeypatch.setattr(socket, "getaddrinfo", _blocked)
     monkeypatch.setattr(socket, "create_connection", _blocked)
+
+
+@pytest.fixture(autouse=True)
+def _forget_registered_secrets():
+    """Values registered for redaction in one test must not mask text in the next."""
+
+    clear_secrets()
+    yield
+    clear_secrets()
 
 
 @pytest.fixture

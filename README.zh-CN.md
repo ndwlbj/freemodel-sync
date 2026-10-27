@@ -174,7 +174,7 @@ pytest
 
 私下报告漏洞的方式见 [SECURITY.md](https://github.com/ndwlbj/freemodel-sync/blob/main/SECURITY.md)。
 
-- key 只从环境变量读取，freemodel-sync 不会把它写进配置文件，也不会打印。日志（包括 `-v`）会遮蔽 Telegram bot token、Bearer token 和 `sk-` 形式的 key；HTTP 请求日志（`--debug-http`）默认关闭。
+- key 只从环境变量读取，freemodel-sync 不会把它写进配置文件，也不会打印。日志（包括 `-v`）会遮蔽本次运行从环境变量读到的 key 原值，以及所有形似 key 的字符串（Telegram bot token、Bearer token，`sk-`、`sk-or-`、`sk-ws-`/`sk-sp-`、`gsk_` 开头的 key）；HTTP 请求日志（`--debug-http`）默认关闭。
 - 目标文件是符号链接时会写入真实文件（先备份），链接本身保留。
 - 不要提交你的 `config.yml`、`.env`、备份文件或缓存；`.gitignore` 已覆盖默认文件名。
 

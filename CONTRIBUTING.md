@@ -27,7 +27,10 @@ Python 3.10 is the oldest supported version; please do not use newer syntax
   instead of spending real requests.
 - **Never commit secrets or personal data**: API keys, tokens, webhook URLs,
   IP addresses, chat/user ids, your own configs or home paths. Use obvious
-  placeholders (`vendor/model:free`, `example.com`).
+  placeholders (`vendor/model:free`, `example.com`). Tests that need a
+  key-shaped string build it at runtime (`"sk-" + "a" * 32`) instead of
+  writing a literal. CI's `secret scan (gitleaks)` job uses `.gitleaks.toml`;
+  run it locally with `gitleaks git --config .gitleaks.toml .`.
 - Every bug fix comes with a regression test.
 - Keep changes focused; update `CHANGELOG.md` under *Unreleased* and both
   `README.md` and `README.zh-CN.md` when behaviour changes.

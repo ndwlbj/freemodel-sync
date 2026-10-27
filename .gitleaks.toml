@@ -1,0 +1,44 @@
+# gitleaks configuration for freemodel-sync (used by the secret-scan CI job).
+#
+# Extends gitleaks' default rules with the key formats of the providers this
+# project talks to, so a real key is caught even where the generic rules miss
+# it. The same formats are masked at runtime by src/freemodel_sync/redact.py.
+#
+# Tests never contain a literal key: they build fake keys at runtime
+# ("sk-" + "a" * 32), so these rules need no test-file allowlist.
+
+title = "freemodel-sync"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "freemodel-openrouter-key"
+description = "OpenRouter API key (sk-or-v1-...)"
+regex = '''\bsk-or-v1-[a-f0-9]{64}\b'''
+keywords = ["sk-or-"]
+
+[[rules]]
+id = "freemodel-dashscope-workspace-key"
+description = "Alibaba Cloud Bailian / DashScope key (sk-ws-..., sk-sp-...; may contain '.' and '_')"
+regex = '''\bsk-(?:ws|sp)-[A-Za-z0-9._-]{20,}'''
+keywords = ["sk-ws-", "sk-sp-"]
+
+[[rules]]
+id = "freemodel-sk-32-key"
+description = "sk- followed by 32 letters or digits (SenseNova, DashScope and other OpenAI-style keys)"
+regex = '''\bsk-[A-Za-z0-9]{32,}\b'''
+keywords = ["sk-"]
+
+[[rules]]
+id = "freemodel-groq-key"
+description = "Groq API key (gsk_...)"
+regex = '''\bgsk_[A-Za-z0-9]{40,}\b'''
+keywords = ["gsk_"]
+
+# Known false positive of the default generic-api-key rule: test code such as
+# error="missing api key", failure_kind="account" (not a secret).
+[[allowlists]]
+description = "failure_kind / error keyword arguments in tests are not secrets"
+regexTarget = "line"
+regexes = ['''failure_kind\s*=\s*"[a-z_]+"''']

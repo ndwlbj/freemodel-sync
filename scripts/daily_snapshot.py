@@ -50,6 +50,8 @@ from freemodel_sync.fileio import atomic_write_text
 from freemodel_sync.models import QUOTA_LAG_NOTE, ModelInfo, QuotaInfo, TestResult
 from freemodel_sync.providers import ProviderError, get_provider_class
 from freemodel_sync.ranking import RankWeights, filter_models, score_model
+from freemodel_sync.redact import KEY_PATTERNS
+from freemodel_sync.redact import redact as redact_text
 from freemodel_sync.tester import ResultCache, run_tests
 
 SCHEMA_VERSION = 1
@@ -62,13 +64,8 @@ FALLBACK_DAILY_FREE_LIMIT = 50
 MAX_ERROR_CHARS = 200
 _DATED_FILE = re.compile(r"^(\d{4}-\d{2}-\d{2})\.json$")
 
-_REDACT_PATTERNS: Tuple[Tuple[re.Pattern[str], str], ...] = (
-    (re.compile(r"\bsk-or-[A-Za-z0-9_-]{4,}"), "sk-or-<redacted>"),
-    (re.compile(r"\bsk-[A-Za-z0-9_-]{8,}"), "sk-<redacted>"),
-    (re.compile(r"\bgsk_[A-Za-z0-9_-]{8,}"), "gsk_<redacted>"),
-    (re.compile(r"(?i)(bearer\s+)[^\s\"',;]+"), r"\1<redacted>"),
-    (re.compile(r"(?i)(authorization[\"']?\s*[:=]\s*[\"']?)[^\s\"',;]+"), r"\1<redacted>"),
-)
+#: shared with the CLI logger (freemodel_sync.redact)
+_REDACT_PATTERNS = KEY_PATTERNS
 
 
 class SecretLeakError(RuntimeError):
@@ -83,13 +80,7 @@ def redact(text: Optional[str], secrets: Iterable[str] = ()) -> Optional[str]:
 
     if text is None:
         return None
-    text = str(text)
-    for secret in secrets:
-        if secret and len(secret) >= 6:
-            text = text.replace(secret, "<redacted>")
-    for pattern, replacement in _REDACT_PATTERNS:
-        text = pattern.sub(replacement, text)
-    return text
+    return redact_text(str(text), secrets)
 
 
 def assert_no_secrets(rendered: str, secrets: Iterable[str]) -> None:

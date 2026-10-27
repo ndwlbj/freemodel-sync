@@ -290,8 +290,9 @@ To report a vulnerability privately, see [SECURITY.md](https://github.com/ndwlbj
 
 - Keys are read only from environment variables; freemodel-sync does not write them to config files
   or print them.
-  Log output (including `-v`) redacts Telegram bot tokens, Bearer tokens and `sk-` style keys, and
-  HTTP request logging (`--debug-http`) is off by default.
+  Log output (including `-v`) redacts the exact key values the run read from the environment as
+  well as anything shaped like a key (Telegram bot tokens, Bearer tokens, `sk-`, `sk-or-`,
+  `sk-ws-`/`sk-sp-` and `gsk_` keys), and HTTP request logging (`--debug-http`) is off by default.
 - Symlinked targets are followed: the real file is backed up and replaced, the link is kept.
 - Never commit your `config.yml`, `.env` files, backups or cache; the `.gitignore` covers the defaults.
 

@@ -33,5 +33,8 @@ or your own environment (for example a world-readable env file).
 ## How freemodel-sync handles secrets
 
 - Keys are read from environment variables only and are never written to config files.
-- Log output is redacted; HTTP request logging is off unless `--debug-http` is given.
+- Log output is redacted (the exact key values in use plus key-shaped strings, see
+  `src/freemodel_sync/redact.py`); HTTP request logging is off unless `--debug-http` is given.
+- CI runs a pinned gitleaks scan (`.gitleaks.toml`: default rules plus the key formats of the
+  supported providers), and GitHub secret scanning with push protection is enabled.
 - Backups are created with mode 0600 or stricter.

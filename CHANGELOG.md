@@ -8,6 +8,13 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Secret guard:** a `secret scan (gitleaks)` CI job (gitleaks pinned by version and SHA-256)
+  with `.gitleaks.toml`, which adds rules for OpenRouter `sk-or-v1-`, Groq `gsk_`, `sk-` + 32
+  (SenseNova and others) and Bailian/DashScope `sk-ws-`/`sk-sp-` keys to gitleaks' defaults. Pull
+  requests scan their own commits, pushes to `main` the history. A test also checks that
+  `examples/`, `docs/`, `spec/`, `plugins/` and the top-level documents contain no key-shaped
+  strings.
+
 - **Python 3.14** is supported and tested.
 - **`Provider.close()` and context-manager support** (`with OpenRouterProvider() as p: ...`). A
   provider closes the HTTP client it created; a client passed in by the caller is left open. The
@@ -18,6 +25,11 @@ All notable changes to this project are documented here. The format follows
   `py.typed` marker the package already ships.
 
 ### Changed
+
+- **Redaction** is shared by the CLI logger and the daily snapshot script
+  (`freemodel_sync.redact`). The CLI now also masks the exact API key values it read from the
+  environment, whatever their format, and the key patterns cover `sk-ws-`/`sk-sp-` keys
+  containing `.` (before, the part after the first `.` survived) and `gsk_` keys in CLI logs.
 
 - **`filters.include` / `filters.exclude` globs are case-insensitive**, like the built-in non-chat
   list. `"*qwen*"` now also matches `Qwen/Qwen3-Coder:free`; before, include/exclude used

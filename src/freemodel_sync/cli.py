@@ -20,7 +20,6 @@ import argparse
 import json
 import logging
 import os
-import re
 import sys
 import time
 from datetime import date
@@ -36,6 +35,8 @@ from .models import ModelInfo, QuotaInfo, Selection, TestResult
 from .notify import notify_switch
 from .providers import ProviderError, available_providers, get_provider_class
 from .ranking import RankWeights, filter_models, rank, score_model, select
+from .redact import KEY_PATTERNS, register_secret
+from .redact import redact as redact_text
 from .tester import ResultCache, TestRun, run_tests
 
 logger = logging.getLogger(__name__)
@@ -80,6 +81,8 @@ def _resolve_providers(
     for name in names:
         settings = config.providers[name]
         api_key = os.environ.get(settings.api_key_env) if settings.api_key_env else None
+        # mask this exact value in every log line and error text, whatever its format
+        register_secret(api_key)
         provider = _build_provider(name, api_key or None, dict(settings.options), provider_factory)
         providers.append((name, provider))
     return providers
@@ -748,19 +751,18 @@ def _cmd_adapters(args: argparse.Namespace, config: Config) -> int:
 # parser / entry point
 # ---------------------------------------------------------------------------
 class RedactingFilter(logging.Filter):
-    """Mask secrets that can appear in log messages (e.g. Telegram bot URLs)."""
+    """Mask secrets that can appear in log messages.
 
-    _PATTERNS = (
-        (re.compile(r"(api\.telegram\.org/bot)[^/\s\"']+"), r"\1<redacted>"),
-        (re.compile(r"(?i)(bearer\s+)[^\s\"']+"), r"\1<redacted>"),
-        (re.compile(r"\bsk-[A-Za-z0-9_-]{8,}"), "sk-<redacted>"),
-    )
+    Uses :func:`freemodel_sync.redact.redact`: the exact API key values this
+    run read from the environment, plus key-shaped strings (``sk-...``,
+    ``sk-ws-...``, ``gsk_...``, bearer tokens, Telegram bot URLs).
+    """
+
+    _PATTERNS = KEY_PATTERNS
 
     @classmethod
     def redact(cls, text: str) -> str:
-        for pattern, replacement in cls._PATTERNS:
-            text = pattern.sub(replacement, text)
-        return text
+        return redact_text(text)
 
     def filter(self, record: logging.LogRecord) -> bool:
         try:
