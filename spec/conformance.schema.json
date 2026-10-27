@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ndwlbj/freemodel-sync/spec/conformance.schema.json",
+  "title": "freemodel-sync conformance case file",
+  "type": "object",
+  "required": ["spec_version", "area", "description", "cases"],
+  "properties": {
+    "spec_version": { "const": 1 },
+    "area": { "enum": ["classify", "stream_classify", "free_rule", "rate_limit", "score", "non_chat"] },
+    "description": { "type": "string" },
+    "today": { "type": "string", "format": "date" },
+    "rankOrder": { "type": "array", "items": { "type": "string" } },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "object", "required": ["expected"] }
+    }
+  },
+  "additionalProperties": false
+}

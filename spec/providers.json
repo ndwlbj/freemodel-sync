@@ -1,0 +1,126 @@
+{
+  "$schema": "./providers.schema.json",
+  "spec_version": 1,
+  "description": "Provider rules shared by the Python package (src/freemodel_sync) and the dsh plugin (plugins/dsh-freemodel). Change a rule here, add a case under spec/conformance/, and both implementations must pass it.",
+  "failureKinds": ["model", "transient", "account"],
+  "defaultErrorMap": {
+    "description": "Conservative default for OpenAI-compatible providers without their own rules.",
+    "preStream": [
+      { "status": [401, 402, 403, 429], "kind": "account" },
+      { "status": [408], "kind": "transient" },
+      { "statusMin": 500, "kind": "transient" }
+    ],
+    "default": "model"
+  },
+  "streamError": {
+    "description": "Errors inside the SSE stream, after HTTP 200 (same algorithm for every provider): code 401/402 -> account; 403 -> the provider's preStream rules; other 4xx except 408/429 -> transient if the preStream rules say transient, else model; anything else (no code, 408, 429, 5xx) -> transient. finish_reason 'error' -> transient, 'content_filter' -> model.",
+    "accountCodes": [401, 402],
+    "delegateCodes": [403],
+    "transientCodes": [408, 429]
+  },
+  "providers": {
+    "openrouter": {
+      "displayName": "OpenRouter (:free models)",
+      "tier": 1,
+      "authKind": "api_key",
+      "baseURL": "https://openrouter.ai/api/v1",
+      "modelsPath": "/models",
+      "modelsNeedKey": false,
+      "apiKeyEnv": "OPENROUTER_API_KEY",
+      "freeRule": {
+        "kind": "suffix-free",
+        "description": "Id ends with ':free', every price is 0 (also pricing.overrides), not an openrouter/* meta-router, text in and text out.",
+        "suffix": ":free",
+        "pricingZero": true,
+        "excludePrefixes": ["openrouter/"]
+      },
+      "catalogFields": {
+        "contextLength": ["context_length", "top_provider.context_length"],
+        "toolsWhen": { "field": "supported_parameters", "contains": "tools" },
+        "expirationDate": "expiration_date"
+      },
+      "probe": { "path": "/chat/completions", "maxTokensParam": "max_tokens", "defaultMaxTokens": 16, "prompt": "Reply with OK." },
+      "errorMap": {
+        "preStream": [
+          { "status": [401, 402], "kind": "account" },
+          { "status": [403], "when": [{ "truthy": "metadata.limit_source" }], "kind": "account" },
+          {
+            "status": [403],
+            "when": [
+              { "in": "metadata.error_type", "values": ["content_policy_violation", "refusal"] },
+              { "truthy": "metadata.failed_routing_step" },
+              { "truthy": "metadata.routing_funnel" },
+              { "truthy": "metadata.reasons" },
+              { "truthy": "metadata.flagged_input" },
+              { "truthy": "metadata.model_slug" }
+            ],
+            "kind": "model"
+          },
+          { "status": [403], "kind": "account" },
+          {
+            "status": [429],
+            "when": [{ "truthy": "metadata.provider_name" }, { "notNull": "metadata.provider_code" }],
+            "kind": "transient"
+          },
+          { "status": [429], "kind": "account" },
+          { "status": [408], "kind": "transient" },
+          { "statusMin": 500, "kind": "transient" }
+        ],
+        "default": "model"
+      },
+      "rateLimitHeaders": {
+        "retryAfter": "retry-after",
+        "reset": "x-ratelimit-reset",
+        "resetFormat": "epoch-or-relative",
+        "remaining": "x-ratelimit-remaining"
+      },
+      "keyPatterns": [{ "prefix": "sk-or-", "regex": "\\bsk-or-v1-[a-f0-9]{64}\\b" }],
+      "docs": [
+        { "url": "https://openrouter.ai/docs/api/api-reference/models/get-models", "checked": "2026-10-22" },
+        { "url": "https://openrouter.ai/docs/api-reference/limits", "checked": "2026-10-22" }
+      ]
+    },
+    "groq": {
+      "displayName": "Groq (Free plan)",
+      "tier": 1,
+      "authKind": "api_key",
+      "baseURL": "https://api.groq.com/openai/v1",
+      "modelsPath": "/models",
+      "modelsNeedKey": true,
+      "apiKeyEnv": "GROQ_API_KEY",
+      "freeRule": {
+        "kind": "plan-confirm",
+        "description": "Free only on a Free-plan organization, which the API cannot report: nothing is listed or probed until the user confirms the plan.",
+        "option": "plan",
+        "value": "free"
+      },
+      "catalogFields": {
+        "contextLength": ["context_window"],
+        "toolsWhen": null,
+        "activeField": "active"
+      },
+      "probe": { "path": "/chat/completions", "maxTokensParam": "max_completion_tokens", "defaultMaxTokens": 16, "prompt": "Reply with OK." },
+      "errorMap": {
+        "preStream": [
+          { "status": [401, 403, 429], "kind": "account" },
+          { "status": [408, 498], "kind": "transient" },
+          { "statusMin": 500, "kind": "transient" }
+        ],
+        "default": "model"
+      },
+      "rateLimitHeaders": {
+        "retryAfter": "retry-after",
+        "reset": "x-ratelimit-reset-requests",
+        "resetFormat": "duration",
+        "remaining": "x-ratelimit-remaining-requests"
+      },
+      "keyPatterns": [{ "prefix": "gsk_", "regex": "\\bgsk_[A-Za-z0-9]{40,}\\b" }],
+      "docs": [
+        { "url": "https://console.groq.com/docs/models", "checked": "2026-10-22" },
+        { "url": "https://console.groq.com/docs/rate-limits", "checked": "2026-10-22" },
+        { "url": "https://console.groq.com/docs/errors", "checked": "2026-10-22" },
+        { "url": "https://console.groq.com/docs/billing-faqs", "checked": "2026-10-22" }
+      ]
+    }
+  }
+}

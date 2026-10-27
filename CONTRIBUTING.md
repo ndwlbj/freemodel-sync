@@ -37,6 +37,12 @@ Python 3.10 is the oldest supported version; please do not use newer syntax
 
 ## Adding a provider
 
+Rules that the Python package and the dsh plugin must agree on (base URL, key
+variable, free rule, error classification, rate-limit headers, key formats)
+go into `spec/providers.json`, with golden cases in `spec/conformance/`; see
+[spec/README.md](spec/README.md). The Python side reads them through
+`freemodel_sync.spec` and `tests/test_spec_conformance.py` runs the cases.
+
 Subclass `freemodel_sync.providers.Provider`, implement `discover()` and
 `test()` (and optionally `quota()`), decorate it with `@register_provider` and
 add tests with recorded, anonymised API responses under `tests/fixtures/`.

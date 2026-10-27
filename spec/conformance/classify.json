@@ -1,0 +1,348 @@
+{
+  "spec_version": 1,
+  "area": "classify",
+  "description": "Non-200 probe responses: (provider, HTTP status, error object) -> failure kind. provider null = defaultErrorMap. A non-object error is treated as {}.",
+  "cases": [
+    {
+      "name": "default: 401 bad key",
+      "provider": null,
+      "status": 401,
+      "error": {},
+      "expected": "account"
+    },
+    {
+      "name": "default: 402",
+      "provider": null,
+      "status": 402,
+      "error": {},
+      "expected": "account"
+    },
+    {
+      "name": "default: 403",
+      "provider": null,
+      "status": 403,
+      "error": {},
+      "expected": "account"
+    },
+    {
+      "name": "default: 429",
+      "provider": null,
+      "status": 429,
+      "error": {},
+      "expected": "account"
+    },
+    {
+      "name": "default: 408",
+      "provider": null,
+      "status": 408,
+      "error": {},
+      "expected": "transient"
+    },
+    {
+      "name": "default: 500",
+      "provider": null,
+      "status": 500,
+      "error": {},
+      "expected": "transient"
+    },
+    {
+      "name": "default: 503",
+      "provider": null,
+      "status": 503,
+      "error": {},
+      "expected": "transient"
+    },
+    {
+      "name": "default: 400",
+      "provider": null,
+      "status": 400,
+      "error": {},
+      "expected": "model"
+    },
+    {
+      "name": "default: 404",
+      "provider": null,
+      "status": 404,
+      "error": {},
+      "expected": "model"
+    },
+    {
+      "name": "openrouter: 401",
+      "provider": "openrouter",
+      "status": 401,
+      "error": {
+        "message": "No auth credentials found"
+      },
+      "expected": "account"
+    },
+    {
+      "name": "openrouter: 402 insufficient credits",
+      "provider": "openrouter",
+      "status": 402,
+      "error": {},
+      "expected": "account"
+    },
+    {
+      "name": "openrouter: bare 403",
+      "provider": "openrouter",
+      "status": 403,
+      "error": {
+        "message": "Forbidden"
+      },
+      "expected": "account"
+    },
+    {
+      "name": "openrouter: 403 key limit (limit_source)",
+      "provider": "openrouter",
+      "status": 403,
+      "error": {
+        "message": "x",
+        "metadata": {
+          "limit_source": "key"
+        }
+      },
+      "expected": "account"
+    },
+    {
+      "name": "openrouter: 403 limit_source wins over routing metadata",
+      "provider": "openrouter",
+      "status": 403,
+      "error": {
+        "message": "x",
+        "metadata": {
+          "limit_source": "guardrail",
+          "failed_routing_step": "x"
+        }
+      },
+      "expected": "account"
+    },
+    {
+      "name": "openrouter: 403 moderation flag",
+      "provider": "openrouter",
+      "status": 403,
+      "error": {
+        "message": "x",
+        "metadata": {
+          "flagged_input": "some text",
+          "reasons": [
+            "violence"
+          ]
+        }
+      },
+      "expected": "model"
+    },
+    {
+      "name": "openrouter: 403 content policy",
+      "provider": "openrouter",
+      "status": 403,
+      "error": {
+        "message": "x",
+        "metadata": {
+          "error_type": "content_policy_violation"
+        }
+      },
+      "expected": "model"
+    },
+    {
+      "name": "openrouter: 403 refusal",
+      "provider": "openrouter",
+      "status": 403,
+      "error": {
+        "message": "x",
+        "metadata": {
+          "error_type": "refusal"
+        }
+      },
+      "expected": "model"
+    },
+    {
+      "name": "openrouter: 403 routing funnel",
+      "provider": "openrouter",
+      "status": 403,
+      "error": {
+        "message": "x",
+        "metadata": {
+          "routing_funnel": [
+            "a"
+          ]
+        }
+      },
+      "expected": "model"
+    },
+    {
+      "name": "openrouter: 403 model slug",
+      "provider": "openrouter",
+      "status": 403,
+      "error": {
+        "message": "x",
+        "metadata": {
+          "model_slug": "vendor/model:free"
+        }
+      },
+      "expected": "model"
+    },
+    {
+      "name": "openrouter: 403 provider_name alone is routing info",
+      "provider": "openrouter",
+      "status": 403,
+      "error": {
+        "message": "x",
+        "metadata": {
+          "provider_name": "Chutes"
+        }
+      },
+      "expected": "account"
+    },
+    {
+      "name": "openrouter: 403 empty routing values",
+      "provider": "openrouter",
+      "status": 403,
+      "error": {
+        "message": "x",
+        "metadata": {
+          "failed_routing_step": "",
+          "reasons": []
+        }
+      },
+      "expected": "account"
+    },
+    {
+      "name": "openrouter: 429 upstream provider saturated",
+      "provider": "openrouter",
+      "status": 429,
+      "error": {
+        "message": "x",
+        "metadata": {
+          "provider_name": "Chutes"
+        }
+      },
+      "expected": "transient"
+    },
+    {
+      "name": "openrouter: 429 provider_code 0 still upstream",
+      "provider": "openrouter",
+      "status": 429,
+      "error": {
+        "message": "x",
+        "metadata": {
+          "provider_code": 0
+        }
+      },
+      "expected": "transient"
+    },
+    {
+      "name": "openrouter: 429 platform limit",
+      "provider": "openrouter",
+      "status": 429,
+      "error": {
+        "message": "Rate limit exceeded: free-models-per-day"
+      },
+      "expected": "account"
+    },
+    {
+      "name": "openrouter: 408",
+      "provider": "openrouter",
+      "status": 408,
+      "error": {},
+      "expected": "transient"
+    },
+    {
+      "name": "openrouter: 502",
+      "provider": "openrouter",
+      "status": 502,
+      "error": {
+        "message": "x",
+        "metadata": {
+          "provider_name": "X"
+        }
+      },
+      "expected": "transient"
+    },
+    {
+      "name": "openrouter: 400",
+      "provider": "openrouter",
+      "status": 400,
+      "error": {},
+      "expected": "model"
+    },
+    {
+      "name": "openrouter: 404 no endpoints",
+      "provider": "openrouter",
+      "status": 404,
+      "error": {
+        "message": "No endpoints found"
+      },
+      "expected": "model"
+    },
+    {
+      "name": "openrouter: error object is not a mapping",
+      "provider": "openrouter",
+      "status": 403,
+      "error": "oops",
+      "expected": "account"
+    },
+    {
+      "name": "groq: 401",
+      "provider": "groq",
+      "status": 401,
+      "error": {},
+      "expected": "account"
+    },
+    {
+      "name": "groq: 402 is not an account code on Groq",
+      "provider": "groq",
+      "status": 402,
+      "error": {},
+      "expected": "model"
+    },
+    {
+      "name": "groq: 403",
+      "provider": "groq",
+      "status": 403,
+      "error": {},
+      "expected": "account"
+    },
+    {
+      "name": "groq: 429",
+      "provider": "groq",
+      "status": 429,
+      "error": {},
+      "expected": "account"
+    },
+    {
+      "name": "groq: 408",
+      "provider": "groq",
+      "status": 408,
+      "error": {},
+      "expected": "transient"
+    },
+    {
+      "name": "groq: 498 flex capacity",
+      "provider": "groq",
+      "status": 498,
+      "error": {},
+      "expected": "transient"
+    },
+    {
+      "name": "groq: 500",
+      "provider": "groq",
+      "status": 500,
+      "error": {},
+      "expected": "transient"
+    },
+    {
+      "name": "groq: 400",
+      "provider": "groq",
+      "status": 400,
+      "error": {},
+      "expected": "model"
+    },
+    {
+      "name": "groq: 404",
+      "provider": "groq",
+      "status": 404,
+      "error": {},
+      "expected": "model"
+    }
+  ]
+}

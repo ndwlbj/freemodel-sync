@@ -1,0 +1,67 @@
+{
+  "spec_version": 1,
+  "area": "non_chat",
+  "description": "Case-insensitive fnmatch globs of spec/ranking.json nonChatPatterns against the model id and name.",
+  "cases": [
+    {
+      "id": "meta-llama/llama-guard-4-12b",
+      "name": "Llama Guard 4 12B",
+      "expected": true
+    },
+    {
+      "id": "vendor/guardian-7b:free",
+      "name": "Guardian 7B",
+      "expected": false
+    },
+    {
+      "id": "vendor/vanguard:free",
+      "name": "Vanguard",
+      "expected": false
+    },
+    {
+      "id": "openai/gpt-oss-safeguard-20b",
+      "name": "Safeguard",
+      "expected": true
+    },
+    {
+      "id": "vendor/text-embed-3:free",
+      "name": "Embed",
+      "expected": true
+    },
+    {
+      "id": "vendor/rerank-v3",
+      "name": "Rerank",
+      "expected": true
+    },
+    {
+      "id": "whisper-large-v3",
+      "name": "Whisper",
+      "expected": true
+    },
+    {
+      "id": "canopylabs/orpheus-v1",
+      "name": "Orpheus",
+      "expected": true
+    },
+    {
+      "id": "vendor/chat:free",
+      "name": "Chat Model",
+      "expected": false
+    },
+    {
+      "id": "Qwen/Qwen3-Coder:free",
+      "name": "Qwen3 Coder",
+      "expected": false
+    },
+    {
+      "id": "prompt-guard-86m",
+      "name": "Prompt Guard",
+      "expected": true
+    },
+    {
+      "id": "vendor/x:free",
+      "name": "Vendor Moderation Model",
+      "expected": true
+    }
+  ]
+}

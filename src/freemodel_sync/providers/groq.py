@@ -29,8 +29,12 @@ from typing import Any, Dict, List, Optional, Tuple
 import httpx
 
 from ..models import ModelInfo, TestResult
+from ..spec import classify_with, provider_spec
 from .base import ProviderError, register_provider
 from .openai_compat import OpenAICompatProvider, _as_int
+
+_SPEC = provider_spec("groq")
+_RL_HEADERS = _SPEC["rateLimitHeaders"]
 
 _DURATION_RE = re.compile(r"(\d+(?:\.\d+)?)(ms|h|m|s)")
 _UNIT_SECONDS = {"h": 3600.0, "m": 60.0, "s": 1.0, "ms": 0.001}
@@ -59,24 +63,22 @@ class GroqProvider(OpenAICompatProvider):
     """Groq models, usable for free only on a Free-plan organization."""
 
     name = "groq"
-    base_url = "https://api.groq.com/openai/v1"
-    api_key_env = "GROQ_API_KEY"
-    max_tokens_param = "max_completion_tokens"
+    base_url = _SPEC["baseURL"]
+    api_key_env = _SPEC["apiKeyEnv"]
+    max_tokens_param = _SPEC["probe"]["maxTokensParam"]
 
     @staticmethod
     def _classify(status_code: Optional[int], error_obj: Dict[str, Any]) -> str:
-        if status_code in (401, 403, 429):
-            return "account"
-        if status_code is not None and (status_code in (408, 498) or status_code >= 500):
-            return "transient"
-        return "model"
+        # providers.groq.errorMap in spec/providers.json: 401/403/429 account,
+        # 408/498/5xx transient, other codes model
+        return classify_with(_SPEC["errorMap"], status_code, error_obj)
 
     @staticmethod
     def _rate_limit_hints(headers: Any) -> Tuple[Optional[float], Optional[int]]:
         try:
-            raw_retry = headers.get("retry-after")
-            raw_reset = headers.get("x-ratelimit-reset-requests")
-            raw_remaining = headers.get("x-ratelimit-remaining-requests")
+            raw_retry = headers.get(_RL_HEADERS["retryAfter"])
+            raw_reset = headers.get(_RL_HEADERS["reset"])
+            raw_remaining = headers.get(_RL_HEADERS["remaining"])
         except AttributeError:  # pragma: no cover - defensive
             return None, None
         retry_after = parse_duration(raw_retry)

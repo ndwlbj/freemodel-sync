@@ -5,6 +5,10 @@ needs a rule for this that can be checked, ideally from its API. This page
 records the rule, the endpoints and fields used, and the official sources.
 Sources were checked on 2026-10-22.
 
+The machine-readable form of these rules (URLs, key variable names, error
+classification, rate-limit headers) is `spec/providers.json`, shared with the
+dsh plugin; golden cases are in `spec/conformance/` (see `spec/README.md`).
+
 ## OpenRouter (`openrouter`, default)
 
 - Model list: `GET https://openrouter.ai/api/v1/models`, public, no key needed.

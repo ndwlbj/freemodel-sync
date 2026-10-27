@@ -1,0 +1,304 @@
+{
+  "spec_version": 1,
+  "area": "free_rule",
+  "description": "OpenRouter catalogue entries -> counted as free? (providers.openrouter.freeRule)",
+  "cases": [
+    {
+      "name": "free text model",
+      "provider": "openrouter",
+      "model": {
+        "id": "vendor/a:free",
+        "pricing": {
+          "prompt": "0",
+          "completion": "0"
+        },
+        "architecture": {
+          "input_modalities": [
+            "text"
+          ],
+          "output_modalities": [
+            "text"
+          ]
+        }
+      },
+      "expected": true
+    },
+    {
+      "name": "no :free suffix though priced 0",
+      "provider": "openrouter",
+      "model": {
+        "id": "vendor/a",
+        "pricing": {
+          "prompt": "0",
+          "completion": "0"
+        },
+        "architecture": {
+          "input_modalities": [
+            "text"
+          ],
+          "output_modalities": [
+            "text"
+          ]
+        }
+      },
+      "expected": false
+    },
+    {
+      "name": "meta-router",
+      "provider": "openrouter",
+      "model": {
+        "id": "openrouter/free:free",
+        "pricing": {
+          "prompt": "0",
+          "completion": "0"
+        },
+        "architecture": {
+          "input_modalities": [
+            "text"
+          ],
+          "output_modalities": [
+            "text"
+          ]
+        }
+      },
+      "expected": false
+    },
+    {
+      "name": "non-zero completion",
+      "provider": "openrouter",
+      "model": {
+        "id": "vendor/a:free",
+        "pricing": {
+          "prompt": "0",
+          "completion": "0.000001"
+        },
+        "architecture": {
+          "input_modalities": [
+            "text"
+          ],
+          "output_modalities": [
+            "text"
+          ]
+        }
+      },
+      "expected": false
+    },
+    {
+      "name": "missing completion price",
+      "provider": "openrouter",
+      "model": {
+        "id": "vendor/a:free",
+        "pricing": {
+          "prompt": "0"
+        },
+        "architecture": {
+          "input_modalities": [
+            "text"
+          ],
+          "output_modalities": [
+            "text"
+          ]
+        }
+      },
+      "expected": false
+    },
+    {
+      "name": "extra price field zero",
+      "provider": "openrouter",
+      "model": {
+        "id": "vendor/a:free",
+        "pricing": {
+          "prompt": "0",
+          "completion": "0",
+          "request": "0",
+          "image": "0"
+        },
+        "architecture": {
+          "input_modalities": [
+            "text"
+          ],
+          "output_modalities": [
+            "text"
+          ]
+        }
+      },
+      "expected": true
+    },
+    {
+      "name": "extra price field non-zero",
+      "provider": "openrouter",
+      "model": {
+        "id": "vendor/a:free",
+        "pricing": {
+          "prompt": "0",
+          "completion": "0",
+          "web_search": "0.004"
+        },
+        "architecture": {
+          "input_modalities": [
+            "text"
+          ],
+          "output_modalities": [
+            "text"
+          ]
+        }
+      },
+      "expected": false
+    },
+    {
+      "name": "unparseable price",
+      "provider": "openrouter",
+      "model": {
+        "id": "vendor/a:free",
+        "pricing": {
+          "prompt": "0",
+          "completion": "0",
+          "image": "n/a"
+        },
+        "architecture": {
+          "input_modalities": [
+            "text"
+          ],
+          "output_modalities": [
+            "text"
+          ]
+        }
+      },
+      "expected": false
+    },
+    {
+      "name": "priced override",
+      "provider": "openrouter",
+      "model": {
+        "id": "vendor/a:free",
+        "pricing": {
+          "prompt": "0",
+          "completion": "0",
+          "overrides": [
+            {
+              "prompt": "0.1"
+            }
+          ]
+        },
+        "architecture": {
+          "input_modalities": [
+            "text"
+          ],
+          "output_modalities": [
+            "text"
+          ]
+        }
+      },
+      "expected": false
+    },
+    {
+      "name": "zero override",
+      "provider": "openrouter",
+      "model": {
+        "id": "vendor/a:free",
+        "pricing": {
+          "prompt": "0",
+          "completion": "0",
+          "overrides": [
+            {
+              "prompt": "0",
+              "completion": "0"
+            }
+          ]
+        },
+        "architecture": {
+          "input_modalities": [
+            "text"
+          ],
+          "output_modalities": [
+            "text"
+          ]
+        }
+      },
+      "expected": true
+    },
+    {
+      "name": "malformed overrides",
+      "provider": "openrouter",
+      "model": {
+        "id": "vendor/a:free",
+        "pricing": {
+          "prompt": "0",
+          "completion": "0",
+          "overrides": "x"
+        },
+        "architecture": {
+          "input_modalities": [
+            "text"
+          ],
+          "output_modalities": [
+            "text"
+          ]
+        }
+      },
+      "expected": false
+    },
+    {
+      "name": "image output only",
+      "provider": "openrouter",
+      "model": {
+        "id": "vendor/a:free",
+        "pricing": {
+          "prompt": "0",
+          "completion": "0"
+        },
+        "architecture": {
+          "input_modalities": [
+            "text"
+          ],
+          "output_modalities": [
+            "image"
+          ]
+        }
+      },
+      "expected": false
+    },
+    {
+      "name": "legacy modality string",
+      "provider": "openrouter",
+      "model": {
+        "id": "vendor/a:free",
+        "pricing": {
+          "prompt": "0",
+          "completion": "0"
+        },
+        "architecture": {
+          "modality": "text+image->text"
+        }
+      },
+      "expected": true
+    },
+    {
+      "name": "legacy modality without text output",
+      "provider": "openrouter",
+      "model": {
+        "id": "vendor/a:free",
+        "pricing": {
+          "prompt": "0",
+          "completion": "0"
+        },
+        "architecture": {
+          "modality": "text->image"
+        }
+      },
+      "expected": false
+    },
+    {
+      "name": "no architecture",
+      "provider": "openrouter",
+      "model": {
+        "id": "vendor/a:free",
+        "pricing": {
+          "prompt": "0",
+          "completion": "0"
+        }
+      },
+      "expected": false
+    }
+  ]
+}

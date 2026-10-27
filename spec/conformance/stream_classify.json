@@ -1,0 +1,119 @@
+{
+  "spec_version": 1,
+  "area": "stream_classify",
+  "description": "Error events inside the SSE stream after HTTP 200 (spec/providers.json streamError).",
+  "cases": [
+    {
+      "name": "no code",
+      "provider": "openrouter",
+      "code": null,
+      "error": {
+        "message": "upstream error"
+      },
+      "expected": "transient"
+    },
+    {
+      "name": "401 in stream",
+      "provider": "openrouter",
+      "code": 401,
+      "error": {},
+      "expected": "account"
+    },
+    {
+      "name": "402 in stream",
+      "provider": "openrouter",
+      "code": 402,
+      "error": {},
+      "expected": "account"
+    },
+    {
+      "name": "403 bare in stream -> openrouter rules",
+      "provider": "openrouter",
+      "code": 403,
+      "error": {},
+      "expected": "account"
+    },
+    {
+      "name": "403 moderation in stream",
+      "provider": "openrouter",
+      "code": 403,
+      "error": {
+        "message": "x",
+        "metadata": {
+          "flagged_input": "x"
+        }
+      },
+      "expected": "model"
+    },
+    {
+      "name": "429 in stream is transient",
+      "provider": "openrouter",
+      "code": 429,
+      "error": {},
+      "expected": "transient"
+    },
+    {
+      "name": "408 in stream",
+      "provider": "openrouter",
+      "code": 408,
+      "error": {},
+      "expected": "transient"
+    },
+    {
+      "name": "400 in stream",
+      "provider": "openrouter",
+      "code": 400,
+      "error": {},
+      "expected": "model"
+    },
+    {
+      "name": "404 in stream",
+      "provider": "openrouter",
+      "code": 404,
+      "error": {},
+      "expected": "model"
+    },
+    {
+      "name": "500 in stream",
+      "provider": "openrouter",
+      "code": 500,
+      "error": {},
+      "expected": "transient"
+    },
+    {
+      "name": "groq 403 in stream",
+      "provider": "groq",
+      "code": 403,
+      "error": {},
+      "expected": "account"
+    },
+    {
+      "name": "groq 498 in stream stays transient",
+      "provider": "groq",
+      "code": 498,
+      "error": {},
+      "expected": "transient"
+    },
+    {
+      "name": "groq 400 in stream",
+      "provider": "groq",
+      "code": 400,
+      "error": {},
+      "expected": "model"
+    },
+    {
+      "name": "groq 429 in stream",
+      "provider": "groq",
+      "code": 429,
+      "error": {},
+      "expected": "transient"
+    },
+    {
+      "name": "default 403 in stream",
+      "provider": null,
+      "code": 403,
+      "error": {},
+      "expected": "account"
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "$schema": "./ranking.schema.json",
+  "spec_version": 1,
+  "description": "Ranking defaults shared by the Python package and the dsh plugin.",
+  "weights": {
+    "availability": 100.0,
+    "latency": 30.0,
+    "context": 20.0,
+    "tools": 15.0,
+    "expiry_penalty": 50.0,
+    "untested_penalty": 40.0
+  },
+  "score": {
+    "failedScore": -1000.0,
+    "latencyScaleMs": 10000.0,
+    "contextReference": 1000000,
+    "expiryWindowDays": 30
+  },
+  "nonChatPatterns": [
+    "*content-safety*",
+    "*safeguard*",
+    "*-guard",
+    "*-guard[-:_ ]*",
+    "* guard",
+    "* guard[-:_ ]*",
+    "guard[-:_ ]*",
+    "*/guard[-:_ ]*",
+    "*guardrail*",
+    "*moderation*",
+    "*classifier*",
+    "*embed*",
+    "*rerank*",
+    "*whisper*",
+    "*transcrib*",
+    "*-tts*",
+    "*orpheus*",
+    "*playai-tts*"
+  ]
+}

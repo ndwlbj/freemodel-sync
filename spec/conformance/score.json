@@ -1,0 +1,210 @@
+{
+  "spec_version": 1,
+  "area": "score",
+  "description": "score_model with the default weights of spec/ranking.json; today = 2026-10-27. 'rankOrder' is the ranking of all cases together (descending score, ties by id).",
+  "today": "2026-10-27",
+  "cases": [
+    {
+      "name": "untested, 1M context, tools",
+      "model": {
+        "id": "v/a:free",
+        "context_length": 1000000,
+        "supports_tools": true
+      },
+      "test": null,
+      "expected": {
+        "score": -5.0,
+        "reasons": [
+          "untested"
+        ]
+      }
+    },
+    {
+      "name": "ok, fast, 128k, tools",
+      "model": {
+        "id": "v/b:free",
+        "context_length": 131072,
+        "supports_tools": true
+      },
+      "test": {
+        "ok": true,
+        "ttft_ms": 400.0
+      },
+      "expected": {
+        "score": 160.858366,
+        "reasons": []
+      }
+    },
+    {
+      "name": "ok, slow, 32k, no tools",
+      "model": {
+        "id": "v/c:free",
+        "context_length": 32768,
+        "supports_tools": false
+      },
+      "test": {
+        "ok": true,
+        "ttft_ms": 8000.0
+      },
+      "expected": {
+        "score": 121.0515,
+        "reasons": []
+      }
+    },
+    {
+      "name": "ok, ttft over scale",
+      "model": {
+        "id": "v/d:free",
+        "context_length": 8192,
+        "supports_tools": false
+      },
+      "test": {
+        "ok": true,
+        "ttft_ms": 15000.0
+      },
+      "expected": {
+        "score": 113.044633,
+        "reasons": []
+      }
+    },
+    {
+      "name": "ok, no ttft",
+      "model": {
+        "id": "v/e:free",
+        "context_length": 65536,
+        "supports_tools": true
+      },
+      "test": {
+        "ok": true,
+        "ttft_ms": null
+      },
+      "expected": {
+        "score": 131.054933,
+        "reasons": []
+      }
+    },
+    {
+      "name": "context 0 counts as 1",
+      "model": {
+        "id": "v/f:free",
+        "context_length": 0,
+        "supports_tools": false
+      },
+      "test": {
+        "ok": true,
+        "ttft_ms": 1000.0
+      },
+      "expected": {
+        "score": 127.0,
+        "reasons": []
+      }
+    },
+    {
+      "name": "expires in 10 days",
+      "model": {
+        "id": "v/g:free",
+        "context_length": 131072,
+        "supports_tools": true,
+        "expiration_date": "2026-11-06"
+      },
+      "test": {
+        "ok": true,
+        "ttft_ms": 500.0
+      },
+      "expected": {
+        "score": 127.225033,
+        "reasons": [
+          "expires in 10 days"
+        ]
+      }
+    },
+    {
+      "name": "expired 2 days ago",
+      "model": {
+        "id": "v/h:free",
+        "context_length": 131072,
+        "supports_tools": true,
+        "expiration_date": "2026-10-25"
+      },
+      "test": {
+        "ok": true,
+        "ttft_ms": 500.0
+      },
+      "expected": {
+        "score": 110.558366,
+        "reasons": [
+          "expired 2 day(s) ago"
+        ]
+      }
+    },
+    {
+      "name": "expires in 40 days: no penalty",
+      "model": {
+        "id": "v/i:free",
+        "context_length": 131072,
+        "supports_tools": true,
+        "expiration_date": "2026-12-06"
+      },
+      "test": {
+        "ok": true,
+        "ttft_ms": 500.0
+      },
+      "expected": {
+        "score": 160.558366,
+        "reasons": []
+      }
+    },
+    {
+      "name": "failed model",
+      "model": {
+        "id": "v/j:free",
+        "context_length": 131072,
+        "supports_tools": true
+      },
+      "test": {
+        "ok": false,
+        "failure_kind": "model",
+        "error": "boom"
+      },
+      "expected": {
+        "score": -1000.0,
+        "reasons": [
+          "failed: boom"
+        ]
+      }
+    },
+    {
+      "name": "transient failure",
+      "model": {
+        "id": "v/k:free",
+        "context_length": 131072,
+        "supports_tools": true
+      },
+      "test": {
+        "ok": false,
+        "failure_kind": "transient",
+        "error": "busy",
+        "status_code": 503
+      },
+      "expected": {
+        "score": -1000.0,
+        "reasons": [
+          "temporarily unavailable 503: busy (retried later)"
+        ]
+      }
+    }
+  ],
+  "rankOrder": [
+    "v/b:free",
+    "v/i:free",
+    "v/e:free",
+    "v/g:free",
+    "v/f:free",
+    "v/c:free",
+    "v/d:free",
+    "v/h:free",
+    "v/a:free",
+    "v/j:free",
+    "v/k:free"
+  ]
+}

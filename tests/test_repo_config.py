@@ -60,3 +60,14 @@ def test_tool_versions_are_pinned_once():
     test_steps = yaml.safe_load(ci)["jobs"]["test"]["steps"]
     runs = " ".join(step.get("run", "") for step in test_steps)
     assert "mypy" in runs and "--cov=scripts" in runs and "--cov-branch" in runs
+
+
+def test_wheel_ships_the_runtime_spec_files():
+    """freemodel_sync.spec reads providers.json and ranking.json; both are force-included in the wheel."""
+
+    pyproject = (ROOT / "pyproject.toml").read_text()
+    for name in ("providers.json", "ranking.json"):
+        assert f'"spec/{name}" = "freemodel_sync/spec/{name}"' in pyproject
+    assert '"spec",' in pyproject  # sdist
+    build = yaml.safe_load((ROOT / ".github" / "workflows" / "ci.yml").read_text())["jobs"]["build"]
+    assert "spec.providers_spec()" in " ".join(step.get("run", "") for step in build["steps"])

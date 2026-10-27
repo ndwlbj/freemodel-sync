@@ -15,6 +15,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 import httpx
 
 from ..models import ModelInfo, QuotaInfo
+from ..spec import classify_with, provider_spec
 from .base import ProviderError, register_provider
 from .openai_compat import (
     _MAX_RETRY_AFTER_S,
@@ -25,6 +26,11 @@ from .openai_compat import (
 )
 
 logger = logging.getLogger(__name__)
+
+#: OpenRouter's entry in spec/providers.json (URLs, key variable, error rules, headers)
+_SPEC = provider_spec("openrouter")
+_ERROR_MAP = _SPEC["errorMap"]
+_RL_HEADERS = _SPEC["rateLimitHeaders"]
 
 
 def _parse_expiration_date(value: Any) -> Optional[date]:
@@ -159,8 +165,9 @@ class OpenRouterProvider(OpenAICompatProvider):
     """
 
     name = "openrouter"
-    base_url = "https://openrouter.ai/api/v1"
-    api_key_env = "OPENROUTER_API_KEY"
+    base_url = _SPEC["baseURL"]
+    api_key_env = _SPEC["apiKeyEnv"]
+    max_tokens_param = _SPEC["probe"]["maxTokensParam"]
 
     # OpenRouter's error and rate-limit header conventions.
     @staticmethod
@@ -271,54 +278,26 @@ class OpenRouterProvider(OpenAICompatProvider):
 #: ``error.metadata`` keys that mark a 403 as specific to the requested model
 #: (routing gates such as "only available on agentic harnesses", moderation
 #: flags) rather than to the key or account.
-_MODEL_SPECIFIC_403_KEYS = (
-    "failed_routing_step",
-    "routing_funnel",
-    "reasons",
-    "flagged_input",
-    "model_slug",
-)
-_MODEL_SPECIFIC_403_TYPES = ("content_policy_violation", "refusal")
-
-
-def _is_model_specific_403(error_obj: Dict[str, Any]) -> bool:
-    metadata = error_obj.get("metadata") if isinstance(error_obj, dict) else None
-    if not isinstance(metadata, dict):
-        return False
-    if metadata.get("limit_source"):
-        # key / guardrail / workspace budget: blocks every model
-        return False
-    if metadata.get("error_type") in _MODEL_SPECIFIC_403_TYPES:
-        return True
-    return any(metadata.get(key) for key in _MODEL_SPECIFIC_403_KEYS)
-
-
 def _classify(status_code: Optional[int], error_obj: Dict[str, Any]) -> str:
     """Classify a failed probe as ``"account"``, ``"transient"`` or ``"model"``.
 
-    OpenRouter's 403 covers both account problems (budget limits, guardrails,
-    key permissions) and model-specific refusals (a free endpoint gated to
-    agentic harnesses, moderation flags). Only the latter carry routing or
-    moderation metadata; a bare 403 stays an account error to be safe.
-    ``metadata.provider_name`` alone is ordinary routing information, not a
-    model-specific signal, so it does not make a 403 a model failure.
+    The rules are ``providers.openrouter.errorMap`` in ``spec/providers.json``:
+
+    * 401/402 are account failures.
+    * OpenRouter's 403 covers both account problems (budget limits,
+      guardrails, key permissions; ``metadata.limit_source``) and
+      model-specific refusals (a free endpoint gated to agentic harnesses,
+      moderation flags). Only the latter carry routing or moderation
+      metadata; a bare 403 stays an account error to be safe.
+      ``metadata.provider_name`` alone is ordinary routing information, not
+      a model-specific signal, so it does not make a 403 a model failure.
+    * A 429 naming the upstream provider (``provider_name`` /
+      ``provider_code``) means *this* model's upstream is saturated
+      (transient); a bare 429 is OpenRouter's platform limit (account).
+    * 408 and 5xx are transient; anything else is a model failure.
     """
 
-    if status_code in (401, 402):
-        return "account"
-    if status_code == 403:
-        return "model" if _is_model_specific_403(error_obj) else "account"
-    if status_code == 429:
-        metadata = error_obj.get("metadata") if isinstance(error_obj, dict) else None
-        metadata = metadata if isinstance(metadata, dict) else {}
-        if metadata.get("provider_name") or metadata.get("provider_code") is not None:
-            # The upstream provider of *this* model is saturated.
-            return "transient"
-        # OpenRouter platform limit (free-model per-minute/per-day cap).
-        return "account"
-    if status_code is not None and (status_code == 408 or status_code >= 500):
-        return "transient"
-    return "model"
+    return classify_with(_ERROR_MAP, status_code, error_obj)
 
 
 def _classify_stream_error(
@@ -341,9 +320,9 @@ def _rate_limit_hints(headers: Any) -> Tuple[Optional[float], Optional[int]]:
     retry_after: Optional[float] = None
     remaining: Optional[int] = None
     try:
-        raw_retry = headers.get("retry-after")
-        raw_reset = headers.get("x-ratelimit-reset")
-        raw_remaining = headers.get("x-ratelimit-remaining")
+        raw_retry = headers.get(_RL_HEADERS["retryAfter"])
+        raw_reset = headers.get(_RL_HEADERS["reset"])
+        raw_remaining = headers.get(_RL_HEADERS["remaining"])
     except AttributeError:  # pragma: no cover - defensive
         return None, None
     if raw_retry:

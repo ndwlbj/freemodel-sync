@@ -14,46 +14,33 @@ from datetime import date
 from typing import Iterable, List, Optional, Sequence, Tuple
 
 from .models import ModelInfo, RankedModel, Selection, TestResult
+from .spec import ranking_spec
 
-_LOG2_MILLION = math.log2(1_000_000)
+# Defaults and constants come from spec/ranking.json, shared with the dsh plugin.
+_SPEC = ranking_spec()
+_W = _SPEC["weights"]
+_SCORE = _SPEC["score"]
+_FAILED_SCORE = float(_SCORE["failedScore"])
+_LATENCY_SCALE_MS = float(_SCORE["latencyScaleMs"])
+_LOG2_MILLION = math.log2(_SCORE["contextReference"])
+_EXPIRY_WINDOW_DAYS = int(_SCORE["expiryWindowDays"])
 
 
 @dataclass
 class RankWeights:
     """Weights for the individual ranking signals."""
 
-    availability: float = 100.0
-    latency: float = 30.0
-    context: float = 20.0
-    tools: float = 15.0
-    expiry_penalty: float = 50.0
-    untested_penalty: float = 40.0
+    availability: float = float(_W["availability"])
+    latency: float = float(_W["latency"])
+    context: float = float(_W["context"])
+    tools: float = float(_W["tools"])
+    expiry_penalty: float = float(_W["expiry_penalty"])
+    untested_penalty: float = float(_W["untested_penalty"])
 
 
 #: id/name globs (case-insensitive) of free models that are not chat models:
 #: safety classifiers, moderation, embedding, reranking and speech models.
-NON_CHAT_PATTERNS = (
-    "*content-safety*",
-    "*safeguard*",
-    # "guard" as its own word/segment (llama-guard, prompt-guard, "Llama Guard"),
-    # not inside other words such as "guardian"
-    "*-guard",
-    "*-guard[-:_ ]*",
-    "* guard",
-    "* guard[-:_ ]*",
-    "guard[-:_ ]*",
-    "*/guard[-:_ ]*",
-    "*guardrail*",
-    "*moderation*",
-    "*classifier*",
-    "*embed*",
-    "*rerank*",
-    "*whisper*",
-    "*transcrib*",
-    "*-tts*",
-    "*orpheus*",
-    "*playai-tts*",
-)
+NON_CHAT_PATTERNS = tuple(_SPEC["nonChatPatterns"])
 
 
 def is_non_chat(model: ModelInfo) -> bool:
@@ -128,8 +115,8 @@ def score_model(
     if test is not None and not test.ok:
         if test.failure_kind == "transient":
             code = f" {test.status_code}" if test.status_code else ""
-            return -1000.0, [f"temporarily unavailable{code}: {test.error or 'unknown error'} (retried later)"]
-        return -1000.0, [f"failed: {test.error or 'unknown error'}"]
+            return _FAILED_SCORE, [f"temporarily unavailable{code}: {test.error or 'unknown error'} (retried later)"]
+        return _FAILED_SCORE, [f"failed: {test.error or 'unknown error'}"]
 
     if test is None:
         score = -weights.untested_penalty
@@ -138,7 +125,7 @@ def score_model(
         score = weights.availability
 
     if test is not None and test.ok and test.ttft_ms:
-        score += weights.latency * max(0.0, 1.0 - test.ttft_ms / 10000.0)
+        score += weights.latency * max(0.0, 1.0 - test.ttft_ms / _LATENCY_SCALE_MS)
 
     context_length = max(model.context_length, 1)
     score += weights.context * min(1.0, math.log2(context_length) / _LOG2_MILLION)
@@ -147,8 +134,8 @@ def score_model(
         score += weights.tools
 
     days = model.days_until_expiry(today)
-    if days is not None and days < 30:
-        score -= weights.expiry_penalty * (30 - max(days, 0)) / 30.0
+    if days is not None and days < _EXPIRY_WINDOW_DAYS:
+        score -= weights.expiry_penalty * (_EXPIRY_WINDOW_DAYS - max(days, 0)) / float(_EXPIRY_WINDOW_DAYS)
         reasons.append(f"expired {-days} day(s) ago" if days < 0 else f"expires in {days} days")
 
     return score, reasons

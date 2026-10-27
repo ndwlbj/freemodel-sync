@@ -8,6 +8,15 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Shared rules in `spec/` (spec_version 1):** `providers.json` (OpenRouter and Groq: base URL,
+  key variable, free rule, catalogue fields, probe request, error classification, rate-limit
+  headers, key formats, sources), `ranking.json` (default weights, score constants, non-chat
+  globs), JSON Schemas for both and for the golden cases in `spec/conformance/` (classification,
+  stream errors, OpenRouter's free rule, rate-limit headers, scores and rank order, non-chat
+  filter). The Python package now reads these constants and the error tables from the spec
+  (`freemodel_sync.spec`; the wheel ships them), and `tests/test_spec_conformance.py` runs every
+  case. No behaviour change: all existing tests pass unchanged and the cases were checked against
+  the previous code. The dsh plugin will run the same cases.
 - **Secret guard:** a `secret scan (gitleaks)` CI job (gitleaks pinned by version and SHA-256)
   with `.gitleaks.toml`, which adds rules for OpenRouter `sk-or-v1-`, Groq `gsk_`, `sk-` + 32
   (SenseNova and others) and Bailian/DashScope `sk-ws-`/`sk-sp-` keys to gitleaks' defaults. Pull

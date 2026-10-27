@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ndwlbj/freemodel-sync/spec/providers.schema.json",
+  "title": "freemodel-sync provider rules",
+  "type": "object",
+  "required": ["spec_version", "failureKinds", "defaultErrorMap", "streamError", "providers"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "spec_version": { "const": 1 },
+    "description": { "type": "string" },
+    "failureKinds": { "type": "array", "items": { "$ref": "#/$defs/kind" }, "uniqueItems": true },
+    "defaultErrorMap": { "$ref": "#/$defs/errorMap" },
+    "streamError": {
+      "type": "object",
+      "required": ["accountCodes", "delegateCodes", "transientCodes"],
+      "properties": {
+        "description": { "type": "string" },
+        "accountCodes": { "$ref": "#/$defs/codes" },
+        "delegateCodes": { "$ref": "#/$defs/codes" },
+        "transientCodes": { "$ref": "#/$defs/codes" }
+      },
+      "additionalProperties": false
+    },
+    "providers": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9-]*$" },
+      "additionalProperties": { "$ref": "#/$defs/provider" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "kind": { "enum": ["model", "transient", "account"] },
+    "codes": { "type": "array", "items": { "type": "integer", "minimum": 100, "maximum": 599 } },
+    "condition": {
+      "oneOf": [
+        { "type": "object", "required": ["truthy"], "properties": { "truthy": { "type": "string" } }, "additionalProperties": false },
+        { "type": "object", "required": ["notNull"], "properties": { "notNull": { "type": "string" } }, "additionalProperties": false },
+        {
+          "type": "object",
+          "required": ["in", "values"],
+          "properties": { "in": { "type": "string" }, "values": { "type": "array", "items": { "type": ["string", "number"] } } },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "rule": {
+      "type": "object",
+      "required": ["kind"],
+      "properties": {
+        "status": { "$ref": "#/$defs/codes" },
+        "statusMin": { "type": "integer" },
+        "when": { "type": "array", "items": { "$ref": "#/$defs/condition" }, "minItems": 1 },
+        "kind": { "$ref": "#/$defs/kind" }
+      },
+      "anyOf": [{ "required": ["status"] }, { "required": ["statusMin"] }],
+      "additionalProperties": false
+    },
+    "errorMap": {
+      "type": "object",
+      "required": ["preStream", "default"],
+      "properties": {
+        "description": { "type": "string" },
+        "preStream": { "type": "array", "items": { "$ref": "#/$defs/rule" } },
+        "default": { "$ref": "#/$defs/kind" }
+      },
+      "additionalProperties": false
+    },
+    "provider": {
+      "type": "object",
+      "required": ["displayName", "tier", "authKind", "baseURL", "modelsPath", "apiKeyEnv", "freeRule", "probe", "errorMap", "rateLimitHeaders", "keyPatterns", "docs"],
+      "properties": {
+        "displayName": { "type": "string" },
+        "tier": { "enum": [1, 2] },
+        "authKind": { "enum": ["none", "api_key", "pat", "oauth_manual"] },
+        "baseURL": { "type": "string", "pattern": "^https://[^\\s]+[^/]$" },
+        "modelsPath": { "type": "string", "pattern": "^/" },
+        "modelsNeedKey": { "type": "boolean" },
+        "apiKeyEnv": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" },
+        "freeRule": {
+          "type": "object",
+          "required": ["kind", "description"],
+          "properties": { "kind": { "enum": ["suffix-free", "plan-confirm", "pricing-zero", "allowlist+guard"] } }
+        },
+        "catalogFields": { "type": "object" },
+        "probe": {
+          "type": "object",
+          "required": ["path", "maxTokensParam", "defaultMaxTokens", "prompt"],
+          "properties": {
+            "path": { "type": "string", "pattern": "^/" },
+            "maxTokensParam": { "enum": ["max_tokens", "max_completion_tokens"] },
+            "defaultMaxTokens": { "type": "integer", "minimum": 1 },
+            "prompt": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "errorMap": { "$ref": "#/$defs/errorMap" },
+        "rateLimitHeaders": {
+          "type": "object",
+          "required": ["retryAfter", "reset", "resetFormat", "remaining"],
+          "properties": {
+            "retryAfter": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+            "reset": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+            "resetFormat": { "enum": ["epoch-or-relative", "duration"] },
+            "remaining": { "type": "string", "pattern": "^[a-z0-9-]+$" }
+          },
+          "additionalProperties": false
+        },
+        "keyPatterns": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["prefix", "regex"],
+            "properties": { "prefix": { "type": "string" }, "regex": { "type": "string" } },
+            "additionalProperties": false
+          }
+        },
+        "docs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["url", "checked"],
+            "properties": { "url": { "type": "string", "pattern": "^https://" }, "checked": { "type": "string", "format": "date" } },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

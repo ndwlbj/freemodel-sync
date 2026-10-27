@@ -24,6 +24,7 @@ from typing import Any, Callable, Dict, Optional, Tuple
 import httpx
 
 from ..models import ModelInfo, TestResult
+from ..spec import classify_with, default_error_map, providers_spec
 from .base import Provider
 
 #: completion budget of a probe; some upstreams reject very small values
@@ -82,14 +83,11 @@ def classify_status(status_code: Optional[int], error_obj: Dict[str, Any]) -> st
 
     401/402/403 and 429 are ``"account"`` failures (they stop probing this
     provider for the run), 408 and 5xx are ``"transient"``, anything else
-    is a ``"model"`` failure.
+    is a ``"model"`` failure. The rules are ``defaultErrorMap`` in
+    ``spec/providers.json``.
     """
 
-    if status_code in (401, 402, 403, 429):
-        return "account"
-    if status_code is not None and (status_code == 408 or status_code >= 500):
-        return "transient"
-    return "model"
+    return classify_with(default_error_map(), status_code, error_obj)
 
 
 def classify_stream_error(
@@ -113,11 +111,12 @@ def classify_stream_error(
     non-standard ``4xx`` codes.
     """
 
-    if code in (401, 402):
+    rules = providers_spec()["streamError"]
+    if code in rules["accountCodes"]:
         return "account"
-    if code == 403:
-        return classify(403, error_obj)
-    if code is not None and 400 <= code < 500 and code not in (408, 429):
+    if code in rules["delegateCodes"]:
+        return classify(code, error_obj)
+    if code is not None and 400 <= code < 500 and code not in rules["transientCodes"]:
         return "transient" if classify(code, error_obj) == "transient" else "model"
     return "transient"
 

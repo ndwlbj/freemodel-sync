@@ -1,0 +1,139 @@
+{
+  "spec_version": 1,
+  "area": "rate_limit",
+  "description": "Rate-limit response headers -> (seconds to wait, remaining requests). Header names are lower-case. Only relative values: epoch resets depend on the clock.",
+  "cases": [
+    {
+      "name": "openrouter retry-after seconds",
+      "provider": "openrouter",
+      "headers": {
+        "retry-after": "30"
+      },
+      "expected": {
+        "retryAfterS": 30.0,
+        "remaining": null
+      }
+    },
+    {
+      "name": "openrouter retry-after wins over reset",
+      "provider": "openrouter",
+      "headers": {
+        "retry-after": "5",
+        "x-ratelimit-reset": "60"
+      },
+      "expected": {
+        "retryAfterS": 5.0,
+        "remaining": null
+      }
+    },
+    {
+      "name": "openrouter relative reset seconds",
+      "provider": "openrouter",
+      "headers": {
+        "x-ratelimit-reset": "120"
+      },
+      "expected": {
+        "retryAfterS": 120.0,
+        "remaining": null
+      }
+    },
+    {
+      "name": "openrouter large relative reset read as ms",
+      "provider": "openrouter",
+      "headers": {
+        "x-ratelimit-reset": "30000"
+      },
+      "expected": {
+        "retryAfterS": 30.0,
+        "remaining": null
+      }
+    },
+    {
+      "name": "openrouter remaining",
+      "provider": "openrouter",
+      "headers": {
+        "x-ratelimit-remaining": "42"
+      },
+      "expected": {
+        "retryAfterS": null,
+        "remaining": 42
+      }
+    },
+    {
+      "name": "openrouter retry-after capped at 24h",
+      "provider": "openrouter",
+      "headers": {
+        "retry-after": "999999"
+      },
+      "expected": {
+        "retryAfterS": 86400.0,
+        "remaining": null
+      }
+    },
+    {
+      "name": "openrouter nothing",
+      "provider": "openrouter",
+      "headers": {},
+      "expected": {
+        "retryAfterS": null,
+        "remaining": null
+      }
+    },
+    {
+      "name": "groq durations",
+      "provider": "groq",
+      "headers": {
+        "x-ratelimit-reset-requests": "2m59.56s",
+        "x-ratelimit-remaining-requests": "14399"
+      },
+      "expected": {
+        "retryAfterS": 179.56,
+        "remaining": 14399
+      }
+    },
+    {
+      "name": "groq retry-after seconds",
+      "provider": "groq",
+      "headers": {
+        "retry-after": "7"
+      },
+      "expected": {
+        "retryAfterS": 7.0,
+        "remaining": null
+      }
+    },
+    {
+      "name": "groq ms duration",
+      "provider": "groq",
+      "headers": {
+        "x-ratelimit-reset-requests": "120ms"
+      },
+      "expected": {
+        "retryAfterS": 0.12,
+        "remaining": null
+      }
+    },
+    {
+      "name": "groq hours",
+      "provider": "groq",
+      "headers": {
+        "x-ratelimit-reset-requests": "1h2m3s"
+      },
+      "expected": {
+        "retryAfterS": 3723.0,
+        "remaining": null
+      }
+    },
+    {
+      "name": "groq bad duration",
+      "provider": "groq",
+      "headers": {
+        "x-ratelimit-reset-requests": "soon"
+      },
+      "expected": {
+        "retryAfterS": null,
+        "remaining": null
+      }
+    }
+  ]
+}

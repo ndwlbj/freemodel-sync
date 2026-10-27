@@ -151,3 +151,5 @@ jobs:
           python -m venv /tmp/wheel-venv
           /tmp/wheel-venv/bin/pip install dist/*.whl
           /tmp/wheel-venv/bin/freemodel-sync --version
+          # the shared rule files (spec/) must ship inside the wheel
+          cd /tmp && /tmp/wheel-venv/bin/python -c "from freemodel_sync import spec; spec.providers_spec(); spec.ranking_spec(); print(spec.spec_dir())"
