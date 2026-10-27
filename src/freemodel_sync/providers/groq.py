@@ -28,9 +28,9 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
 
-from ..models import ModelInfo
+from ..models import ModelInfo, TestResult
 from .base import ProviderError, register_provider
-from .openrouter import OpenRouterProvider, _as_int
+from .openai_compat import OpenAICompatProvider, _as_int
 
 _DURATION_RE = re.compile(r"(\d+(?:\.\d+)?)(ms|h|m|s)")
 _UNIT_SECONDS = {"h": 3600.0, "m": 60.0, "s": 1.0, "ms": 0.001}
@@ -55,7 +55,7 @@ def parse_duration(value: Any) -> Optional[float]:
 
 
 @register_provider
-class GroqProvider(OpenRouterProvider):
+class GroqProvider(OpenAICompatProvider):
     """Groq models, usable for free only on a Free-plan organization."""
 
     name = "groq"
@@ -83,9 +83,6 @@ class GroqProvider(OpenRouterProvider):
         if retry_after is None:
             retry_after = parse_duration(raw_reset)
         return retry_after, _as_int(raw_remaining)
-
-    def _auth_headers(self) -> Dict[str, str]:
-        return {"Authorization": f"Bearer {self.api_key}"}
 
     def _check_plan(self) -> None:
         plan = str(self.options.get("plan") or "").strip().lower()
@@ -137,10 +134,9 @@ class GroqProvider(OpenRouterProvider):
             )
         return models
 
-    def quota(self) -> None:  # type: ignore[override]
-        """Groq has no quota endpoint; limits come from response headers."""
-        return None
+    # quota(): Groq has no quota endpoint; limits come from response headers,
+    # so the base class's ``None`` is kept.
 
-    def test(self, model: ModelInfo, timeout: float = 30.0):  # type: ignore[override]
+    def test(self, model: ModelInfo, timeout: float = 30.0) -> TestResult:
         self._check_plan()
         return super().test(model, timeout=timeout)

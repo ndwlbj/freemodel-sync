@@ -56,6 +56,12 @@ All notable changes to this project are documented here. The format follows
   cache unless `--probe` is given.
 - **CHANGELOG:** 0.1.0 was never tagged or published, so its broken release and compare links are
   gone; `[0.2.0]` links to the v0.2.0 release.
+- **Internal: shared OpenAI-compatible provider base.** The streaming probe, HTTP client handling
+  and the failure-classification and rate-limit hooks moved from `providers/openrouter.py` into a
+  new `providers/openai_compat.py` (`OpenAICompatProvider`). `OpenRouterProvider` and
+  `GroqProvider` both subclass it now; Groq no longer inherits from OpenRouter. No change in
+  behaviour: requests, classification rules and results are the same. This is groundwork for
+  further OpenAI-compatible providers.
 
 ### Removed
 
