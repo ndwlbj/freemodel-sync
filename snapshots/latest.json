@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "date": "2026-10-27",
-  "generated_at": "2026-10-27T06:15:42Z",
+  "date": "2026-10-28",
+  "generated_at": "2026-10-28T06:51:16Z",
   "tool_version": "0.3.3",
   "mode": "probe",
   "max_probes": 15,
@@ -9,15 +9,15 @@
   "providers": {
     "openrouter": {
       "status": "ok",
-      "discovered": 16,
+      "discovered": 15,
       "probes_sent": 15,
       "quota": {
         "daily_free_limit": 50,
-        "daily_free_used": 7,
-        "daily_free_remaining": 43,
+        "daily_free_used": 0,
+        "daily_free_remaining": 50,
         "read": "before probing",
         "note": "read once before probing, so this run's probes are not included; the provider's counter can also lag behind recent requests",
-        "remaining_estimate": 28
+        "remaining_estimate": 35
       }
     },
     "groq": {
@@ -27,10 +27,10 @@
     }
   },
   "summary": {
-    "models": 20,
-    "ok": 12,
-    "failed": 7,
-    "not_probed": 1
+    "models": 19,
+    "ok": 10,
+    "failed": 9,
+    "not_probed": 0
   },
   "models": [
     {
@@ -44,8 +44,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 701,
-      "total_ms": 798,
+      "ttft_ms": 490,
+      "total_ms": 610,
       "error": null
     },
     {
@@ -59,8 +59,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 255,
-      "total_ms": 415,
+      "ttft_ms": 150,
+      "total_ms": 275,
       "error": null
     },
     {
@@ -74,8 +74,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 254,
-      "total_ms": 452,
+      "ttft_ms": 325,
+      "total_ms": 435,
       "error": null
     },
     {
@@ -90,7 +90,7 @@
       "status": "403",
       "failure_kind": "model",
       "ttft_ms": null,
-      "total_ms": 25,
+      "total_ms": 35,
       "error": "thinkingmachines/inkling-small:free is only available on agentic harnesses. Try plugging it into a coding agent or productivity app listed on https://openrouter.ai/apps"
     },
     {
@@ -105,7 +105,7 @@
       "status": "403",
       "failure_kind": "model",
       "ttft_ms": null,
-      "total_ms": 39,
+      "total_ms": 40,
       "error": "thinkingmachines/inkling:free is only available on agentic harnesses. Try plugging it into a coding agent or productivity app listed on https://openrouter.ai/apps"
     },
     {
@@ -116,11 +116,11 @@
       "context_length": 512000,
       "supports_tools": true,
       "expiration_date": "2026-12-31",
-      "days_until_expiry": 65,
+      "days_until_expiry": 64,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 482,
-      "total_ms": 985,
+      "ttft_ms": 1575,
+      "total_ms": 2062,
       "error": null
     },
     {
@@ -135,7 +135,7 @@
       "status": "429",
       "failure_kind": "transient",
       "ttft_ms": null,
-      "total_ms": 120,
+      "total_ms": 83,
       "error": "Provider returned error"
     },
     {
@@ -150,22 +150,7 @@
       "status": "429",
       "failure_kind": "transient",
       "ttft_ms": null,
-      "total_ms": 114,
-      "error": "Provider returned error"
-    },
-    {
-      "key": "openrouter|nvidia/nemotron-3-super-120b-a12b:free",
-      "provider": "openrouter",
-      "id": "nvidia/nemotron-3-super-120b-a12b:free",
-      "name": "NVIDIA: Nemotron 3 Super (free)",
-      "context_length": 262144,
-      "supports_tools": true,
-      "expiration_date": null,
-      "days_until_expiry": null,
-      "status": "404",
-      "failure_kind": "model",
-      "ttft_ms": null,
-      "total_ms": 147,
+      "total_ms": 83,
       "error": "Provider returned error"
     },
     {
@@ -180,7 +165,7 @@
       "status": "429",
       "failure_kind": "transient",
       "ttft_ms": null,
-      "total_ms": 191,
+      "total_ms": 201,
       "error": "Provider returned error"
     },
     {
@@ -192,11 +177,11 @@
       "supports_tools": true,
       "expiration_date": null,
       "days_until_expiry": null,
-      "status": "ok",
-      "failure_kind": null,
-      "ttft_ms": 510,
-      "total_ms": 698,
-      "error": null
+      "status": "429",
+      "failure_kind": "transient",
+      "ttft_ms": null,
+      "total_ms": 1782,
+      "error": "Provider returned error"
     },
     {
       "key": "openrouter|cohere/north-mini-code:free",
@@ -209,8 +194,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 302,
-      "total_ms": 477,
+      "ttft_ms": 172,
+      "total_ms": 300,
       "error": null
     },
     {
@@ -224,8 +209,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 233,
-      "total_ms": 1259,
+      "ttft_ms": 209,
+      "total_ms": 667,
       "error": null
     },
     {
@@ -237,11 +222,11 @@
       "supports_tools": true,
       "expiration_date": null,
       "days_until_expiry": null,
-      "status": "ok",
-      "failure_kind": null,
-      "ttft_ms": 208,
-      "total_ms": 254,
-      "error": null
+      "status": "429",
+      "failure_kind": "transient",
+      "ttft_ms": null,
+      "total_ms": 129,
+      "error": "Provider returned error"
     },
     {
       "key": "openrouter|poolside/laguna-s-2.1:free",
@@ -251,11 +236,11 @@
       "context_length": 262144,
       "supports_tools": true,
       "expiration_date": "2026-10-31",
-      "days_until_expiry": 4,
+      "days_until_expiry": 3,
       "status": "429",
       "failure_kind": "transient",
       "ttft_ms": null,
-      "total_ms": 132,
+      "total_ms": 85,
       "error": "Provider returned error"
     },
     {
@@ -266,12 +251,12 @@
       "context_length": 262144,
       "supports_tools": true,
       "expiration_date": "2026-10-31",
-      "days_until_expiry": 4,
-      "status": "not_probed",
-      "failure_kind": null,
+      "days_until_expiry": 3,
+      "status": "429",
+      "failure_kind": "transient",
       "ttft_ms": null,
-      "total_ms": null,
-      "error": null
+      "total_ms": 77,
+      "error": "Provider returned error"
     },
     {
       "key": "groq|openai/gpt-oss-120b",
@@ -284,8 +269,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 261,
-      "total_ms": 287,
+      "ttft_ms": 281,
+      "total_ms": 307,
       "error": null
     },
     {
@@ -299,8 +284,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 180,
-      "total_ms": 193,
+      "ttft_ms": 171,
+      "total_ms": 185,
       "error": null
     },
     {
@@ -314,8 +299,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 61,
-      "total_ms": 63,
+      "ttft_ms": 111,
+      "total_ms": 114,
       "error": null
     },
     {
@@ -329,28 +314,25 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 316,
-      "total_ms": 326,
+      "ttft_ms": 289,
+      "total_ms": 300,
       "error": null
     }
   ],
   "diff": {
-    "previous_date": "2026-10-26",
+    "previous_date": "2026-10-27",
     "added": [],
-    "removed": [],
+    "removed": [
+      "openrouter|nvidia/nemotron-3-super-120b-a12b:free"
+    ],
     "status_changed": [
       {
         "key": "openrouter|liquid/lfm-2.5-2.6b:free",
-        "from": "429",
-        "to": "ok"
-      },
-      {
-        "key": "openrouter|poolside/laguna-s-2.1:free",
         "from": "ok",
         "to": "429"
       },
       {
-        "key": "openrouter|recursive/flint-v1.0:free",
+        "key": "openrouter|xingchen-agi/xing4.0-29b-a4b:free",
         "from": "ok",
         "to": "429"
       }
@@ -360,12 +342,12 @@
       {
         "key": "openrouter|poolside/laguna-s-2.1:free",
         "expiration_date": "2026-10-31",
-        "days_until_expiry": 4
+        "days_until_expiry": 3
       },
       {
         "key": "openrouter|poolside/laguna-xs-2.1:free",
         "expiration_date": "2026-10-31",
-        "days_until_expiry": 4
+        "days_until_expiry": 3
       }
     ]
   }
