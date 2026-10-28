@@ -7,7 +7,7 @@ import { Config } from "../src/config.ts";
 import { GroqChannel } from "../src/providers/groq.ts";
 import { OpenRouterChannel } from "../src/providers/openrouter.ts";
 import type { CatalogModel } from "../src/providers/types.ts";
-import { FreemodelService, type KeyAccess } from "../src/service.ts";
+import { FreemodelService, type KeyAccess, ManualTestError } from "../src/service.ts";
 import { fakeFetch, GROQ_KEY, json, OR_KEY, type Route, sse, token } from "./helpers/fake-fetch.ts";
 
 const orModel = (id: string, extra: Record<string, unknown> = {}) => ({
@@ -178,6 +178,69 @@ describe("discovery for the settings page", () => {
     expect((await service.discoverFor("openrouter", undefined)).map((m) => m.id)).toEqual(["good:free", "bad:free"]);
     expect(orFetch.calls).toHaveLength(1);
     expect(await service.discoverFor("groq", GROQ_KEY)).toEqual([]);
+  });
+});
+
+describe("manual single-model test", () => {
+  it("probes the named catalogue model even when its cached result is fresh and stores the new result", async () => {
+    const { service, orFetch, onChange, statePath } = setup();
+    await service.refresh();
+    const before = service.view("openrouter").probesToday;
+    const callsBefore = orFetch.calls.length;
+    const outcome = await service.testModel("openrouter", "good:free");
+    expect(outcome.channel).toBe("openrouter");
+    expect(outcome.model.id).toBe("good:free");
+    expect(outcome.result.ok).toBe(true);
+    expect(orFetch.calls.length).toBe(callsBefore + 1);
+    expect(service.view("openrouter").probesToday).toBe(before + 1);
+    expect(onChange).toHaveBeenCalled();
+    expect(readFileSync(statePath, "utf8")).not.toContain(OR_KEY);
+    service.dispose();
+  });
+
+  it("can test a model the picker hides (under the context minimum) because it is still in the free catalogue", async () => {
+    const { service } = setup();
+    await service.refresh();
+    const outcome = await service.testModel("openrouter", "small:free");
+    expect(outcome.model.id).toBe("small:free");
+    expect(outcome.result.ok).toBe(true);
+    service.dispose();
+  });
+
+  it("stores a failed probe and redacts the key", async () => {
+    const { service, statePath } = setup();
+    await service.refresh();
+    const outcome = await service.testModel("openrouter", "bad:free");
+    expect(outcome.result.ok).toBe(false);
+    expect(outcome.result.error).toBe("No endpoints found");
+    expect(service.view("openrouter").hidden).toContainEqual({ id: "bad:free", reason: "failed: No endpoints found" });
+    expect(readFileSync(statePath, "utf8")).not.toContain(OR_KEY);
+    service.dispose();
+  });
+
+  it("refuses before any request when the channel is disabled, unconfirmed, unnamed or keyless", async () => {
+    const disabled = setup({ providers: { openrouter: { enabled: false } } });
+    await expect(disabled.service.testModel("openrouter", "good:free")).rejects.toMatchObject({ code: "channel-disabled" });
+    expect(disabled.orFetch.calls).toHaveLength(0);
+    disabled.service.dispose();
+
+    const groq = setup({ providers: { groq: { enabled: true } } }, { GROQ_API_KEY: GROQ_KEY });
+    await expect(groq.service.testModel("groq", "llama-x")).rejects.toMatchObject({ code: "free-plan-unconfirmed" });
+    expect(groq.groqFetch.calls).toHaveLength(0);
+    groq.service.dispose();
+
+    const unknown = setup();
+    await expect(unknown.service.testModel("openrouter", "not-in-catalogue")).rejects.toBeInstanceOf(ManualTestError);
+    expect(unknown.orFetch.calls).toHaveLength(0);
+    unknown.service.dispose();
+
+    const keyless = setup();
+    await keyless.service.refresh();
+    (keyless.service as unknown as { options: { keys: KeyAccess } }).options.keys.resolve = async () => undefined;
+    const calls = keyless.orFetch.calls.length;
+    await expect(keyless.service.testModel("openrouter", "good:free")).rejects.toMatchObject({ code: "no-key" });
+    expect(keyless.orFetch.calls.length).toBe(calls);
+    keyless.service.dispose();
   });
 });
 

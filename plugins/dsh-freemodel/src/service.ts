@@ -20,11 +20,11 @@ import { FALLBACK_DAILY_FREE_LIMIT, runProbeRound } from "./probe.ts";
 import { GroqChannel } from "./providers/groq.ts";
 import type { OpenAICompatChannel } from "./providers/openai-compat.ts";
 import { OpenRouterChannel } from "./providers/openrouter.ts";
-import type { CatalogModel } from "./providers/types.ts";
+import { type CatalogModel, modelKey, type ProbeResult } from "./providers/types.ts";
 import { filterModels, rank, type RankedModel } from "./rank.ts";
 import { redact } from "./redact.ts";
 import { CHANNEL_IDS, type ChannelId } from "./spec.ts";
-import { loadState, requestsToday, saveState, type StateData } from "./state.ts";
+import { addRequests, loadState, requestsToday, saveState, type StateData } from "./state.ts";
 
 /** Transient failures are retried after this long (Python's transient_ttl_minutes). */
 export const TRANSIENT_TTL_S = 30 * 60;
@@ -54,6 +54,27 @@ export interface ServiceOptions {
   /** Called whenever active channels or listed models may have changed. */
   onChange?: () => void;
   now?: () => number;
+}
+
+/** Why a manual probe was refused before any request was sent. */
+export type ManualTestErrorCode = "channel-disabled" | "free-plan-unconfirmed" | "no-key" | "model-not-found";
+
+/** A refused manual probe; the message is safe to show and never holds a key. */
+export class ManualTestError extends Error {
+  override name = "ManualTestError";
+  readonly code: ManualTestErrorCode;
+
+  constructor(code: ManualTestErrorCode, message: string) {
+    super(message);
+    this.code = code;
+  }
+}
+
+/** A manual probe that was sent and stored. */
+export interface ManualTestOutcome {
+  channel: ChannelId;
+  model: CatalogModel;
+  result: ProbeResult;
 }
 
 export interface ChannelView {
@@ -145,6 +166,56 @@ export class FreemodelService {
     } catch {
       return undefined;
     }
+  }
+
+  /**
+   * Probe one model on demand (settings page / `/freemodel test`), bypassing
+   * the cache and the scheduled budget because the user asked for it. The
+   * model must be in the channel's free catalogue; disabled channels, Groq
+   * without the free-plan confirmation, and missing keys are refused before
+   * any request is sent. The result is stored and the counter is incremented.
+   * @param id - channel to probe.
+   * @param modelId - exact catalogue model id.
+   */
+  async testModel(id: ChannelId, modelId: string): Promise<ManualTestOutcome> {
+    const providers = providersOf(this.options.config);
+    if (!providers[id].enabled) throw new ManualTestError("channel-disabled", `${id} is disabled in the freemodel settings`);
+    if (id === "groq" && !providers.groq.freePlanConfirmed) {
+      throw new ManualTestError("free-plan-unconfirmed", "groq needs freePlanConfirmed before any probe, or the request could be billed");
+    }
+    const channel = this.state.channels[id];
+    const model = (channel.catalog?.models ?? []).find((m) => m.id === modelId);
+    if (model === undefined) throw new ManualTestError("model-not-found", `${modelId} is not in the ${id} free catalogue`);
+    const apiKey = await this.resolveKey(id);
+    if (apiKey === undefined) throw new ManualTestError("no-key", `no key: save one for ${this.ref(id)} in the settings page`);
+    let result: ProbeResult;
+    try {
+      result = await this.channels[id].probe(model, apiKey);
+    } catch (error) {
+      const e = error as { name?: string; message?: string };
+      result = {
+        key: modelKey(model),
+        ok: false,
+        ttftMs: null,
+        totalMs: null,
+        error: `${e?.name ?? "Error"}: ${e?.message ?? String(error)}`,
+        statusCode: null,
+        testedAt: this.now() / 1000,
+        failureKind: "transient",
+        retryAfterS: null,
+        rateLimitRemaining: null,
+      };
+    }
+    if (result.error !== null) result = { ...result, error: redact(result.error, [apiKey]) };
+    addRequests(channel, 1, this.now());
+    if (result.ok || result.failureKind !== "account") {
+      channel.results[modelKey(model)] = result;
+    } else if (result.retryAfterS !== null) {
+      channel.blockedUntil = this.now() / 1000 + result.retryAfterS;
+    }
+    this.save();
+    this.options.onChange?.();
+    return { channel: id, model, result };
   }
 
   /** Catalogue models that pass the listing filters, ranked with their probe results. */

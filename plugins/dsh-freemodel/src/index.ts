@@ -9,11 +9,14 @@
  * never changed.
  */
 import type { Context } from "@deepseek-ai/cordis";
+import { dirname, join } from "node:path";
 import { createAdapter, channelOfRoute, displayName } from "./adapter.ts";
 import { type FreemodelConfig, routeOf } from "./channels.ts";
+import { createFreemodelCommand } from "./command.ts";
+import { API_PREFIX, createLocalApiHandler, generateSecret, loadOrCreateSecret } from "./local-api.ts";
 import { FreemodelService } from "./service.ts";
-import { CHANNEL_IDS, providerSpec } from "./spec.ts";
-import { statePath } from "./status.ts";
+import { CHANNEL_IDS, type ChannelId, providerSpec } from "./spec.ts";
+import { buildStatus, type DescribeKey, statePath } from "./status.ts";
 import { PLUGIN_VERSION } from "./version.ts";
 
 export { channelStates, defaultProviders, defaultRanking, defaultRefresh, providersOf, routeOf } from "./channels.ts";
@@ -80,6 +83,13 @@ export function apply(ctx: Context, config: FreemodelConfig): void {
   });
   const { adapter, invalidate } = createAdapter(service, () => ctx.get("attachments"));
 
+  const describeKey: DescribeKey = async (ref) => {
+    if (credentials === undefined) return { configured: false };
+    const info = await credentials.describe(ref);
+    return info.source === undefined ? { configured: info.configured } : { configured: info.configured, source: info.source };
+  };
+  const readStatus = () => buildStatus(config, credentials === undefined ? undefined : describeKey);
+
   let adapterHandle: ReturnType<LlmService["registerAdapter"]> | undefined;
   let lastSummary = "";
   let disposed = false;
@@ -136,6 +146,54 @@ export function apply(ctx: Context, config: FreemodelConfig): void {
       ...(m.maxTokens === null ? {} : { maxTokens: m.maxTokens }),
       inputModalities: m.input,
     }));
+  });
+
+  type Injectable = { inject(deps: string[], fn: (inner: Context) => void): unknown };
+
+  (ctx as unknown as Injectable).inject(["commands"], (inner) => {
+    const commands = (inner as unknown as {
+      commands: { register(definition: ReturnType<typeof createFreemodelCommand>): () => void };
+    }).commands;
+    const scoped = inner as unknown as { effect(fn: () => () => void): unknown };
+    scoped.effect(() =>
+      commands.register(
+        createFreemodelCommand({
+          status: readStatus,
+          refresh: () => service.refresh({ catalog: true, probe: true }),
+          testModel: (channel: ChannelId, model: string) => service.testModel(channel, model),
+        }),
+      ),
+    );
+  });
+
+  (ctx as unknown as Injectable).inject(["webServer"], (inner) => {
+    const web = (inner as unknown as {
+      webServer: { register(route: { kind: "prefix"; path: string; handler: ReturnType<typeof createLocalApiHandler> }): () => void };
+    }).webServer;
+    let secret: string;
+    try {
+      secret = loadOrCreateSecret(join(dirname(statePath()), "api-secret"));
+    } catch (error) {
+      ctx.logger.warn("dsh-freemodel: cannot load the local API secret; using an in-memory one", error);
+      secret = generateSecret();
+    }
+    // The settings card cannot read the on-disk secret. Give it a separate
+    // process-local token through the loopback status document; it authorizes
+    // the same writes and dies with this plugin instance.
+    const clientKey = generateSecret();
+    const handler = createLocalApiHandler({
+      status: readStatus,
+      refresh: () => service.refresh({ catalog: true, probe: true }),
+      testModel: async (channel: ChannelId, model: string) => {
+        const outcome = await service.testModel(channel, model);
+        return { channel: outcome.channel, model: outcome.model.id, result: outcome.result };
+      },
+      secret: () => secret,
+      clientKey: () => clientKey,
+      logger: ctx.logger,
+    });
+    const scoped = inner as unknown as { effect(fn: () => () => void): unknown };
+    scoped.effect(() => web.register({ kind: "prefix", path: API_PREFIX, handler }));
   });
 
   ctx.effect(() => () => {

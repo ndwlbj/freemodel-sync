@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as plugin from "../src/index.ts";
+import { API_PREFIX } from "../src/local-api.ts";
 import { OR_KEY } from "./helpers/fake-fetch.ts";
 
 function fakeLlm() {
@@ -17,21 +18,34 @@ function fakeLlm() {
   return { llm, adapterHandle, directoryHandle, releaseDiscovery };
 }
 
-function fakeCtx(credentials?: unknown) {
+function fakeCtx(credentials?: unknown, optional: { commands?: unknown; webServer?: unknown } = {}) {
   const info = vi.fn();
   const warn = vi.fn();
   const disposers: Array<() => void> = [];
   const fake = fakeLlm();
+  const scoped = (services: Record<string, unknown>) => ({
+    ...services,
+    effect: (fn: () => () => void) => disposers.unshift(fn()),
+  });
   const ctx = {
     get: vi.fn(() => undefined),
     logger: { info, warn },
     llm: fake.llm,
     emit: vi.fn(),
     effect: vi.fn((fn: () => () => void) => disposers.push(fn())),
-    // Cordis runs the callback once the optional service exists.
+    // Cordis runs each callback once its optional service exists.
     inject: vi.fn((deps: string[], fn: (inner: unknown) => void) => {
-      expect(deps).toEqual(["credentials"]);
-      if (credentials !== undefined) fn({ credentials, effect: (e: () => () => void) => disposers.unshift(e()) });
+      if (deps.length === 1 && deps[0] === "credentials" && credentials !== undefined) {
+        fn(scoped({ credentials }));
+        return;
+      }
+      if (deps.length === 1 && deps[0] === "commands" && optional.commands !== undefined) {
+        fn(scoped({ commands: optional.commands }));
+        return;
+      }
+      if (deps.length === 1 && deps[0] === "webServer" && optional.webServer !== undefined) {
+        fn(scoped({ webServer: optional.webServer }));
+      }
     }),
   };
   return {
@@ -125,5 +139,30 @@ describe("plugin entry", () => {
     plugin.apply(ctx, plugin.Config({ refresh: { onStartup: false } }));
     const discover = llm.registerModelDiscovery.mock.calls[0]?.[1] as (r: { provider?: string }) => Promise<unknown>;
     await expect(discover({ provider: "deepseek" })).rejects.toThrow(/freemodel-\*/);
+  });
+
+  it("registers /freemodel and the loopback-only local API when those services exist", async () => {
+    const commandDispose = vi.fn();
+    const routeDispose = vi.fn();
+    const commands = { register: vi.fn((_definition: unknown) => commandDispose) };
+    const webServer = { register: vi.fn((_route: unknown) => routeDispose) };
+    const { ctx, dispose } = fakeCtx(undefined, { commands, webServer });
+    plugin.apply(ctx, plugin.Config({ refresh: { onStartup: false } }));
+    await settle();
+
+    expect(commands.register).toHaveBeenCalledTimes(1);
+    const definition = commands.register.mock.calls[0]?.[0] as { name: string; handler: unknown };
+    expect(definition.name).toBe("freemodel");
+    expect(typeof definition.handler).toBe("function");
+
+    expect(webServer.register).toHaveBeenCalledTimes(1);
+    const route = webServer.register.mock.calls[0]?.[0] as { kind: string; path: string; handler: unknown };
+    expect(route.kind).toBe("prefix");
+    expect(route.path).toBe(API_PREFIX);
+    expect(typeof route.handler).toBe("function");
+
+    dispose();
+    expect(commandDispose).toHaveBeenCalled();
+    expect(routeDispose).toHaveBeenCalled();
   });
 });

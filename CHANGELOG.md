@@ -8,6 +8,18 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **dsh plugin settings card and local API (P5).** `dsh-freemodel` now ships a browser half
+  (`lib/client.js`, `./client`, `dsh.client`) that registers a read-only card on the plugin's page
+  in four tabs — overview, channels, models and diagnostics — and a `/freemodel` command plus a
+  loopback-only `/freemodel/api` prefix (`status`, `refresh`, `test`). The model tab shows each
+  model's probe state and the reason it is not listed, with a **Test now** button per model that
+  spends one free request. Keys are never rendered or logged; the on-disk API secret is never
+  returned, and the card receives a separate process-local write token from the loopback status
+  document. React is required from the host runtime, so no React dependency is added. The card
+  does not edit settings; the host schema form keeps that job, and the default model is unchanged.
+  The plugin README (English and Chinese) and a plugin-level CHANGELOG document the card and build
+  outputs.
+
 - **dsh plugin lists free models (P4).** With a key, `dsh-freemodel` reads the OpenRouter (and,
   once `freePlanConfirmed`, Groq) catalogue, applies the `spec/` rules, ranks and probes the top
   candidates within the daily limit, and registers the routes `freemodel-openrouter` /
