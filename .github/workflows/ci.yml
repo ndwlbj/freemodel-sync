@@ -173,7 +173,7 @@ jobs:
           # Relative paths: GNU tar on Windows reads "D:\..." as a remote host.
           pnpm pack --pack-destination .pack
           tar -tzf .pack/dsh-freemodel-*.tgz | sort | tee .pack/files.txt
-          if grep -Ev '^package/(lib/|locale/|cordis\.patch\.yml$|package\.json$|README\.md$|LICENSE$)' .pack/files.txt; then
+          if grep -Ev '^package/(lib/|locale/|cordis\.patch\.yml$|package\.json$|README\.md$|LICENSE$|CHANGELOG\.md$)' .pack/files.txt; then
             echo "unexpected files in the package"; exit 1
           fi
 
