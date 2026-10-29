@@ -15,7 +15,10 @@
             "tools": true,
             "input": ["text"],
             "maxTokens": 4096,
-            "expirationDate": null
+            "expirationDate": null,
+            "capabilities": { "tools": true, "vision": false, "reasoning": false, "source": "catalog" },
+            "quota": null,
+            "tier": 1
           },
           {
             "provider": "openrouter",
@@ -25,7 +28,20 @@
             "tools": true,
             "input": ["text", "image"],
             "maxTokens": null,
-            "expirationDate": "2026-11-30"
+            "expirationDate": "2026-11-30",
+            "capabilities": { "tools": true, "vision": true, "reasoning": null, "source": "catalog" },
+            "quota": {
+              "unit": "tokens",
+              "period": "total",
+              "limit": 1000000,
+              "used": 250000,
+              "remaining": 750000,
+              "resetsAt": null,
+              "expiresAt": "2026-11-30",
+              "source": "manual",
+              "scope": "model"
+            },
+            "tier": 1
           }
         ],
         "error": null,
@@ -62,6 +78,20 @@
       "lastRound": { "at": 1793102412, "probes": 2, "stopReason": null }
     },
     "groq": {
+      "catalog": null,
+      "results": {},
+      "daily": { "date": "", "count": 0 },
+      "blockedUntil": null,
+      "lastRound": null
+    },
+    "sensenova": {
+      "catalog": null,
+      "results": {},
+      "daily": { "date": "", "count": 0 },
+      "blockedUntil": null,
+      "lastRound": null
+    },
+    "bailian": {
       "catalog": null,
       "results": {},
       "daily": { "date": "", "count": 0 },

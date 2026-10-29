@@ -1,0 +1,39 @@
+{
+  "spec_version": 1,
+  "area": "capabilities",
+  "description": "Capability parsing: a missing field is unknown (null), never false; old supports_tools data keeps its meaning.",
+  "cases": [
+    {
+      "name": "complete catalogue flags",
+      "input": { "tools": true, "vision": true, "reasoning": false, "source": "catalog" },
+      "expected": { "tools": true, "vision": true, "reasoning": false, "source": "catalog" }
+    },
+    {
+      "name": "missing capabilities document is unknown",
+      "input": null,
+      "expected": { "tools": null, "vision": null, "reasoning": null, "source": "unknown" }
+    },
+    {
+      "name": "unknown strings are unknown",
+      "input": { "tools": "unknown", "vision": "?", "reasoning": "n/a", "source": "nowhere" },
+      "expected": { "tools": null, "vision": null, "reasoning": null, "source": "unknown" }
+    },
+    {
+      "name": "unknown flags keep the other known flag",
+      "input": { "tools": null, "vision": true, "reasoning": "unknown", "source": "catalog" },
+      "expected": { "tools": null, "vision": true, "reasoning": null, "source": "catalog" }
+    },
+    {
+      "name": "legacy supports_tools true becomes tools true",
+      "input": null,
+      "supportsTools": true,
+      "expected": { "tools": true, "vision": null, "reasoning": null, "source": "catalog" }
+    },
+    {
+      "name": "legacy supports_tools false is a known false",
+      "input": null,
+      "supportsTools": false,
+      "expected": { "tools": false, "vision": null, "reasoning": null, "source": "catalog" }
+    }
+  ]
+}

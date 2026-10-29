@@ -93,6 +93,8 @@ describe("plugin entry", () => {
     expect(entries.map((e) => [e.provider, e.settingsNs, e.settingsPath])).toEqual([
       ["freemodel-openrouter", "dsh-freemodel", ["providers", "openrouter"]],
       ["freemodel-groq", "dsh-freemodel", ["providers", "groq"]],
+      ["freemodel-sensenova", "dsh-freemodel", ["providers", "sensenova"]],
+      ["freemodel-bailian", "dsh-freemodel", ["providers", "bailian"]],
     ]);
     expect(llm.registerModelDiscovery.mock.calls[0]?.[0]).toBe("dsh-freemodel");
   });
@@ -107,7 +109,9 @@ describe("plugin entry", () => {
     expect(credentials.resolve).not.toHaveBeenCalled();
     expect(raw.emit).toHaveBeenCalledWith("llm/adapters-updated");
     expect(warn).not.toHaveBeenCalled();
-    expect(info.mock.calls.map((c) => c[0]).join("\n")).toContain("openrouter: 0 listed, 0 hidden; groq: off (disabled)");
+    expect(info.mock.calls.map((c) => c[0]).join("\n")).toContain(
+      "openrouter: 0 listed, 0 hidden; groq: off (disabled); sensenova: off (disabled); bailian: off (disabled)",
+    );
     expect(JSON.stringify([info.mock.calls, warn.mock.calls])).not.toContain(OR_KEY);
     dispose();
     expect(adapterHandle).toHaveBeenCalled();
@@ -118,12 +122,20 @@ describe("plugin entry", () => {
   it("shows why an enabled channel is off in the settings directory", async () => {
     const credentials = credentialsWith({ GROQ_API_KEY: "gsk_test" });
     const { ctx, llm, directoryHandle } = fakeCtx(credentials);
-    plugin.apply(ctx, plugin.Config({ providers: { groq: { enabled: true } }, refresh: { onStartup: false } }));
+    plugin.apply(
+      ctx,
+      plugin.Config({
+        providers: { groq: { enabled: true }, sensenova: { enabled: true }, bailian: { enabled: true } },
+        refresh: { onStartup: false },
+      }),
+    );
     await settle();
     expect(llm.registerAdapter).not.toHaveBeenCalled();
     const entries = directoryHandle.replace.mock.calls.at(-1)?.[0] as Array<Record<string, unknown>>;
     expect(entries[0]?.error).toBe("no key: save one for OPENROUTER_API_KEY in the settings page");
     expect(entries[1]?.error).toMatch(/freePlanConfirmed is off/);
+    expect(entries[2]?.error).toMatch(/tokenPlanConfirmed is off/);
+    expect(entries[3]?.error).toMatch(/freeQuotaGuardConfirmed is off/);
   });
 
   it("works without a credential service", async () => {

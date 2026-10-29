@@ -8,7 +8,7 @@ export type ClientLocale = "zh" | "en";
 
 const EN = {
   title: "FreeModel",
-  subtitle: "Free OpenRouter and Groq models that passed a probe. Read-only status; edit channels below in the settings form.",
+  subtitle: "Free OpenRouter, Groq, SenseNova and Bailian models that passed a probe. Read-only status; edit channels below in the settings form.",
   loading: "Reading status…",
   loadFailed: "Could not read status",
   refresh: "Refresh status",
@@ -74,13 +74,15 @@ const EN = {
   unknown: "unknown",
   channelOpenRouter: "OpenRouter",
   channelGroq: "Groq",
+  channelSenseNova: "SenseNova",
+  channelBailian: "Bailian",
 } as const;
 
 export type MessageKey = keyof typeof EN;
 
 const ZH: Record<MessageKey, string> = {
   title: "免费模型",
-  subtitle: "已通过探测的 OpenRouter / Groq 免费模型。此处只读状态；渠道开关与密钥请在下方设置表单里编辑。",
+  subtitle: "已通过探测的 OpenRouter / Groq / SenseNova / 百炼免费模型。此处只读状态；渠道开关与密钥请在下方设置表单里编辑。",
   loading: "正在读取状态…",
   loadFailed: "读取状态失败",
   refresh: "刷新状态",
@@ -146,6 +148,8 @@ const ZH: Record<MessageKey, string> = {
   unknown: "未知",
   channelOpenRouter: "OpenRouter",
   channelGroq: "Groq",
+  channelSenseNova: "SenseNova",
+  channelBailian: "百炼",
 };
 
 const MESSAGES: Record<ClientLocale, Record<MessageKey, string>> = { en: EN, zh: ZH };

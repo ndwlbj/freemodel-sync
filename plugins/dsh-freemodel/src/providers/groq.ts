@@ -71,11 +71,14 @@ export class GroqChannel extends OpenAICompatChannel {
         id,
         name: id,
         contextLength: asInt(raw.context_window) ?? 0,
-        // Groq's list does not say which models support tools.
+        // Groq's list does not say which models support tools, vision or reasoning.
         tools: null,
         input: ["text"],
         maxTokens: asInt(raw.max_completion_tokens),
         expirationDate: null,
+        capabilities: { tools: null, vision: null, reasoning: null, source: "unknown" },
+        quota: null,
+        tier: 1,
       });
     }
     return models;

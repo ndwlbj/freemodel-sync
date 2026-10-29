@@ -15,6 +15,7 @@ export interface RankWeights {
   tools: number;
   expiry_penalty: number;
   untested_penalty: number;
+  capacity_penalty: number;
 }
 
 interface ScoreSpec {
@@ -25,7 +26,9 @@ interface ScoreSpec {
 }
 
 const SCORE = rankingSpec.score as unknown as ScoreSpec;
+const CAPACITY = rankingSpec.capacity as unknown as { downgradeAfter: number };
 const LOG2_REFERENCE = Math.log2(SCORE.contextReference);
+const CAPACITY_DOWNGRADE_AFTER = Math.max(1, CAPACITY.downgradeAfter);
 
 export function defaultWeights(): RankWeights {
   return { ...(rankingSpec.weights as unknown as RankWeights) };
@@ -64,17 +67,32 @@ export function filterModels(models: Iterable<CatalogModel>, options: FilterOpti
   return kept;
 }
 
-export type TestLike = Pick<ProbeResult, "ok" | "ttftMs" | "failureKind" | "error" | "statusCode">;
+export type TestLike = Pick<ProbeResult, "ok" | "ttftMs" | "failureKind" | "error" | "statusCode" | "capacityStreak">;
 
-/** A model's score and short human-readable reasons. */
+/**
+ * A model's score and short human-readable reasons. Capacity is penalised
+ * (below untested, above hard failures) until it happens N times in a row.
+ */
 export function scoreModel(
   model: CatalogModel,
   test: TestLike | null | undefined,
   weights: RankWeights = defaultWeights(),
   today: string = utcToday(),
+  capacityDowngradeAfter: number = CAPACITY_DOWNGRADE_AFTER,
 ): [number, string[]] {
   const reasons: string[] = [];
+  const downgradeAfter = Math.max(1, Math.trunc(capacityDowngradeAfter));
   if (test !== null && test !== undefined && !test.ok) {
+    if (test.failureKind === "capacity") {
+      const streak = Math.max(1, Math.trunc(test.capacityStreak ?? 0));
+      if (streak >= downgradeAfter) {
+        return [SCORE.failedScore, [`no capacity ${streak} times in a row: ${test.error || "unknown error"} (downgraded)`]];
+      }
+      return [
+        -weights.capacity_penalty,
+        [`no capacity: ${test.error || "unknown error"} (${streak}/${downgradeAfter} in a row, retried later)`],
+      ];
+    }
     if (test.failureKind === "transient") {
       const code = test.statusCode ? ` ${test.statusCode}` : "";
       return [SCORE.failedScore, [`temporarily unavailable${code}: ${test.error || "unknown error"} (retried later)`]];
@@ -115,13 +133,14 @@ export function rank(
   results: ReadonlyMap<string, ProbeResult> | Readonly<Record<string, ProbeResult>>,
   weights: RankWeights = defaultWeights(),
   today: string = utcToday(),
+  capacityDowngradeAfter: number = CAPACITY_DOWNGRADE_AFTER,
 ): RankedModel[] {
   const get = (key: string): ProbeResult | null =>
     (results instanceof Map ? results.get(key) : (results as Record<string, ProbeResult>)[key]) ?? null;
   const ranked: RankedModel[] = [];
   for (const model of models) {
     const test = get(modelKey(model));
-    const [score, reasons] = scoreModel(model, test, weights, today);
+    const [score, reasons] = scoreModel(model, test, weights, today, capacityDowngradeAfter);
     ranked.push({ model, score, test, reasons });
   }
   ranked.sort((a, b) => (b.score !== a.score ? b.score - a.score : a.model.id < b.model.id ? -1 : a.model.id > b.model.id ? 1 : 0));

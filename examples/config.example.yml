@@ -17,6 +17,24 @@ providers:
     # Groq's API has no prices: models are free only on Groq's Free plan.
     # Nothing is listed or probed until you confirm your plan here.
     plan: free
+  sensenova:
+    enabled: false                # SenseNova Token Plan (public beta), off by default
+    api_key_env: SENSENOVA_API_KEY
+    # The API has no quota endpoint and prices can change: nothing is listed
+    # or probed until you confirm you are in the Token Plan beta.
+    plan: token-plan
+    models: [deepseek-v4-flash, sensenova-6.8-flash-lite]  # optional allowlist
+    # free_until: 2026-12-31      # optional reminder date for the beta end
+  bailian:
+    enabled: false                # Alibaba Cloud Bailian / DashScope (Beijing), off by default
+    api_key_env: DASHSCOPE_API_KEY
+    region: cn-beijing            # Bailian's compatible endpoint is Beijing-only
+    # Nothing is listed or probed unless this is confirmed AND models is non-empty.
+    free_quota_guard: confirmed   # console switch "stop when the free quota is used up"
+    models:
+      - id: deepseek-v3.2         # example id; use the ids shown in the console
+        quota: {unit: tokens, period: total, limit: 1000000}  # hand-entered, unverified
+      # - id: qwen3-8b-distill    # distilled models are marked tools=false
 
 filters:
   require_tools: false          # only keep models that support tool calling
@@ -47,6 +65,8 @@ ranking:
     tools: 15
     expiry_penalty: 50
     untested_penalty: 40
+    capacity_penalty: 50          # queue / no capacity: below untested, above hard failures
+  capacity_downgrade_after: 3     # this many capacity failures in a row -> not selectable
 
 output:
   ranking_json: ~/.cache/freemodel-sync/ranking.json

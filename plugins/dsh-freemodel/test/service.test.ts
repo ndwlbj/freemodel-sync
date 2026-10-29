@@ -4,11 +4,13 @@ import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { channelOfRoute, createAdapter, FREE_BADGE, pickerName, toPiModel } from "../src/adapter.ts";
 import { Config } from "../src/config.ts";
+import { BailianChannel } from "../src/providers/bailian.ts";
 import { GroqChannel } from "../src/providers/groq.ts";
 import { OpenRouterChannel } from "../src/providers/openrouter.ts";
+import { SenseNovaChannel } from "../src/providers/sensenova.ts";
 import type { CatalogModel } from "../src/providers/types.ts";
 import { FreemodelService, type KeyAccess, ManualTestError } from "../src/service.ts";
-import { fakeFetch, GROQ_KEY, json, OR_KEY, type Route, sse, token } from "./helpers/fake-fetch.ts";
+import { DASHSCOPE_KEY, fakeFetch, GROQ_KEY, json, OR_KEY, type Route, sse, token } from "./helpers/fake-fetch.ts";
 
 const orModel = (id: string, extra: Record<string, unknown> = {}) => ({
   id,
@@ -31,6 +33,35 @@ const orRoute: Route = (url, init) => {
 };
 const groqRoute: Route = (url) =>
   url.endsWith("/models") ? json({ data: [{ id: "llama-x", context_window: 131072, active: true }] }) : sse([token("ok")]);
+const snModel = (id: string, pricing = "0", extra: Record<string, unknown> = {}) => ({
+  id,
+  pricing,
+  context_length: 262144,
+  supported_features: ["text", "image"],
+  ...extra,
+});
+const bailianModel = (id: string, extra: Record<string, unknown> = {}) => ({
+  id,
+  context_length: 131072,
+  ...extra,
+});
+const bailianRoute: Route = (url) =>
+  url.endsWith("/models")
+    ? json({
+        data: [bailianModel("deepseek-v3.2"), bailianModel("qwen3-8b-distill"), bailianModel("not-in-the-allowlist")],
+      })
+    : sse([token("ok")]);
+const sensenovaRoute: Route = (url) =>
+  url.endsWith("/models")
+    ? json({
+        data: [
+          snModel("deepseek-v4-flash"),
+          snModel("sensenova-6.8-flash-lite", "0", { businesses: ["vision"] }),
+          snModel("sensenova-6.8-pro", "0.02"),
+          snModel("not-in-the-allowlist"),
+        ],
+      })
+    : sse([token("ok")]);
 
 function keys(values: Record<string, string>): KeyAccess & { resolve: ReturnType<typeof vi.fn> } {
   return {
@@ -44,16 +75,32 @@ function setup(configInput: Parameters<typeof Config>[0] = {}, values: Record<st
   const logger = { info: vi.fn(), warn: vi.fn() };
   const orFetch = fakeFetch(orRoute);
   const groqFetch = fakeFetch(groqRoute);
+  const sensenovaFetch = fakeFetch(sensenovaRoute);
+  const bailianFetch = fakeFetch(bailianRoute);
   const onChange = vi.fn();
   const service = new FreemodelService({
     config: Config(configInput),
     statePath: join(dir, "freemodel", "state.json"),
     keys: keys(values),
     logger,
-    channels: { openrouter: new OpenRouterChannel(orFetch), groq: new GroqChannel(groqFetch) },
+    channels: {
+      openrouter: new OpenRouterChannel(orFetch),
+      groq: new GroqChannel(groqFetch),
+      sensenova: new SenseNovaChannel(sensenovaFetch, logger),
+      bailian: new BailianChannel(bailianFetch, logger),
+    },
     onChange,
   });
-  return { service, logger, orFetch, groqFetch, onChange, statePath: join(dir, "freemodel", "state.json") };
+  return {
+    service,
+    logger,
+    orFetch,
+    groqFetch,
+    sensenovaFetch,
+    bailianFetch,
+    onChange,
+    statePath: join(dir, "freemodel", "state.json"),
+  };
 }
 
 describe("active channels", () => {
@@ -133,6 +180,176 @@ describe("refresh", () => {
     service.dispose();
   });
 
+  it("probes SenseNova only once its token plan is confirmed, then keeps zero-priced allowlisted models", async () => {
+    const values = { SENSENOVA_API_KEY: "sk-test" };
+    const disabled = [
+      { openrouter: { enabled: false }, groq: { enabled: false }, sensenova: { enabled: false } },
+      { openrouter: { enabled: false }, groq: { enabled: false }, sensenova: { enabled: true, tokenPlanConfirmed: false } },
+    ];
+    for (const providers of disabled) {
+      const off = setup({ providers }, values);
+      await off.service.refresh();
+      expect(off.sensenovaFetch.calls).toHaveLength(0);
+      off.service.dispose();
+    }
+    const on = setup(
+      {
+        providers: {
+          openrouter: { enabled: false },
+          groq: { enabled: false },
+          sensenova: {
+            enabled: true,
+            tokenPlanConfirmed: true,
+            models: ["deepseek-v4-flash", "sensenova-6.8-flash-lite"],
+          },
+        },
+      },
+      values,
+    );
+    await on.service.refresh();
+    expect(on.service.listed("sensenova").map((r) => r.model.id).sort()).toEqual([
+      "deepseek-v4-flash",
+      "sensenova-6.8-flash-lite",
+    ]);
+    expect(on.service.view("sensenova").hidden).toEqual([]);
+    const probed = on.sensenovaFetch.calls
+      .filter((c) => c.url.endsWith("/chat/completions"))
+      .map((c) => JSON.parse(String(c.init?.body)).model)
+      .sort();
+    expect(probed).toEqual(["deepseek-v4-flash", "sensenova-6.8-flash-lite"]);
+    expect(new Headers(on.sensenovaFetch.calls[0]?.init?.headers).get("authorization")).toBe("Bearer sk-test");
+    on.service.dispose();
+  });
+
+  it("probes Bailian only with the guard and a non-empty allowlist, and keeps manual quotas", async () => {
+    const values = { DASHSCOPE_API_KEY: DASHSCOPE_KEY };
+    const off = [
+      { openrouter: { enabled: false }, groq: { enabled: false }, bailian: { enabled: false } },
+      {
+        openrouter: { enabled: false },
+        groq: { enabled: false },
+        bailian: { enabled: true, freeQuotaGuardConfirmed: false, models: [{ id: "deepseek-v3.2" }] },
+      },
+      {
+        openrouter: { enabled: false },
+        groq: { enabled: false },
+        bailian: { enabled: true, freeQuotaGuardConfirmed: true, models: [] },
+      },
+    ];
+    for (const providers of off) {
+      const disabled = setup({ providers }, values);
+      await disabled.service.refresh();
+      expect(disabled.bailianFetch.calls).toHaveLength(0);
+      disabled.service.dispose();
+    }
+    const on = setup(
+      {
+        providers: {
+          openrouter: { enabled: false },
+          groq: { enabled: false },
+          bailian: {
+            enabled: true,
+            freeQuotaGuardConfirmed: true,
+            models: [
+              { id: "deepseek-v3.2", quotaTokens: 1000000 },
+              { id: "qwen3-8b-distill", quotaTokens: 500000 },
+            ],
+          },
+        },
+        ranking: { requireTools: false },
+      },
+      values,
+    );
+    await on.service.refresh();
+    const listed = on.service.listed("bailian");
+    expect(listed.map((r) => r.model.id).sort()).toEqual(["deepseek-v3.2", "qwen3-8b-distill"]);
+    const deepseek = listed.find((r) => r.model.id === "deepseek-v3.2");
+    const distilled = listed.find((r) => r.model.id === "qwen3-8b-distill");
+    expect(deepseek?.model.quota).toMatchObject({
+      unit: "tokens",
+      period: "total",
+      limit: 1000000,
+      source: "manual",
+      scope: "model",
+    });
+    expect(distilled?.model.capabilities.tools).toBe(false);
+    expect(on.service.view("bailian").hidden).toEqual([]);
+    const probed = on.bailianFetch.calls
+      .filter((c) => c.url.endsWith("/chat/completions"))
+      .map((c) => JSON.parse(String(c.init?.body)).model)
+      .sort();
+    expect(probed).toEqual(["deepseek-v3.2", "qwen3-8b-distill"]);
+    expect(on.service.view("bailian").hidden).toEqual([]);
+    expect(new Headers(on.bailianFetch.calls[0]?.init?.headers).get("authorization")).toBe(`Bearer ${DASHSCOPE_KEY}`);
+    on.service.dispose();
+  });
+
+  it("refuses a Bailian manual probe before any request without the guard or allowlist", async () => {
+    const values = { DASHSCOPE_API_KEY: DASHSCOPE_KEY };
+    const off = setup(
+      {
+        providers: {
+          openrouter: { enabled: false },
+          bailian: { enabled: true, freeQuotaGuardConfirmed: false, models: [{ id: "deepseek-v3.2" }] },
+        },
+      },
+      values,
+    );
+    await expect(off.service.testModel("bailian", "deepseek-v3.2")).rejects.toMatchObject({
+      code: "free-quota-guard-unconfirmed",
+    });
+    expect(off.bailianFetch.calls).toHaveLength(0);
+    off.service.dispose();
+
+    const empty = setup(
+      {
+        providers: {
+          openrouter: { enabled: false },
+          bailian: { enabled: true, freeQuotaGuardConfirmed: true, models: [] },
+        },
+      },
+      values,
+    );
+    await expect(empty.service.testModel("bailian", "deepseek-v3.2")).rejects.toMatchObject({ code: "models-empty" });
+    expect(empty.bailianFetch.calls).toHaveLength(0);
+    empty.service.dispose();
+  });
+
+  it("stops Bailian for the day on AllocationQuota.FreeTierOnly", async () => {
+    const values = { DASHSCOPE_API_KEY: DASHSCOPE_KEY };
+    const setupBailian = setup(
+      {
+        providers: {
+          openrouter: { enabled: false },
+          groq: { enabled: false },
+          bailian: {
+            enabled: true,
+            freeQuotaGuardConfirmed: true,
+            models: [{ id: "deepseek-v3.2" }, { id: "qwen3-8b-distill" }],
+          },
+        },
+        ranking: { requireTools: false },
+      },
+      values,
+    );
+    (setupBailian.service.channels as Record<string, unknown>).bailian = new BailianChannel(
+      fakeFetch((url) =>
+        url.endsWith("/models")
+          ? json({ data: [bailianModel("deepseek-v3.2"), bailianModel("qwen3-8b-distill")] })
+          : json({ error: { code: "AllocationQuota.FreeTierOnly", message: "free quota exhausted" } }, 403),
+      ),
+      { warn: vi.fn() },
+    );
+    await setupBailian.service.refresh();
+    expect(setupBailian.service.listed("bailian")).toEqual([]);
+    expect(setupBailian.service.view("bailian").blockedUntil).toBeGreaterThan(Date.now() / 1000);
+    const second = await setupBailian.service.refresh({ probe: true });
+    void second;
+    expect(setupBailian.service.view("bailian").probesToday).toBe(1);
+    expect(setupBailian.service.view("bailian").hidden.map((h) => h.id)).toEqual(["deepseek-v3.2", "qwen3-8b-distill"]);
+    setupBailian.service.dispose();
+  });
+
   it("probes Groq only once its free plan is confirmed", async () => {
     const values = { GROQ_API_KEY: GROQ_KEY };
     const off = setup({ providers: { openrouter: { enabled: false }, groq: { enabled: true } } }, values);
@@ -178,6 +395,13 @@ describe("discovery for the settings page", () => {
     expect((await service.discoverFor("openrouter", undefined)).map((m) => m.id)).toEqual(["good:free", "bad:free"]);
     expect(orFetch.calls).toHaveLength(1);
     expect(await service.discoverFor("groq", GROQ_KEY)).toEqual([]);
+    const sensenova = setup(
+      { providers: { openrouter: { enabled: false }, sensenova: { enabled: true } } },
+      { SENSENOVA_API_KEY: "sk-test" },
+    );
+    expect(await sensenova.service.discoverFor("sensenova", "sk-test")).toEqual([]);
+    expect(sensenova.sensenovaFetch.calls).toHaveLength(0);
+    sensenova.service.dispose();
   });
 });
 
@@ -229,6 +453,16 @@ describe("manual single-model test", () => {
     expect(groq.groqFetch.calls).toHaveLength(0);
     groq.service.dispose();
 
+    const sensenova = setup(
+      { providers: { openrouter: { enabled: false }, sensenova: { enabled: true } } },
+      { SENSENOVA_API_KEY: "sk-test" },
+    );
+    await expect(sensenova.service.testModel("sensenova", "deepseek-v4-flash")).rejects.toMatchObject({
+      code: "token-plan-unconfirmed",
+    });
+    expect(sensenova.sensenovaFetch.calls).toHaveLength(0);
+    sensenova.service.dispose();
+
     const unknown = setup();
     await expect(unknown.service.testModel("openrouter", "not-in-catalogue")).rejects.toBeInstanceOf(ManualTestError);
     expect(unknown.orFetch.calls).toHaveLength(0);
@@ -254,6 +488,9 @@ describe("adapter", () => {
     input: ["text"],
     maxTokens: null,
     expirationDate: null,
+    capabilities: { tools: null, vision: null, reasoning: null, source: "unknown" },
+    quota: null,
+    tier: 1,
   };
 
   it("labels models with the free badge instead of their own (free) suffix", () => {
@@ -264,6 +501,7 @@ describe("adapter", () => {
   it("maps routes to channels", () => {
     expect(channelOfRoute("freemodel-openrouter")).toBe("openrouter");
     expect(channelOfRoute("freemodel-groq")).toBe("groq");
+    expect(channelOfRoute("freemodel-sensenova")).toBe("sensenova");
     expect(channelOfRoute("deepseek")).toBeUndefined();
   });
 
@@ -271,7 +509,7 @@ describe("adapter", () => {
     const groq = toPiModel("groq", { model: listedModel, score: 1, test: null, reasons: [] });
     expect(groq).toMatchObject({
       id: "llama-x",
-      name: `llama-x · ${FREE_BADGE}`,
+      name: `llama-x · ${FREE_BADGE} · 能力未知 · 额度未知`,
       provider: "freemodel-groq",
       baseUrl: "https://api.groq.com/openai/v1",
       input: ["text"],
@@ -291,8 +529,8 @@ describe("adapter", () => {
     await service.refresh();
     invalidate();
     const models = await adapter.listModels("freemodel-openrouter");
-    expect(models.map((m) => [m.id, m.name])).toEqual([["good:free", `OR good:free · ${FREE_BADGE}`]]);
-    expect(models[0]?.description).toMatch(/^OpenRouter free · TTFT \d+ ms · tools$/);
+    expect(models.map((m) => [m.id, m.name])).toEqual([["good:free", `OR good:free · ${FREE_BADGE} · 工具 · 额度未知`]]);
+    expect(models[0]?.description).toMatch(/^OpenRouter free · TTFT \d+ ms · 工具 · 额度未知$/);
     const resolved = await adapter.resolveModel("freemodel-openrouter", "good:free");
     expect(resolved).toMatchObject({ provider: "freemodel-openrouter", id: "good:free" });
     service.dispose();

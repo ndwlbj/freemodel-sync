@@ -1,7 +1,7 @@
 {
   "spec_version": 1,
   "area": "free_rule",
-  "description": "OpenRouter catalogue entries -> counted as free? (providers.openrouter.freeRule)",
+  "description": "Catalogue entries / plan confirmations -> counted as free? (OpenRouter's suffix+pricing rule and SenseNova's plan confirmation + pricing-zero rule)",
   "cases": [
     {
       "name": "free text model",
@@ -298,6 +298,78 @@
           "completion": "0"
         }
       },
+      "expected": false
+    },
+    {
+      "name": "sensenova: plan not confirmed",
+      "provider": "sensenova",
+      "plan": "",
+      "model": {
+        "id": "sensenova-6.8-flash-lite",
+        "pricing": "0"
+      },
+      "expected": false
+    },
+    {
+      "name": "sensenova: confirmed plan, price zero",
+      "provider": "sensenova",
+      "plan": "token-plan",
+      "model": {
+        "id": "sensenova-6.8-flash-lite",
+        "pricing": "0"
+      },
+      "expected": true
+    },
+    {
+      "name": "sensenova: confirmed plan, non-zero pricing excluded",
+      "provider": "sensenova",
+      "plan": "token-plan",
+      "model": {
+        "id": "sensenova-6.8-flash-lite",
+        "pricing": "0.000001"
+      },
+      "expected": false
+    },
+    {
+      "name": "sensenova: numeric zero is not the free marker",
+      "provider": "sensenova",
+      "plan": "token-plan",
+      "model": {
+        "id": "deepseek-v4-flash",
+        "pricing": 0
+      },
+      "expected": false
+    },
+    {
+      "name": "bailian: guard not confirmed",
+      "provider": "bailian",
+      "guard": "",
+      "models": ["deepseek-v3.2"],
+      "model": { "id": "deepseek-v3.2" },
+      "expected": false
+    },
+    {
+      "name": "bailian: confirmed guard and allowlisted model",
+      "provider": "bailian",
+      "guard": "confirmed",
+      "models": ["deepseek-v3.2"],
+      "model": { "id": "deepseek-v3.2" },
+      "expected": true
+    },
+    {
+      "name": "bailian: confirmed guard but model outside the allowlist",
+      "provider": "bailian",
+      "guard": "confirmed",
+      "models": ["deepseek-v3.2"],
+      "model": { "id": "qwen3-8b-distill" },
+      "expected": false
+    },
+    {
+      "name": "bailian: confirmed guard but empty allowlist",
+      "provider": "bailian",
+      "guard": "confirmed",
+      "models": [],
+      "model": { "id": "deepseek-v3.2" },
       "expected": false
     }
   ]

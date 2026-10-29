@@ -1,0 +1,69 @@
+{
+  "spec_version": 1,
+  "area": "capacity",
+  "description": "capacity failures (queue / no capacity): classification, a penalty below untested models, and a downgrade to the failed score after N consecutive results (N from spec/ranking.json).",
+  "cases": [
+    {
+      "name": "bailian: 429 ModelUnavailable is capacity",
+      "kind": "classify",
+      "provider": "bailian",
+      "status": 429,
+      "error": { "code": "ModelUnavailable", "message": "no capacity for this model" },
+      "expected": "capacity"
+    },
+    {
+      "name": "bailian: 400 ModelBusy is capacity",
+      "kind": "classify",
+      "provider": "bailian",
+      "status": 400,
+      "error": { "code": "ModelBusy", "message": "queued" },
+      "expected": "capacity"
+    },
+    {
+      "name": "bailian: bare 429 stays transient",
+      "kind": "classify",
+      "provider": "bailian",
+      "status": 429,
+      "error": {},
+      "expected": "transient"
+    },
+    {
+      "name": "bailian: FreeTierOnly is quota, not capacity",
+      "kind": "classify",
+      "provider": "bailian",
+      "status": 403,
+      "error": { "code": "AllocationQuota.FreeTierOnly", "message": "free quota exhausted" },
+      "expected": "quota"
+    },
+    {
+      "name": "first capacity failure is penalised but not downgraded",
+      "kind": "score",
+      "model": { "id": "v/busy:free", "context_length": 131072, "supports_tools": true },
+      "test": { "ok": false, "failure_kind": "capacity", "capacity_streak": 1, "error": "queued" },
+      "expected": {
+        "score": -50.0,
+        "reasons": ["no capacity: queued (1/3 in a row, retried later)"]
+      }
+    },
+    {
+      "name": "second capacity failure keeps the penalty",
+      "kind": "score",
+      "model": { "id": "v/busy:free", "context_length": 131072, "supports_tools": true },
+      "test": { "ok": false, "failure_kind": "capacity", "capacity_streak": 2, "error": "queued" },
+      "expected": {
+        "score": -50.0,
+        "reasons": ["no capacity: queued (2/3 in a row, retried later)"]
+      }
+    },
+    {
+      "name": "third consecutive capacity failure is downgraded",
+      "kind": "score",
+      "model": { "id": "v/busy:free", "context_length": 131072, "supports_tools": true },
+      "test": { "ok": false, "failure_kind": "capacity", "capacity_streak": 3, "error": "queued" },
+      "expected": {
+        "score": -1000.0,
+        "reasons": ["no capacity 3 times in a row: queued (downgraded)"]
+      }
+    }
+  ]
+}

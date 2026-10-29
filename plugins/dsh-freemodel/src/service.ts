@@ -16,10 +16,12 @@ import {
   refreshOf,
   routeOf,
 } from "./channels.ts";
-import { FALLBACK_DAILY_FREE_LIMIT, runProbeRound } from "./probe.ts";
+import { FALLBACK_DAILY_FREE_LIMIT, nextUtcMidnight, runProbeRound } from "./probe.ts";
+import { BailianChannel } from "./providers/bailian.ts";
 import { GroqChannel } from "./providers/groq.ts";
 import type { OpenAICompatChannel } from "./providers/openai-compat.ts";
 import { OpenRouterChannel } from "./providers/openrouter.ts";
+import { SenseNovaChannel } from "./providers/sensenova.ts";
 import { type CatalogModel, modelKey, type ProbeResult } from "./providers/types.ts";
 import { filterModels, rank, type RankedModel } from "./rank.ts";
 import { redact } from "./redact.ts";
@@ -57,7 +59,14 @@ export interface ServiceOptions {
 }
 
 /** Why a manual probe was refused before any request was sent. */
-export type ManualTestErrorCode = "channel-disabled" | "free-plan-unconfirmed" | "no-key" | "model-not-found";
+export type ManualTestErrorCode =
+  | "channel-disabled"
+  | "free-plan-unconfirmed"
+  | "token-plan-unconfirmed"
+  | "free-quota-guard-unconfirmed"
+  | "models-empty"
+  | "no-key"
+  | "model-not-found";
 
 /** A refused manual probe; the message is safe to show and never holds a key. */
 export class ManualTestError extends Error {
@@ -109,6 +118,8 @@ export class FreemodelService {
     this.channels = {
       openrouter: options.channels?.openrouter ?? new OpenRouterChannel(),
       groq: options.channels?.groq ?? new GroqChannel(),
+      sensenova: options.channels?.sensenova ?? new SenseNovaChannel(undefined, options.logger),
+      bailian: options.channels?.bailian ?? new BailianChannel(undefined, options.logger),
     };
     this.state = loadState(options.statePath);
   }
@@ -131,6 +142,12 @@ export class FreemodelService {
       if (!channel.enabled) reason = "disabled";
       else if (id === "groq" && !providers.groq.freePlanConfirmed) {
         reason = "freePlanConfirmed is off (Groq models are free only on a Free-plan organization)";
+      } else if (id === "sensenova" && !providers.sensenova.tokenPlanConfirmed) {
+        reason = "tokenPlanConfirmed is off (SenseNova models are free only inside the Token Plan beta)";
+      } else if (id === "bailian" && !providers.bailian.freeQuotaGuardConfirmed) {
+        reason = "freeQuotaGuardConfirmed is off (Bailian calls are free only with the console guard on)";
+      } else if (id === "bailian" && providers.bailian.models.length === 0) {
+        reason = "models is empty (Bailian needs an explicit allowlist before anything is listed or probed)";
       } else {
         let configured = false;
         try {
@@ -183,6 +200,21 @@ export class FreemodelService {
     if (id === "groq" && !providers.groq.freePlanConfirmed) {
       throw new ManualTestError("free-plan-unconfirmed", "groq needs freePlanConfirmed before any probe, or the request could be billed");
     }
+    if (id === "sensenova" && !providers.sensenova.tokenPlanConfirmed) {
+      throw new ManualTestError(
+        "token-plan-unconfirmed",
+        "sensenova needs tokenPlanConfirmed before any probe, or the request could be billed",
+      );
+    }
+    if (id === "bailian" && !providers.bailian.freeQuotaGuardConfirmed) {
+      throw new ManualTestError(
+        "free-quota-guard-unconfirmed",
+        "bailian needs freeQuotaGuardConfirmed before any probe, or the request could be billed",
+      );
+    }
+    if (id === "bailian" && providers.bailian.models.length === 0) {
+      throw new ManualTestError("models-empty", "bailian needs a non-empty models allowlist before any probe");
+    }
     const channel = this.state.channels[id];
     const model = (channel.catalog?.models ?? []).find((m) => m.id === modelId);
     if (model === undefined) throw new ManualTestError("model-not-found", `${modelId} is not in the ${id} free catalogue`);
@@ -208,7 +240,15 @@ export class FreemodelService {
     }
     if (result.error !== null) result = { ...result, error: redact(result.error, [apiKey]) };
     addRequests(channel, 1, this.now());
-    if (result.ok || result.failureKind !== "account") {
+    if (!result.ok && result.failureKind === "quota") {
+      channel.blockedUntil = Math.max(channel.blockedUntil ?? 0, nextUtcMidnight(this.now() / 1000));
+    } else if (result.ok || result.failureKind !== "account") {
+      if (!result.ok && result.failureKind === "capacity") {
+        const previous = channel.results[modelKey(model)];
+        const prior =
+          previous !== undefined && !previous.ok && previous.failureKind === "capacity" ? (previous.capacityStreak ?? 0) : 0;
+        result = { ...result, capacityStreak: prior + 1 };
+      }
       channel.results[modelKey(model)] = result;
     } else if (result.retryAfterS !== null) {
       channel.blockedUntil = this.now() / 1000 + result.retryAfterS;
@@ -228,7 +268,7 @@ export class FreemodelService {
       minContext: ranking.minContext,
       today,
     });
-    return rank(models, channel.results, undefined, today);
+    return rank(models, channel.results, undefined, today, ranking.capacityDowngradeAfter);
   }
 
   /** Models to show in the picker: active channel, filters passed, latest probe succeeded. */
@@ -278,7 +318,15 @@ export class FreemodelService {
     if (sinceLast >= refreshOf(this.options.config).probeHours * 3600) return true;
     // A model that failed transiently is retried soon, as are newly listed models never probed.
     const top = this.ranked(id).slice(0, refreshOf(this.options.config).probeTopN);
-    return sinceLast >= TRANSIENT_TTL_S && top.some((r) => r.test === null || (r.test.failureKind === "transient" && nowS - r.test.testedAt >= TRANSIENT_TTL_S));
+    return (
+      sinceLast >= TRANSIENT_TTL_S &&
+      top.some(
+        (r) =>
+          r.test === null ||
+          ((r.test.failureKind === "transient" || r.test.failureKind === "capacity") &&
+            nowS - r.test.testedAt >= TRANSIENT_TTL_S),
+      )
+    );
   }
 
   /** Seconds until the next refresh is due for any active channel (null: nothing scheduled). */
@@ -295,7 +343,11 @@ export class FreemodelService {
       consider((channel.catalog?.fetchedAt ?? 0) + refresh.catalogHours * 3600);
       const last = channel.lastRound?.at ?? 0;
       consider(Math.max(last + refresh.probeHours * 3600, channel.blockedUntil ?? 0));
-      if (this.ranked(id).slice(0, refresh.probeTopN).some((r) => r.test === null || r.test.failureKind === "transient")) {
+      if (
+        this.ranked(id)
+          .slice(0, refresh.probeTopN)
+          .some((r) => r.test === null || r.test.failureKind === "transient" || r.test.failureKind === "capacity")
+      ) {
         consider(Math.max(last + TRANSIENT_TTL_S, channel.blockedUntil ?? 0));
       }
     }
@@ -342,7 +394,17 @@ export class FreemodelService {
     const channel = this.state.channels[id];
     const nowS = this.now() / 1000;
     try {
-      const models = await this.channels[id].discover(apiKey, this.abort.signal);
+      const providers = providersOf(this.options.config);
+      const allowlist = id === "sensenova" ? providers.sensenova.models : id === "bailian" ? providers.bailian.models.map((m) => m.id) : undefined;
+      const quotas =
+        id === "bailian"
+          ? Object.fromEntries(
+              providers.bailian.models
+                .filter((m) => typeof m.quotaTokens === "number")
+                .map((m) => [m.id, m.quotaTokens as number]),
+            )
+          : undefined;
+      const models = await this.channels[id].discover(apiKey, this.abort.signal, allowlist, quotas);
       channel.catalog = { fetchedAt: nowS, models, error: null, errorAt: null };
       this.options.logger.info(`dsh-freemodel: ${id} catalogue: ${models.length} free models`);
     } catch (error) {
@@ -453,10 +515,26 @@ export class FreemodelService {
 
   /** Models a catalogue lists right now for the settings page's discovery (no probe, nothing stored). */
   async discoverFor(id: ChannelId, apiKey: string | undefined, signal?: AbortSignal): Promise<CatalogModel[]> {
+    const providers = providersOf(this.options.config);
+    if (id === "groq" && !providers.groq.freePlanConfirmed) return [];
+    if (id === "sensenova" && !providers.sensenova.tokenPlanConfirmed) return [];
+    if (id === "bailian" && (!providers.bailian.freeQuotaGuardConfirmed || providers.bailian.models.length === 0)) return [];
     const cached = this.state.channels[id].catalog?.models;
     if (cached !== undefined && cached.length > 0) return filterModels(cached, rankingOf(this.options.config));
-    if (id === "groq" && !providersOf(this.options.config).groq.freePlanConfirmed) return [];
     const key = apiKey ?? (await this.resolveKey(id));
-    return filterModels(await this.channels[id].discover(key, signal), rankingOf(this.options.config));
+    const allowlist =
+      id === "sensenova" ? providers.sensenova.models : id === "bailian" ? providers.bailian.models.map((m) => m.id) : undefined;
+    const quotas =
+      id === "bailian"
+        ? Object.fromEntries(
+            providers.bailian.models
+              .filter((m) => typeof m.quotaTokens === "number")
+              .map((m) => [m.id, m.quotaTokens as number]),
+          )
+        : undefined;
+    return filterModels(
+      await this.channels[id].discover(key, signal, allowlist, quotas),
+      rankingOf(this.options.config),
+    );
   }
 }

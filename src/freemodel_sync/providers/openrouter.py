@@ -14,7 +14,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import httpx
 
-from ..models import ModelInfo, QuotaInfo
+from ..models import Capabilities, ModelInfo, QuotaInfo
 from ..spec import classify_with, provider_spec
 from .base import ProviderError, register_provider
 from .openai_compat import (
@@ -121,6 +121,20 @@ def _supports_text(architecture: Any) -> bool:
     return "text" in inputs_part.split("+") and "text" in outputs_part.split("+")
 
 
+def _supports_image(architecture: Any) -> bool:
+    """Return ``True`` when the catalogue says the model accepts image input."""
+
+    if not isinstance(architecture, dict):
+        return False
+    inputs = architecture.get("input_modalities")
+    if isinstance(inputs, list):
+        return "image" in inputs
+    modality = architecture.get("modality")
+    if not isinstance(modality, str) or "->" not in modality:
+        return False
+    return "image" in modality.partition("->")[0].split("+")
+
+
 def _is_free_model(model: Any) -> bool:
     """Apply OpenRouter's definition of a free text model.
 
@@ -221,13 +235,20 @@ class OpenRouterProvider(OpenAICompatProvider):
             supported = raw.get("supported_parameters") or []
             if not isinstance(supported, list):
                 supported = []
+            capabilities = Capabilities(
+                tools="tools" in supported,
+                vision=_supports_image(raw.get("architecture")),
+                reasoning="reasoning" in supported,
+                source="catalog",
+            )
             models.append(
                 ModelInfo(
                     provider=self.name,
                     id=str(raw["id"]),
                     name=str(raw.get("name") or raw["id"]),
                     context_length=_context_length(raw),
-                    supports_tools="tools" in supported,
+                    supports_tools=capabilities.tools is True,
+                    capabilities=capabilities,
                     expiration_date=_parse_expiration_date(raw.get("expiration_date")),
                     raw=raw,
                 )

@@ -197,7 +197,16 @@ function refusal(error: unknown): { status: number; code: string } | null {
   const code = (error as { code?: unknown } | null)?.code;
   if (typeof code !== "string") return null;
   if (code === "model-not-found") return { status: 404, code };
-  if (code === "channel-disabled" || code === "free-plan-unconfirmed" || code === "no-key") return { status: 409, code };
+  if (
+    code === "channel-disabled" ||
+    code === "free-plan-unconfirmed" ||
+    code === "token-plan-unconfirmed" ||
+    code === "free-quota-guard-unconfirmed" ||
+    code === "models-empty" ||
+    code === "no-key"
+  ) {
+    return { status: 409, code };
+  }
   return null;
 }
 

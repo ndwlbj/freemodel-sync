@@ -28,7 +28,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
 
-from ..models import ModelInfo, TestResult
+from ..models import Capabilities, ModelInfo, TestResult
 from ..spec import classify_with, provider_spec
 from .base import ProviderError, register_provider
 from .openai_compat import OpenAICompatProvider, _as_int
@@ -129,8 +129,10 @@ class GroqProvider(OpenAICompatProvider):
                     id=model_id,
                     name=model_id,
                     context_length=context,
-                    # Groq's list does not say which models support tools.
+                    # Groq's list does not say which models support tools,
+                    # vision or reasoning, so all three stay unknown (None).
                     supports_tools=False,
+                    capabilities=Capabilities(source="unknown"),
                     raw=raw,
                 )
             )

@@ -20,7 +20,7 @@ describe("bundled spec", () => {
   });
 
   it("carries only public channels", () => {
-    // SenseNova and Bailian join in P7/P8 with their own confirmations.
+    // SenseNova (P7) and Bailian (P8) each have their own confirmation.
     expect(Object.keys(providersSpec.providers).sort()).toEqual([...CHANNEL_IDS].sort());
   });
 

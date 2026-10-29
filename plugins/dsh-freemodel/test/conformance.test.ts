@@ -10,10 +10,19 @@ import { type Classifier, classifierFor, classifyStreamError, classifyWith, defa
 import { groqRateLimitHints } from "../src/providers/groq.ts";
 import { isFreeModel, openRouterRateLimitHints } from "../src/providers/openrouter.ts";
 import type { CatalogModel, ProbeResult } from "../src/providers/types.ts";
-import { modelKey } from "../src/providers/types.ts";
+import {
+  isExhausted,
+  modelKey,
+  parseCapabilities,
+  parseQuota,
+  QUOTA_PERIOD_SECONDS,
+  remainingInWindow,
+  remainingTotal,
+} from "../src/providers/types.ts";
 import { defaultWeights, isNonChat, rank, scoreModel } from "../src/rank.ts";
 import { redact } from "../src/redact.ts";
-import { CHANNEL_IDS, providerSpec, SpecError } from "../src/spec.ts";
+import { CHANNEL_IDS, providerSpec, rankingSpec, SpecError } from "../src/spec.ts";
+import { isRecord } from "../src/util.ts";
 
 const dir = fileURLToPath(new URL("../../../spec/conformance/", import.meta.url));
 
@@ -32,7 +41,8 @@ function load<C>(area: string): CaseFile<C> {
 }
 
 const label = (c: { name?: string; id?: string }) => c.name ?? c.id ?? "?";
-const classifier = (provider: string | null): Classifier => classifierFor(provider as "openrouter" | "groq" | null);
+const classifier = (provider: string | null): Classifier =>
+  classifierFor(provider as "openrouter" | "groq" | "sensenova" | null);
 
 describe("conformance files", () => {
   it("every file has a runner here", () => {
@@ -40,7 +50,7 @@ describe("conformance files", () => {
       .filter((f) => f.endsWith(".json"))
       .map((f) => f.slice(0, -5))
       .sort();
-    expect(areas).toEqual(["classify", "free_rule", "non_chat", "rate_limit", "score", "stream_classify"]);
+    expect(areas).toEqual(["capabilities", "capacity", "classify", "free_rule", "non_chat", "quota", "rate_limit", "score", "stream_classify"]);
   });
 });
 
@@ -66,11 +76,28 @@ describe("stream_classify", () => {
   });
 });
 
+function sensenovaFree(c: { plan?: string; model?: unknown }): boolean {
+  const plan = String(c.plan ?? "").trim().toLowerCase().replace(/_/g, "-").replace(/ /g, "-");
+  if (plan !== (providerSpec("sensenova").freeRule as { value: string }).value) return false;
+  if (!isRecord(c.model)) return true;
+  return typeof c.model.pricing === "string" && c.model.pricing.trim() === "0";
+}
+
+function bailianFree(c: { guard?: string; models?: unknown; model?: unknown }): boolean {
+  const guard = String(c.guard ?? "").trim().toLowerCase();
+  if (guard !== (providerSpec("bailian").freeRule as { guardValue: string }).guardValue) return false;
+  const model = isRecord(c.model) ? c.model : {};
+  const id = typeof model.id === "string" ? model.id : null;
+  return id !== null && Array.isArray(c.models) && c.models.includes(id);
+}
+
 describe("free_rule", () => {
-  type Case = { name: string; provider: string; model: unknown; expected: boolean };
+  type Case = { name: string; provider: string; plan?: string; guard?: string; models?: unknown; model?: unknown; expected: boolean };
   it.each(load<Case>("free_rule").cases.map((c) => [label(c), c] as const))("%s", (_name, c) => {
-    expect(c.provider).toBe("openrouter");
-    expect(isFreeModel(c.model)).toBe(c.expected);
+    if (c.provider === "openrouter") expect(isFreeModel(c.model)).toBe(c.expected);
+    else if (c.provider === "sensenova") expect(sensenovaFree(c)).toBe(c.expected);
+    else if (c.provider === "bailian") expect(bailianFree(c)).toBe(c.expected);
+    else throw new Error(`no free-rule runner for ${c.provider}`);
   });
 });
 
@@ -92,7 +119,7 @@ describe("rate_limit", () => {
 
 describe("score", () => {
   type RawModel = { id: string; context_length?: number; supports_tools?: boolean; expiration_date?: string | null };
-  type RawTest = { ok: boolean; ttft_ms?: number; failure_kind?: string; error?: string; status_code?: number } | null;
+  type RawTest = { ok: boolean; ttft_ms?: number; failure_kind?: string; capacity_streak?: number; error?: string; status_code?: number } | null;
   type Case = { name: string; model: RawModel; test: RawTest; expected: { score: number; reasons: string[] } };
   const file = load<Case>("score");
   const today = file.today as string;
@@ -106,6 +133,9 @@ describe("score", () => {
     input: ["text"],
     maxTokens: null,
     expirationDate: raw.expiration_date ?? null,
+    capabilities: { tools: raw.supports_tools ?? false, vision: null, reasoning: null, source: "catalog" },
+    quota: null,
+    tier: 1,
   });
   const toTest = (model: CatalogModel, raw: RawTest): ProbeResult | null =>
     raw === null
@@ -119,6 +149,7 @@ describe("score", () => {
           statusCode: raw.status_code ?? null,
           testedAt: 0,
           failureKind: (raw.failure_kind ?? null) as ProbeResult["failureKind"],
+          ...(raw.capacity_streak === undefined ? {} : { capacityStreak: raw.capacity_streak }),
           retryAfterS: null,
           rateLimitRemaining: null,
         };
@@ -141,6 +172,102 @@ describe("score", () => {
   });
 });
 
+describe("capacity", () => {
+  type ClassifyCase = {
+    name: string;
+    kind: "classify";
+    provider: string;
+    status: number;
+    error: unknown;
+    expected: string;
+  };
+  type ScoreCase = {
+    name: string;
+    kind: "score";
+    model: { id: string; context_length?: number; supports_tools?: boolean };
+    test: { ok: boolean; failure_kind?: string; capacity_streak?: number; error?: string; status_code?: number };
+    expected: { score: number; reasons: string[] };
+  };
+  type Case = ClassifyCase | ScoreCase;
+  const file = load<Case>("capacity");
+  const threshold = (rankingSpec.capacity as { downgradeAfter: number }).downgradeAfter;
+
+  const toModel = (raw: ScoreCase["model"]): CatalogModel => ({
+    provider: "openrouter",
+    id: raw.id,
+    name: raw.id,
+    contextLength: raw.context_length ?? 0,
+    tools: raw.supports_tools ?? false,
+    input: ["text"],
+    maxTokens: null,
+    expirationDate: null,
+    capabilities: { tools: raw.supports_tools ?? false, vision: null, reasoning: null, source: "catalog" },
+    quota: null,
+    tier: 1,
+  });
+
+  it.each(file.cases.map((c) => [label(c), c] as const))("%s", (_name, c) => {
+    if (c.kind === "classify") {
+      const error = isRecord(c.error) ? c.error : {};
+      expect(classifier(c.provider)(c.status, error)).toBe(c.expected);
+      return;
+    }
+    const model = toModel(c.model);
+    const test: ProbeResult = {
+      key: modelKey(model),
+      ok: c.test.ok,
+      ttftMs: null,
+      totalMs: null,
+      error: c.test.error ?? null,
+      statusCode: c.test.status_code ?? null,
+      testedAt: 0,
+      failureKind: (c.test.failure_kind ?? null) as ProbeResult["failureKind"],
+      ...(c.test.capacity_streak === undefined ? {} : { capacityStreak: c.test.capacity_streak }),
+      retryAfterS: null,
+      rateLimitRemaining: null,
+    };
+    const [score, reasons] = scoreModel(model, test, defaultWeights(), file.today as string, threshold);
+    expect(score).toBeCloseTo(c.expected.score, 6);
+    expect(reasons).toEqual(c.expected.reasons);
+  });
+});
+
+describe("capabilities", () => {
+  type Case = { name: string; input: unknown; supportsTools?: unknown; expected: ReturnType<typeof parseCapabilities> };
+  it.each(load<Case>("capabilities").cases.map((c) => [label(c), c] as const))("%s", (_name, c) => {
+    expect(parseCapabilities(c.input, c.supportsTools)).toEqual(c.expected);
+  });
+});
+
+describe("quota", () => {
+  type Case = {
+    name: string;
+    input: unknown;
+    expected: {
+      unit: string;
+      period: string;
+      window_seconds: number | null;
+      remaining_window: number | null;
+      remaining_today: number | null;
+      remaining_total: number | null;
+      is_exhausted: boolean;
+    };
+  };
+  it.each(load<Case>("quota").cases.map((c) => [label(c), c] as const))("%s", (_name, c) => {
+    const quota = parseQuota(c.input);
+    expect({
+      unit: quota?.unit ?? "unknown",
+      period: quota?.period ?? "unknown",
+      window_seconds: quota === null ? null : QUOTA_PERIOD_SECONDS[quota.period],
+      remaining_window: quota === null ? null : remainingInWindow(quota, quota.probesSinceRead),
+      remaining_today:
+        quota === null || quota.period !== "day" ? null : remainingInWindow(quota, quota.probesSinceRead),
+      remaining_total: quota === null ? null : remainingTotal(quota),
+      is_exhausted: quota === null ? false : isExhausted(quota, quota.probesSinceRead),
+    }).toEqual(c.expected);
+  });
+});
+
 describe("non_chat", () => {
   type Case = { id: string; name: string; expected: boolean };
   it.each(load<Case>("non_chat").cases.map((c) => [label(c), c] as const))("%s", (_name, c) => {
@@ -152,6 +279,8 @@ describe("key patterns", () => {
   const samples: Record<string, string> = {
     "sk-or-": `sk-or-v1-${"0123456789abcdef".repeat(4)}`,
     gsk_: `gsk_${"Ab1".repeat(18)}`,
+    "sk-": `sk-${"A1b2C3d4".repeat(4)}`,
+    "sk-ws-": `sk-ws-${"A1b2C3d4".repeat(14)}`,
   };
   it("every spec key pattern matches its sample and is redacted", () => {
     for (const id of CHANNEL_IDS) {

@@ -3,14 +3,14 @@
   "$id": "https://github.com/ndwlbj/freemodel-sync/spec/ranking.schema.json",
   "title": "freemodel-sync ranking defaults",
   "type": "object",
-  "required": ["spec_version", "weights", "score", "nonChatPatterns"],
+  "required": ["spec_version", "weights", "score", "capacity", "nonChatPatterns"],
   "properties": {
     "$schema": { "type": "string" },
     "spec_version": { "const": 1 },
     "description": { "type": "string" },
     "weights": {
       "type": "object",
-      "required": ["availability", "latency", "context", "tools", "expiry_penalty", "untested_penalty"],
+      "required": ["availability", "latency", "context", "tools", "expiry_penalty", "untested_penalty", "capacity_penalty"],
       "additionalProperties": { "type": "number" }
     },
     "score": {
@@ -21,6 +21,14 @@
         "latencyScaleMs": { "type": "number", "exclusiveMinimum": 0 },
         "contextReference": { "type": "integer", "minimum": 2 },
         "expiryWindowDays": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "capacity": {
+      "type": "object",
+      "required": ["downgradeAfter"],
+      "properties": {
+        "downgradeAfter": { "type": "integer", "minimum": 1 }
       },
       "additionalProperties": false
     },

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createFreemodelCommand, formatStatus, USAGE } from "../src/command.ts";
 import { ManualTestError, type ManualTestOutcome } from "../src/service.ts";
+import type { ChannelId } from "../src/spec.ts";
 import type { StatusReport } from "../src/status.ts";
 import { model } from "./helpers/fake-fetch.ts";
 
@@ -23,7 +24,16 @@ function report(): StatusReport {
           catalogFetchedAt: 1_700_000_000,
           catalogError: null,
           candidates: 2,
-          listed: [{ id: "vendor/model:free", ttftMs: 123.4, testedAt: 1_700_000_100 }],
+          listed: [
+            {
+              id: "vendor/model:free",
+              ttftMs: 123.4,
+              testedAt: 1_700_000_100,
+              capabilities: { tools: true, vision: false, reasoning: null, source: "catalog" },
+              quota: null,
+              tier: 1,
+            },
+          ],
           hidden: [{ id: "vendor/other:free", reason: "failed: HTTP 400" }],
           probesToday: 1,
           lastRound: { at: 1_700_000_100, probes: 1, stopReason: null },
@@ -55,7 +65,7 @@ function deps() {
   const status = vi.fn(async () => report());
   const refresh = vi.fn(async () => undefined);
   const testModel = vi.fn(
-    async (channel: "openrouter" | "groq", id: string): Promise<ManualTestOutcome> => ({
+    async (channel: ChannelId, id: string): Promise<ManualTestOutcome> => ({
       channel,
       model: model(id, { provider: channel }),
       result: {
@@ -151,7 +161,7 @@ describe("/freemodel command", () => {
     expect((await command.handler({ rawInput: "test openrouter model extra" })).kind).toBe("error");
     expect(await command.handler({ rawInput: "test deepseek model" })).toEqual({
       kind: "error",
-      text: "unknown channel deepseek; use one of: openrouter, groq",
+      text: "unknown channel deepseek; use one of: openrouter, groq, sensenova, bailian",
     });
     expect(d.testModel).not.toHaveBeenCalled();
   });

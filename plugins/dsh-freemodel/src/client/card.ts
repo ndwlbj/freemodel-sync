@@ -5,6 +5,7 @@
  * per-model manual probe.
  */
 import { API_PREFIX } from "../api-paths.ts";
+import { capabilityBadges, quotaBadge } from "../badges.ts";
 import { type Translator } from "./i18n.ts";
 import { getReact, type ReactElementLike } from "./react-runtime.ts";
 import type { ChannelId, ChannelReport, ManualTestView, StatusReport } from "./types.ts";
@@ -60,7 +61,10 @@ function ms(value: number | null | undefined): string {
 }
 
 function channelName(t: Translator, id: ChannelId): string {
-  return id === "openrouter" ? t("channelOpenRouter") : t("channelGroq");
+  if (id === "openrouter") return t("channelOpenRouter");
+  if (id === "groq") return t("channelGroq");
+  if (id === "sensenova") return t("channelSenseNova");
+  return t("channelBailian");
 }
 
 function modelKey(channel: ChannelId, model: string): string {
@@ -298,6 +302,8 @@ function modelsTab(props: CardProps): ReactElementLike {
     const listed = model.listed.map((entry) =>
       modelRow(props, channel.id, entry.id, [
         badge(t("testOk"), "ok"),
+        ...capabilityBadges(entry.capabilities ?? null).map((text) => badge(text, "muted")),
+        badge(quotaBadge(entry.quota ?? null), entry.quota == null ? "muted" : "ok"),
         h("span", { className: `${CLASS}-muted` }, t("ttft", { ms: ms(entry.ttftMs) })),
         h("span", { className: `${CLASS}-muted` }, t("testedAt", { when: when(entry.testedAt) })),
       ]),

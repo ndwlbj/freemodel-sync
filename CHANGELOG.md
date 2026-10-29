@@ -8,6 +8,60 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Alibaba Cloud Bailian + `capacity` failures (P8).** New opt-in provider `bailian`
+  (`https://dashscope.aliyuncs.com/compatible-mode/v1`, Beijing only, `DASHSCOPE_API_KEY`,
+  tier 1, `api_key`). Nothing is listed or probed until **both**
+  `providers.bailian.free_quota_guard: confirmed` (the console's "stop when the free quota is
+  used up" switch) and a non-empty `providers.bailian.models` allowlist are set. Each model's
+  one-off allowance is entered by hand (`quota: {unit: tokens, period: total, limit: ...}`) and
+  becomes `Quota(period="total", source="manual", scope="model")`, labelled "手动，未核实" and
+  never deducted from the local probe budget. The allowlist is intersected with `GET /models`
+  when readable; ids containing `distill` are marked `tools=false`. A 403
+  `AllocationQuota.FreeTierOnly` is a new `quota` failure and stops that channel until the next
+  UTC day; other 403s are model failures, 401 is account, queue/no-capacity codes
+  (`ModelUnavailable`, `ModelBusy`, ...) are the new `capacity` kind, and a bare 429/408/5xx is
+  transient. The dsh plugin gets the matching `freeQuotaGuardConfirmed` switch, `models[]:
+  {id, quotaTokens?}`, the `freemodel-bailian` route and `ranking.capacityDowngradeAfter`, all
+  defaulting to off/3. Bailian is **not** added to the public daily snapshot.
+- **`capacity` probe failures.** `TestResult.failureKind` / the TypeScript `FailureKind` gain
+  `capacity` (queue / no capacity) and `quota`. `ResultCache` and the plugin state give capacity
+  results the same short TTL as transient failures but count consecutive capacity results
+  separately. `spec/ranking.json` gains `weights.capacity_penalty` (50) and
+  `capacity.downgradeAfter` (3): a capacity result scores below untested models but above hard
+  failures, and after N consecutive results the model is scored as failed
+  (`ranking.capacity_downgrade_after` configures N). `spec/conformance/capacity.json` and both
+  runners cover classification, the penalty and the downgrade.
+
+- **SenseNova Token Plan (P7).** New opt-in provider `sensenova`
+  (`https://token.sensenova.cn/v1`, `SENSENOVA_API_KEY`, tier 1, `api_key`). Because the
+  public beta has no quota API and prices can change, nothing is listed or probed until
+  `providers.sensenova.plan: token-plan` confirms the plan (same pattern as Groq's
+  `plan: free`). Models come from `providers.sensenova.models` (default
+  `deepseek-v4-flash` / `sensenova-6.8-flash-lite`) intersected with `GET /models` when
+  available; a catalogue `pricing` other than the string `"0"` removes the model with a
+  warning. Quota is reported as `period="beta", unit="unknown", source="none"`, with an
+  optional `free_until` copied to `expires_at`. 401/402 are account failures, 403 (a model
+  outside the plan) is a model failure, and 408/429/5xx are transient. The dsh plugin gets
+  the matching `tokenPlanConfirmed` switch and `freemodel-sensenova` route, both default
+  off. SenseNova is **not** added to the public daily snapshot. The `Provider` base class
+  now carries `auth_kind`, `tier` and an optional `capabilities_for(model)` hook (unknown by
+  default) for P8, and `quota()` may return `QuotaInfo`, `Quota` or `None`.
+
+- **Capabilities and unified quota (P6).** `spec/providers.json` now defines the shared
+  `capabilities` flags (`tools`, `vision`, `reasoning`; `null` means unknown, never false) and a
+  generic `quota` vocabulary with `rolling_5h`, `week`, `day`, `total`, `beta` and `unknown`
+  periods, units, sources and scopes. Both implementations read these rules, and new
+  `spec/conformance/capabilities.json` / `quota.json` cases pin the unknown paths. Python's
+  `models.py` gains `Capabilities` and `Quota` (five-hour rolling and weekly windows, one-off
+  totals, public beta, conservative `remaining_*` values, `QuotaInfo.to_quota()` for old
+  providers); `ModelInfo` carries `capabilities`, an optional model-level `quota` and `tier`, and
+  `supports_tools` is derived from `capabilities.tools`. Old model/cache documents without the new
+  fields still load (unknown/absent). `rank --json` is now `schema_version: 2`: it adds
+  `schema_version`, capability/quota objects in each model, and a normalised quota per provider
+  while keeping the legacy `daily_free_*` keys for v1 readers. The dsh plugin mirrors the types and
+  parsing, migrates old state files as unknown, and shows capability/quota badges (including
+  `能力未知` / `额度未知`) in the picker labels and descriptions.
+
 - **dsh plugin settings card and local API (P5).** `dsh-freemodel` now ships a browser half
   (`lib/client.js`, `./client`, `dsh.client`) that registers a read-only card on the plugin's page
   in four tabs — overview, channels, models and diagnostics — and a `/freemodel` command plus a

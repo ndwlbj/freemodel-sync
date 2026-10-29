@@ -9,6 +9,7 @@ import { resolveRetryPolicy } from "@deepseek-ai/dsh-llm";
 import { PiAiAdapter } from "@deepseek-ai/dsh-llm-pi-ai";
 import { createProvider } from "@earendil-works/pi-ai";
 import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
+import { joinBadges, modelBadges } from "./badges.ts";
 import { CHANNEL_LABELS, routeOf } from "./channels.ts";
 import type { RankedModel } from "./rank.ts";
 import type { FreemodelService } from "./service.ts";
@@ -67,24 +68,31 @@ function maxTokensField(id: ChannelId): "max_tokens" | "max_completion_tokens" {
     : "max_tokens";
 }
 
-/** Picker label: the catalogue name with its own "(free)" replaced by the badge. */
-export function pickerName(name: string): string {
-  return `${name.replace(/\s*\(free\)\s*$/i, "")}${SEPARATOR}${FREE_BADGE}`;
+/**
+ * Picker label: the catalogue name with its own "(free)" replaced by the
+ * free badge. When a ranked model is given, capability and quota badges follow
+ * (including explicit unknown badges when the catalogue reports neither).
+ */
+export function pickerName(name: string, ranked?: RankedModel): string {
+  const base = `${name.replace(/\s*\(free\)\s*$/i, "")}${SEPARATOR}${FREE_BADGE}`;
+  if (ranked === undefined) return base;
+  return `${base}${SEPARATOR}${joinBadges(modelBadges(ranked.model))}`;
 }
 
-/** One pi-ai model descriptor for a listed model. Text only until P6 adds capabilities. */
+/** One pi-ai model descriptor for a listed model, with capability and quota badges. */
 export function toPiModel(id: ChannelId, ranked: RankedModel) {
   const model = ranked.model;
   const contextWindow = model.contextLength > 0 ? model.contextLength : FALLBACK_CONTEXT;
   const maxTokens = Math.min(model.maxTokens ?? DEFAULT_MAX_TOKENS, contextWindow);
+  const input = model.input.includes("image") ? (["text", "image"] as const) : (["text"] as const);
   return {
     id: model.id,
-    name: pickerName(model.name),
+    name: pickerName(model.name, ranked),
     api: "openai-completions" as const,
     provider: routeOf(id),
     baseUrl: providerSpec(id).baseURL,
-    input: ["text" as const],
-    reasoning: false,
+    input: [...input],
+    reasoning: model.capabilities.reasoning === true,
     cost: NO_COST,
     contextWindow,
     maxTokens,
@@ -95,13 +103,13 @@ export function toPiModel(id: ChannelId, ranked: RankedModel) {
 
 type Profiles = Map<string, ConstructorParameters<typeof PiAiAdapter>[0] extends { profiles: () => ReadonlyMap<string, infer P> } ? P : never>;
 
-/** Short description for selectors: the probe result behind the listing. */
+/** Short description for selectors: the probe result plus capability/quota badges. */
 export function describeListed(ranked: RankedModel): string {
   const ttft = ranked.test?.ttftMs;
   const parts = [`${CHANNEL_LABELS[ranked.model.provider]} free`];
   if (typeof ttft === "number") parts.push(`TTFT ${Math.round(ttft)} ms`);
-  if (ranked.model.tools === true) parts.push("tools");
-  return parts.join(" · ");
+  parts.push(...modelBadges(ranked.model));
+  return parts.join(SEPARATOR);
 }
 
 export class FreemodelAdapter extends PiAiAdapter {

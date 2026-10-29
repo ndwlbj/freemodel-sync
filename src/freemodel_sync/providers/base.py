@@ -9,9 +9,9 @@ themselves with :func:`register_provider`.
 from __future__ import annotations
 
 import abc
-from typing import Callable, Dict, List, Optional, Type
+from typing import Callable, Dict, List, Optional, Type, Union
 
-from ..models import ModelInfo, QuotaInfo, TestResult
+from ..models import Capabilities, ModelInfo, Quota, QuotaInfo, TestResult
 
 
 class ProviderError(RuntimeError):
@@ -25,6 +25,10 @@ class Provider(abc.ABC):
     base_url: str = ""
     #: environment variable that holds the user's API key
     api_key_env: str = ""
+    #: how the provider authenticates (``api_key``, ``none``, ...)
+    auth_kind: str = "api_key"
+    #: 1 = official public API, 2 = manually registered platform
+    tier: int = 1
 
     def __init__(self, api_key: Optional[str] = None, **options: object) -> None:
         self.api_key = api_key
@@ -38,8 +42,23 @@ class Provider(abc.ABC):
     def test(self, model: ModelInfo, timeout: float = 30.0) -> TestResult:
         """Send one tiny streaming request and measure availability / time-to-first-token."""
 
-    def quota(self) -> Optional[QuotaInfo]:
-        """Return quota information, or ``None`` if the provider cannot report it."""
+    def capabilities_for(self, model: ModelInfo) -> Capabilities:
+        """Return what a model can do, or unknown when the provider cannot tell.
+
+        Providers whose catalogue carries capability fields can override this
+        (SenseNova and Bailian do); the default is deliberately unknown rather
+        than a false negative.
+        """
+
+        return Capabilities(source="unknown")
+
+    def quota(self) -> Optional[Union[QuotaInfo, Quota]]:
+        """Return quota information, or ``None`` if the provider cannot report it.
+
+        Providers may return the legacy :class:`QuotaInfo` (daily request
+        counters) or the generic :class:`Quota` (rolling/weekly/total/beta
+        windows). The CLI normalises either form to :class:`Quota`.
+        """
         return None
 
     def close(self) -> None:  # noqa: B027 - optional hook, a no-op by default

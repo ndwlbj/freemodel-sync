@@ -17,6 +17,18 @@ describe("Config", () => {
     expect(providersOf(Config({}))).toEqual({
       openrouter: { enabled: true, apiKeyEnv: providerSpec("openrouter").apiKeyEnv },
       groq: { enabled: false, apiKeyEnv: providerSpec("groq").apiKeyEnv, freePlanConfirmed: false },
+      sensenova: {
+        enabled: false,
+        apiKeyEnv: providerSpec("sensenova").apiKeyEnv,
+        tokenPlanConfirmed: false,
+        models: [],
+      },
+      bailian: {
+        enabled: false,
+        apiKeyEnv: providerSpec("bailian").apiKeyEnv,
+        freeQuotaGuardConfirmed: false,
+        models: [],
+      },
     });
   });
 
@@ -32,7 +44,7 @@ describe("Config", () => {
   });
 
   it("marks every apiKeyEnv as a credential reference", () => {
-    for (const channel of ["openrouter", "groq"]) {
+    for (const channel of ["openrouter", "groq", "sensenova", "bailian"]) {
       expect(field("providers", channel, "apiKeyEnv").meta.role).toBe("credential-ref");
     }
   });
@@ -68,7 +80,7 @@ describe("Config", () => {
       }
     };
     walk(schema);
-    expect(names.filter((n) => /token|secret|password|cookie|^key$|^apiKey$/i.test(n))).toEqual([]);
+    expect(names.filter((n) => /^(token|secret|password|cookie|key|apiKey)$/i.test(n))).toEqual([]);
   });
 });
 
@@ -77,8 +89,56 @@ describe("channelStates", () => {
     expect(channelStates(Config({}))).toEqual([
       { id: "openrouter", route: "freemodel-openrouter", enabled: true, apiKeyEnv: "OPENROUTER_API_KEY" },
       { id: "groq", route: "freemodel-groq", enabled: false, apiKeyEnv: "GROQ_API_KEY" },
+      {
+        id: "sensenova",
+        route: "freemodel-sensenova",
+        enabled: false,
+        apiKeyEnv: "SENSENOVA_API_KEY",
+      },
+      {
+        id: "bailian",
+        route: "freemodel-bailian",
+        enabled: false,
+        apiKeyEnv: "DASHSCOPE_API_KEY",
+      },
     ]);
     expect(routeOf("groq")).toBe("freemodel-groq");
+  });
+
+  it("flags an enabled SenseNova channel without the token-plan confirmation", () => {
+    const sensenova = channelStates(
+      Config({ providers: { sensenova: { enabled: true, tokenPlanConfirmed: false } } }),
+    ).find((entry) => entry.id === "sensenova");
+    expect(sensenova?.blocked).toBe("tokenPlanConfirmed is off");
+    const confirmed = channelStates(
+      Config({ providers: { sensenova: { enabled: true, tokenPlanConfirmed: true } } }),
+    ).find((entry) => entry.id === "sensenova");
+    expect(confirmed?.blocked).toBeUndefined();
+    expect(routeOf("sensenova")).toBe("freemodel-sensenova");
+  });
+
+  it("flags an enabled Bailian channel without the guard or allowlist", () => {
+    const guardOff = channelStates(Config({ providers: { bailian: { enabled: true } } })).find(
+      (entry) => entry.id === "bailian",
+    );
+    expect(guardOff?.blocked).toBe("freeQuotaGuardConfirmed is off");
+    const noModels = channelStates(
+      Config({ providers: { bailian: { enabled: true, freeQuotaGuardConfirmed: true } } }),
+    ).find((entry) => entry.id === "bailian");
+    expect(noModels?.blocked).toBe("models is empty");
+    const ready = channelStates(
+      Config({
+        providers: {
+          bailian: {
+            enabled: true,
+            freeQuotaGuardConfirmed: true,
+            models: [{ id: "deepseek-v3.2", quotaTokens: 1000000 }],
+          },
+        },
+      }),
+    ).find((entry) => entry.id === "bailian");
+    expect(ready?.blocked).toBeUndefined();
+    expect(routeOf("bailian")).toBe("freemodel-bailian");
   });
 
   it("flags an enabled Groq channel without the free-plan confirmation", () => {
@@ -94,7 +154,7 @@ describe("ranking and refresh settings", () => {
     const config = Config({});
     expect(rankingOf(config)).toEqual(defaultRanking());
     expect(refreshOf(config)).toEqual(defaultRefresh());
-    expect(defaultRanking()).toEqual({ requireTools: true, minContext: 32000 });
+    expect(defaultRanking()).toEqual({ requireTools: true, minContext: 32000, capacityDowngradeAfter: 3 });
     expect(defaultRefresh()).toEqual({
       onStartup: true,
       catalogHours: 6,

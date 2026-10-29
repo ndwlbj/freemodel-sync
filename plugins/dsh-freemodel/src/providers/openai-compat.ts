@@ -81,8 +81,16 @@ export abstract class OpenAICompatChannel {
     return { Authorization: `Bearer ${apiKey}` };
   }
 
-  /** The channel's free models; throws `ChannelError` when the catalogue cannot be read. */
-  abstract discover(apiKey: string | undefined, signal?: AbortSignal): Promise<CatalogModel[]>;
+  /**
+   * The channel's free models; throws `ChannelError` when the catalogue cannot be read.
+   * `allowlist` is only used by channels with an optional configured model list.
+   */
+  abstract discover(
+    apiKey: string | undefined,
+    signal?: AbortSignal,
+    allowlist?: readonly string[],
+    modelQuotas?: Readonly<Record<string, number>>,
+  ): Promise<CatalogModel[]>;
 
   /** Free-request quota for the key, when the channel reports one. */
   async quota(_apiKey: string, _signal?: AbortSignal): Promise<QuotaInfo | null> {

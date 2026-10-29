@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, Optional, Union
 
@@ -107,18 +107,19 @@ class ResultCache:
     def get(self, key: str, max_age_s: float, transient_max_age_s: Optional[float] = None) -> Optional[TestResult]:
         """Return a fresh cached result for ``key`` (marked ``cached=True``).
 
-        Transient failures (upstream 429, 5xx, timeouts) expire after
-        ``transient_max_age_s`` when given, so a briefly saturated model is
-        retried soon instead of being shunned for the full TTL.
+        Transient and capacity failures (upstream 429, 5xx, timeouts, queue /
+        no capacity) expire after ``transient_max_age_s`` when given, so a
+        briefly saturated model is retried soon instead of being shunned for
+        the full TTL. The two kinds are counted separately by :meth:`put`.
         """
 
         result = self._results.get(key)
         if result is None:
             return None
-        if result.is_account_error:
-            return None  # never trust account-level failures (old caches)
+        if result.is_account_error or result.is_quota_error:
+            return None  # never trust account/quota-level failures (old caches)
         ttl = max_age_s
-        if not result.ok and result.failure_kind == "transient" and transient_max_age_s is not None:
+        if not result.ok and result.failure_kind in ("transient", "capacity") and transient_max_age_s is not None:
             ttl = min(ttl, transient_max_age_s)
         age = time.time() - result.tested_at
         if age > ttl:
@@ -131,11 +132,23 @@ class ResultCache:
     def put(self, result: TestResult) -> None:
         """Store a result (does not write the file; call :meth:`save`).
 
-        Account-level failures are ignored: they are not about the model.
+        Account/quota-level failures are ignored: they are not about the
+        model. Consecutive ``capacity`` results are counted here, separately
+        from transient failures; any other outcome resets the streak.
         """
 
-        if result.is_account_error:
+        if result.is_account_error or result.is_quota_error:
             return
+        if not result.ok and result.failure_kind == "capacity":
+            previous = self._results.get(result.key)
+            previous_streak = (
+                max(0, int(previous.capacity_streak or 0))
+                if previous is not None and not previous.ok and previous.failure_kind == "capacity"
+                else 0
+            )
+            result.capacity_streak = previous_streak + 1
+        else:
+            result.capacity_streak = 0
         self._results[result.key] = result
 
     # -- daily request counter ------------------------------------------
@@ -177,13 +190,24 @@ class TestRun(dict):
         self.probes = 0
         self.stop_reason: Optional[str] = None
         self.account_error: Optional[TestResult] = None
+        #: The quota failure that stopped the round for the rest of the UTC day.
+        self.quota_error: Optional[TestResult] = None
         #: True when probing was skipped because an earlier rate limit has not reset
         self.rate_limited = False
 
     @property
     def account_problem(self) -> bool:
-        """True when the round was cut short by the account, not by the models."""
-        return self.account_error is not None or self.rate_limited
+        """True when the round was cut short by the account/quota, not by the models."""
+        return self.account_error is not None or self.quota_error is not None or self.rate_limited
+
+
+def next_utc_midnight(now: Optional[float] = None) -> float:
+    """Unix seconds of the next UTC midnight (when a daily quota resets)."""
+
+    current = time.time() if now is None else now
+    dt = datetime.fromtimestamp(current, timezone.utc)
+    end = dt.replace(hour=0, minute=0, second=0, microsecond=0)
+    return (end + timedelta(days=1)).timestamp()
 
 
 def run_tests(
@@ -260,6 +284,15 @@ def run_tests(
         # Every probe that was actually sent counts, whatever its outcome.
         run.probes += 1
         cache.add_requests(1)
+
+        if result.is_quota_error:
+            run.quota_error = result
+            run.stop_reason = (
+                f"quota exhausted ({result.status_code or 'n/a'}): {result.error}; "
+                "this channel is stopped until the next UTC day"
+            )
+            cache.blocked_until = max(cache.blocked_until, next_utc_midnight())
+            continue  # not cached as a model result; blocked_until stops later runs
 
         if result.is_account_error:
             run.account_error = result

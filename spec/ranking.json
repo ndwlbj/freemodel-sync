@@ -8,7 +8,11 @@
     "context": 20.0,
     "tools": 15.0,
     "expiry_penalty": 50.0,
-    "untested_penalty": 40.0
+    "untested_penalty": 40.0,
+    "capacity_penalty": 50.0
+  },
+  "capacity": {
+    "downgradeAfter": 3
   },
   "score": {
     "failedScore": -1000.0,

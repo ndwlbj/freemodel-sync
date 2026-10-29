@@ -6,7 +6,7 @@
  * `spec/state.schema.json`. They contain no key, only key presence facts.
  */
 
-export const CHANNEL_IDS = ["openrouter", "groq"] as const;
+export const CHANNEL_IDS = ["openrouter", "groq", "sensenova", "bailian"] as const;
 export type ChannelId = (typeof CHANNEL_IDS)[number];
 
 export interface KeyPresence {
@@ -14,10 +14,32 @@ export interface KeyPresence {
   source?: string;
 }
 
+export interface ListedCapabilities {
+  tools: boolean | null;
+  vision: boolean | null;
+  reasoning: boolean | null;
+  source: string;
+}
+
+export interface ListedQuota {
+  unit: string;
+  period: string;
+  limit: number | null;
+  used: number | null;
+  remaining: number | null;
+  resetsAt: string | null;
+  expiresAt: string | null;
+  source: string;
+  scope: string;
+}
+
 export interface ListedModel {
   id: string;
   ttftMs: number | null;
   testedAt: number;
+  capabilities?: ListedCapabilities;
+  quota?: ListedQuota | null;
+  tier?: number;
 }
 
 export interface HiddenModel {

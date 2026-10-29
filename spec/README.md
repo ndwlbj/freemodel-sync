@@ -7,11 +7,31 @@ once, as JSON. Code is written twice; rules are written once.
 
 | File | Content |
 |---|---|
-| `providers.json` | per provider: base URL, models path, key variable name, how "free" is decided, catalogue fields, probe request, **error classification** (`errorMap`), rate-limit headers, key formats, sources with the date they were checked |
+| `providers.json` | per provider: base URL, models path, key variable name, how "free" is decided, catalogue fields, **capabilities** and the generic **quota** vocabulary, probe request, **error classification** (`errorMap`), rate-limit headers, key formats, sources with the date they were checked |
 | `ranking.json` | default ranking weights, score constants, non-chat model globs |
 | `*.schema.json` | JSON Schema (2020-12) of the files above and of the conformance files |
 | `state.schema.json` | format of the dsh plugin's state file `$DSH_HOME/freemodel/state.json` (catalogue cache, probe results, daily counters; never a key); `state.example.json` is a valid sample both test suites read |
-| `conformance/*.json` | golden cases: input -> expected output, for classification, stream errors, the free rule, rate-limit headers, scores and the non-chat filter |
+| `conformance/*.json` | golden cases: input -> expected output, for classification, stream errors, the free rule, rate-limit headers, scores, `capacity`, the non-chat filter, capability parsing and quota normalisation |
+
+## Capabilities and quota
+
+`providers.json` has two shared vocabularies:
+
+- `capabilities.fields` (`tools`, `vision`, `reasoning`) and
+  `capabilities.sources` (`catalog`, `config`, `probe`, `manual`, `unknown`).
+  A missing or unrecognised flag is `null` (unknown), never `false`.
+  Per-provider `capabilities` entries say which catalogue field supplies each
+  flag, or `null` when the catalogue does not say.
+- `quota.units` (`requests`, `tokens`, `credits`, `unknown`),
+  `quota.periods` (`rolling_5h`, `week`, `day`, `total`, `beta`, `unknown`),
+  fixed `periodSeconds` for the timed windows, and `quota.sources` /
+  `quota.scopes`. Numbers are optional: a missing value stays unknown, and a
+  computed remaining value is conservative (probes sent after the snapshot are
+  subtracted for provider data, not for manual values).
+
+The Python `Quota`/`Capabilities` classes and the plugin's `parseQuota` /
+`parseCapabilities` both read these forms, including old documents without the
+new fields.
 
 ## Error rules (`errorMap`)
 
@@ -26,6 +46,14 @@ read dotted paths in the upstream error object:
 
 No match gives `default`. Errors inside the SSE stream follow `streamError`
 (the same algorithm for every provider).
+
+Kinds are `model`, `transient`, `account`, `capacity` and `quota`.
+`capacity` means queued / no capacity: it uses the short transient TTL but has
+its own consecutive counter (`capacity_streak` / `capacityStreak`), gets the
+`weights.capacity_penalty` score, and is treated as failed after
+`capacity.downgradeAfter` in a row. `quota` means the free allowance is gone
+for the day (Bailian's `AllocationQuota.FreeTierOnly`); the channel stops until
+the next UTC day and the result is not stored as a model failure.
 
 ## Changing a rule
 

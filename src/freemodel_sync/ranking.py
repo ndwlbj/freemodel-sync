@@ -24,6 +24,8 @@ _FAILED_SCORE = float(_SCORE["failedScore"])
 _LATENCY_SCALE_MS = float(_SCORE["latencyScaleMs"])
 _LOG2_MILLION = math.log2(_SCORE["contextReference"])
 _EXPIRY_WINDOW_DAYS = int(_SCORE["expiryWindowDays"])
+#: consecutive capacity failures after which a model is scored as failed
+_CAPACITY_DOWNGRADE_AFTER = max(1, int(_SPEC["capacity"]["downgradeAfter"]))
 
 
 @dataclass
@@ -36,6 +38,7 @@ class RankWeights:
     tools: float = float(_W["tools"])
     expiry_penalty: float = float(_W["expiry_penalty"])
     untested_penalty: float = float(_W["untested_penalty"])
+    capacity_penalty: float = float(_W["capacity_penalty"])
 
 
 #: id/name globs (case-insensitive) of free models that are not chat models:
@@ -107,12 +110,32 @@ def score_model(
     test: Optional[TestResult],
     weights: RankWeights,
     today: Optional[date] = None,
+    *,
+    capacity_downgrade_after: Optional[int] = None,
 ) -> Tuple[float, List[str]]:
-    """Compute a model's score and a short list of human-readable reasons."""
+    """Compute a model's score and a short list of human-readable reasons.
+
+    ``capacity`` failures get ``-capacity_penalty`` (below untested models but
+    above hard failures) until they occur ``capacity_downgrade_after`` times
+    in a row (default from ``spec/ranking.json``), after which the model gets
+    the failed score and is no longer selectable.
+    """
 
     reasons: List[str] = []
+    downgrade_after = max(
+        1, int(capacity_downgrade_after if capacity_downgrade_after is not None else _CAPACITY_DOWNGRADE_AFTER)
+    )
 
     if test is not None and not test.ok:
+        if test.failure_kind == "capacity":
+            streak = max(1, int(test.capacity_streak or 0))
+            if streak >= downgrade_after:
+                return _FAILED_SCORE, [
+                    f"no capacity {streak} times in a row: {test.error or 'unknown error'} (downgraded)"
+                ]
+            return -weights.capacity_penalty, [
+                f"no capacity: {test.error or 'unknown error'} ({streak}/{downgrade_after} in a row, retried later)"
+            ]
         if test.failure_kind == "transient":
             code = f" {test.status_code}" if test.status_code else ""
             return _FAILED_SCORE, [f"temporarily unavailable{code}: {test.error or 'unknown error'} (retried later)"]
@@ -146,6 +169,8 @@ def rank(
     results: dict,
     weights: Optional[RankWeights] = None,
     today: Optional[date] = None,
+    *,
+    capacity_downgrade_after: Optional[int] = None,
 ) -> List[RankedModel]:
     """Score and sort models by descending score, breaking ties by model id."""
 
@@ -153,7 +178,13 @@ def rank(
     ranked: List[RankedModel] = []
     for model in models:
         test = results.get(model.key)
-        score, reasons = score_model(model, test, weights, today=today)
+        score, reasons = score_model(
+            model,
+            test,
+            weights,
+            today=today,
+            capacity_downgrade_after=capacity_downgrade_after,
+        )
         ranked.append(RankedModel(model=model, score=score, test=test, reasons=reasons))
     ranked.sort(key=lambda item: (-item.score, item.model.id))
     return ranked

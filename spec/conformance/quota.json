@@ -1,0 +1,145 @@
+{
+  "spec_version": 1,
+  "area": "quota",
+  "description": "Generic quota parsing and conservative remaining-count rules. A missing or unrecognised value is unknown (null), never zero.",
+  "cases": [
+    {
+      "name": "five-hour rolling window",
+      "input": {
+        "unit": "tokens",
+        "period": "rolling_5h",
+        "limit": 120000,
+        "remaining": 120000,
+        "source": "api"
+      },
+      "expected": {
+        "unit": "tokens",
+        "period": "rolling_5h",
+        "window_seconds": 18000,
+        "remaining_window": 120000,
+        "remaining_today": null,
+        "remaining_total": null,
+        "is_exhausted": false
+      }
+    },
+    {
+      "name": "weekly alias is the week window",
+      "input": { "unit": "tokens", "period": "weekly", "limit": 1200000, "remaining": 900000, "source": "api" },
+      "expected": {
+        "unit": "tokens",
+        "period": "week",
+        "window_seconds": 604800,
+        "remaining_window": 900000,
+        "remaining_today": null,
+        "remaining_total": null,
+        "is_exhausted": false
+      }
+    },
+    {
+      "name": "daily remaining subtracts probes since the read",
+      "input": {
+        "unit": "requests",
+        "period": "day",
+        "limit": 50,
+        "used": 5,
+        "remaining": 10,
+        "source": "api",
+        "probesSinceRead": 3
+      },
+      "expected": {
+        "unit": "requests",
+        "period": "day",
+        "window_seconds": 86400,
+        "remaining_window": 7,
+        "remaining_today": 7,
+        "remaining_total": null,
+        "is_exhausted": false
+      }
+    },
+    {
+      "name": "manual daily value is not reduced by local probes",
+      "input": {
+        "unit": "tokens",
+        "period": "day",
+        "limit": 100,
+        "remaining": 100,
+        "source": "manual",
+        "probesSinceRead": 5
+      },
+      "expected": {
+        "unit": "tokens",
+        "period": "day",
+        "window_seconds": 86400,
+        "remaining_window": 100,
+        "remaining_today": 100,
+        "remaining_total": null,
+        "is_exhausted": false
+      }
+    },
+    {
+      "name": "one-off total allowance",
+      "input": { "unit": "tokens", "period": "total", "limit": 1000000, "used": 250000, "source": "manual" },
+      "expected": {
+        "unit": "tokens",
+        "period": "total",
+        "window_seconds": null,
+        "remaining_window": null,
+        "remaining_today": null,
+        "remaining_total": 750000,
+        "is_exhausted": false
+      }
+    },
+    {
+      "name": "public beta has no number",
+      "input": { "unit": "tokens", "period": "beta", "source": "none" },
+      "expected": {
+        "unit": "tokens",
+        "period": "beta",
+        "window_seconds": null,
+        "remaining_window": null,
+        "remaining_today": null,
+        "remaining_total": null,
+        "is_exhausted": false
+      }
+    },
+    {
+      "name": "missing quota document is unknown",
+      "input": null,
+      "expected": {
+        "unit": "unknown",
+        "period": "unknown",
+        "window_seconds": null,
+        "remaining_window": null,
+        "remaining_today": null,
+        "remaining_total": null,
+        "is_exhausted": false
+      }
+    },
+    {
+      "name": "unrecognised unit, period and numbers are unknown",
+      "input": { "unit": "widgets", "period": "fortnight", "limit": "many", "remaining": "a few", "source": "magic" },
+      "expected": {
+        "unit": "unknown",
+        "period": "unknown",
+        "window_seconds": null,
+        "remaining_window": null,
+        "remaining_today": null,
+        "remaining_total": null,
+        "is_exhausted": false
+      }
+    },
+    {
+      "name": "legacy daily request counters are understood",
+      "input": { "daily_free_limit": 50, "daily_free_used": 5, "daily_free_remaining": 45 },
+      "expected": {
+        "unit": "requests",
+        "period": "day",
+        "window_seconds": 86400,
+        "remaining_window": 45,
+        "remaining_today": 45,
+        "remaining_total": null,
+        "is_exhausted": false
+      }
+    }
+  ]
+}

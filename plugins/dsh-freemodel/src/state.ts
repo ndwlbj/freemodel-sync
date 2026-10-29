@@ -8,6 +8,7 @@
 import { chmodSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import type { CatalogModel, ProbeResult } from "./providers/types.ts";
+import { parseCapabilities, parseQuota } from "./providers/types.ts";
 import { CHANNEL_IDS, type ChannelId } from "./spec.ts";
 import { isRecord, utcToday } from "./util.ts";
 
@@ -30,7 +31,7 @@ export interface RoundState {
 
 export interface ChannelStateData {
   catalog: CatalogState | null;
-  /** Latest probe result per model key (`"<provider>|<id>"`); account failures are never stored. */
+  /** Latest probe result per model key (`"<provider>|<id>"`); account/quota failures are never stored. */
   results: Record<string, ProbeResult>;
   /** Probes sent per UTC day. */
   daily: { date: string; count: number };
@@ -70,10 +71,14 @@ function readModel(id: ChannelId, raw: unknown): CatalogModel | null {
     input: Array.isArray(raw.input) && raw.input.includes("image") ? ["text", "image"] : ["text"],
     maxTokens: num(raw.maxTokens),
     expirationDate: str(raw.expirationDate),
+    // Old state files have no capabilities/quota: both are read as unknown.
+    capabilities: parseCapabilities(raw.capabilities, raw.tools),
+    quota: parseQuota(raw.quota),
+    tier: num(raw.tier) ?? 1,
   };
 }
 
-const KINDS = new Set(["model", "transient", "account"]);
+const KINDS = new Set(["model", "transient", "account", "capacity", "quota"]);
 
 function readResult(raw: unknown): ProbeResult | null {
   if (!isRecord(raw) || typeof raw.key !== "string" || typeof raw.ok !== "boolean") return null;
@@ -88,6 +93,9 @@ function readResult(raw: unknown): ProbeResult | null {
     testedAt: num(raw.testedAt) ?? 0,
     // Like Python's TestResult.from_dict: a failure without a kind is a model failure.
     failureKind: raw.ok ? null : kind !== null && KINDS.has(kind) ? (kind as ProbeResult["failureKind"]) : "model",
+    ...(typeof raw.capacityStreak === "number" && raw.capacityStreak > 0
+      ? { capacityStreak: Math.max(1, Math.trunc(raw.capacityStreak)) }
+      : {}),
     retryAfterS: num(raw.retryAfterS),
     rateLimitRemaining: num(raw.rateLimitRemaining),
   };
@@ -107,7 +115,9 @@ function readChannel(id: ChannelId, raw: unknown): ChannelStateData {
   if (isRecord(raw.results)) {
     for (const [key, value] of Object.entries(raw.results)) {
       const result = readResult(value);
-      if (result !== null && result.key === key && result.failureKind !== "account") out.results[key] = result;
+      if (result !== null && result.key === key && result.failureKind !== "account" && result.failureKind !== "quota") {
+        out.results[key] = result;
+      }
     }
   }
   if (isRecord(raw.daily) && typeof raw.daily.date === "string") {
@@ -175,8 +185,9 @@ export function addRequests(channel: ChannelStateData, n: number, now: number = 
 }
 
 /**
- * A fresh stored result, like Python's `ResultCache.get`: account failures are
- * never trusted; transient failures expire after `transientTtlS`.
+ * A fresh stored result, like Python's `ResultCache.get`: account/quota
+ * failures are never trusted; transient and capacity failures expire after
+ * `transientTtlS`.
  */
 export function freshResult(
   channel: ChannelStateData,
@@ -186,8 +197,12 @@ export function freshResult(
   nowS: number = Date.now() / 1000,
 ): ProbeResult | null {
   const result = channel.results[key];
-  if (result === undefined || (!result.ok && result.failureKind === "account")) return null;
+  if (result === undefined || (!result.ok && (result.failureKind === "account" || result.failureKind === "quota"))) {
+    return null;
+  }
   let ttl = ttlS;
-  if (!result.ok && result.failureKind === "transient" && transientTtlS !== null) ttl = Math.min(ttl, transientTtlS);
+  if (!result.ok && (result.failureKind === "transient" || result.failureKind === "capacity") && transientTtlS !== null) {
+    ttl = Math.min(ttl, transientTtlS);
+  }
   return nowS - result.testedAt > ttl ? null : result;
 }

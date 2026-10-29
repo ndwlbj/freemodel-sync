@@ -157,15 +157,26 @@ export class OpenRouterChannel extends OpenAICompatChannel {
       const supported = Array.isArray(entry.supported_parameters) ? entry.supported_parameters : [];
       const top = isRecord(entry.top_provider) ? entry.top_provider : {};
       const id = String(entry.id);
+      const supportsTools = supported.includes("tools");
+      const vision = imageInput(entry.architecture);
       models.push({
         provider: "openrouter",
         id,
         name: String(entry.name || id),
         contextLength: contextLength(entry),
-        tools: supported.includes("tools"),
-        input: imageInput(entry.architecture) ? ["text", "image"] : ["text"],
+        tools: supportsTools,
+        input: vision ? ["text", "image"] : ["text"],
         maxTokens: asInt(top.max_completion_tokens),
         expirationDate: parseExpirationDate(entry.expiration_date),
+        capabilities: {
+          tools: supportsTools,
+          vision,
+          reasoning: supported.includes("reasoning"),
+          source: "catalog",
+        },
+        // OpenRouter's free quota is per account (read from /key), not per model.
+        quota: null,
+        tier: 1,
       });
     }
     return models;

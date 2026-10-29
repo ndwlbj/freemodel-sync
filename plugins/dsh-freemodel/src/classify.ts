@@ -7,7 +7,7 @@
 import { type ChannelId, providersSpec, SpecError } from "./spec.ts";
 import { isRecord, truthy } from "./util.ts";
 
-export type FailureKind = "model" | "transient" | "account";
+export type FailureKind = "model" | "transient" | "account" | "capacity" | "quota";
 
 export interface ErrorCondition {
   truthy?: string;
@@ -107,11 +107,18 @@ export function classifyStreamError(code: number | null, error: unknown, classif
   return "transient";
 }
 
-/** The `error` object of an OpenAI-style JSON error body, or `{}`. */
+/** The error object of an OpenAI-style or DashScope-style JSON body, or `{}`. */
 export function errorObjectOf(body: string): ErrorObject {
   try {
     const payload: unknown = JSON.parse(body);
-    if (isRecord(payload) && isRecord(payload.error)) return payload.error;
+    if (!isRecord(payload)) return {};
+    if (isRecord(payload.error)) return payload.error;
+    // DashScope sometimes returns code/message/type at the top level.
+    const top: ErrorObject = {};
+    for (const key of ["code", "message", "type"]) {
+      if (key in payload) top[key] = payload[key];
+    }
+    return top;
   } catch {
     // not JSON
   }

@@ -6,7 +6,7 @@
   "required": ["spec_version", "area", "description", "cases"],
   "properties": {
     "spec_version": { "const": 1 },
-    "area": { "enum": ["classify", "stream_classify", "free_rule", "rate_limit", "score", "non_chat"] },
+    "area": { "enum": ["classify", "stream_classify", "free_rule", "rate_limit", "score", "capacity", "non_chat", "capabilities", "quota"] },
     "description": { "type": "string" },
     "today": { "type": "string", "format": "date" },
     "rankOrder": { "type": "array", "items": { "type": "string" } },

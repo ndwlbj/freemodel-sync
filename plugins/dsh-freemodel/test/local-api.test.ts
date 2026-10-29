@@ -15,13 +15,14 @@ import {
   SECRET_HEADER,
   secretMatches,
 } from "../src/local-api.ts";
+import type { ChannelId } from "../src/spec.ts";
 
 const SECRET = "local-test-secret-0123456789";
 
 function deps(overrides: Partial<Parameters<typeof createLocalApiHandler>[0]> = {}) {
   const status = vi.fn(async () => ({ plugin: "dsh-freemodel", channels: [] }));
   const refresh = vi.fn(async () => undefined);
-  const testModel = vi.fn(async (channel: "openrouter" | "groq", model: string) => ({
+  const testModel = vi.fn(async (channel: ChannelId, model: string) => ({
     channel,
     model,
     result: { ok: true, ttftMs: 120, error: null },

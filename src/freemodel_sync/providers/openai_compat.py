@@ -67,15 +67,23 @@ def _as_int(value: Any) -> Optional[int]:
 
 
 def _error_object(body: str) -> Dict[str, Any]:
-    """Extract the ``error`` object from an OpenAI-style JSON error body."""
+    """Extract the error object from an OpenAI-style or DashScope-style JSON body.
+
+    Most providers nest it under ``error``. DashScope sometimes returns
+    ``code`` / ``message`` at the top level, so those fields are used when no
+    nested object exists (the classifier's dotted paths still work).
+    """
 
     try:
         payload = json.loads(body)
     except (TypeError, ValueError):
         return {}
-    if isinstance(payload, dict) and isinstance(payload.get("error"), dict):
+    if not isinstance(payload, dict):
+        return {}
+    if isinstance(payload.get("error"), dict):
         return payload["error"]
-    return {}
+    top = {key: payload[key] for key in ("code", "message", "type") if key in payload}
+    return top
 
 
 def classify_status(status_code: Optional[int], error_obj: Dict[str, Any]) -> str:

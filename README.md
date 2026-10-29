@@ -134,8 +134,16 @@ them at your own files.
 | --- | --- | --- | --- |
 | `openrouter` (default) | `OPENROUTER_API_KEY` | `:free` id and every price (including `pricing.overrides`) is 0; a zero-priced model without `:free` is not used | public model list, quota from `/api/v1/key` |
 | `groq` | `GROQ_API_KEY` | your Groq organization is on the **Free plan**; confirm with `plan: free` | Groq's API has no prices; the model list needs the key |
+| `sensenova` | `SENSENOVA_API_KEY` | you are in the **SenseNova Token Plan** public beta; confirm with `plan: token-plan`, and the catalogue `pricing` must be the string `"0"` | off by default; no quota API (recorded as `beta`/unknown), 403 outside the plan is a model failure |
+| `bailian` | `DASHSCOPE_API_KEY` | you confirm `free_quota_guard: confirmed` (the console's "stop when the free quota is used up" switch) and list the models in `models` with their hand-entered allowances | off by default; Beijing only; per-model quota is manual/unverified; 403 `AllocationQuota.FreeTierOnly` records `quota` and stops the channel for the UTC day |
 
-Groq and multi-provider ranking need freemodel-sync 0.3.0 or newer. All enabled providers feed one ranking. The `providers` section replaces the default
+Groq and multi-provider ranking need freemodel-sync 0.3.0 or newer. SenseNova is new in P7 and
+Bailian in P8; both are off by default. Without `plan: token-plan` SenseNova lists and probes
+nothing, and a model whose catalogue price is no longer the string `"0"` is removed with a warning.
+Bailian lists and probes nothing until BOTH `free_quota_guard: confirmed` and a non-empty `models`
+allowlist are set; its per-model allowances are entered by hand, labelled "手动，未核实", and never
+used to deduct the local probe budget. Neither SenseNova nor Bailian is part of the public daily
+snapshot (both need the user's own account). All enabled providers feed one ranking. The `providers` section replaces the default
 (OpenRouter only), so you can drop OpenRouter or set `enabled: false`. Each provider uses its own
 key variable, cache file, daily counter and rate-limit pause, and a quota problem stops probing only
 for that provider. The first enabled provider uses `testing.cache_path` itself; every other one uses
@@ -146,10 +154,31 @@ to another provider until the next UTC day (cached results are keyed by provider
 providers its tool has a key for with `options.providers: [openrouter]`; otherwise its base URL may
 switch provider. Details and sources are in [docs/providers.md](https://github.com/ndwlbj/freemodel-sync/blob/main/docs/providers.md).
 
+Each discovered model carries `capabilities` (`tools`, `vision`, `reasoning`; `null` means the
+catalogue does not say, never false) and an optional model-level `quota`. The shared quota type
+supports a five-hour rolling window (`rolling_5h`), a weekly window (`week`), a daily reset
+(`day`), a one-off total (`total`) and a public-beta marker (`beta`); missing values stay
+`unknown`. `rank --json` / `output.ranking_json` writes `schema_version: 2` and includes these
+objects under every model and a normalised quota per provider, while keeping the old
+`daily_free_limit` / `daily_free_used` / `daily_free_remaining` keys so a v1 reader still works.
+Old caches and snapshots without the new fields are read as unknown. The dsh plugin shows compact
+capability/quota badges in its picker, including `能力未知` / `额度未知` for unknown values; a
+hand-entered allowance is labelled `手动，未核实`. A probe can also fail with `capacity` (queue /
+no capacity): it is retried like a transient failure, gets its own consecutive counter, is penalised
+in the ranking, and after `ranking.capacity_downgrade_after` (default 3) such results in a row it
+is no longer selectable. A `quota` failure (Bailian's 403 `AllocationQuota.FreeTierOnly`) stops that
+channel until the next UTC day.
+
 ```yaml
 providers:
   openrouter: {}
   groq: {plan: free}          # only if your Groq org is on the Free plan
+  sensenova: {plan: token-plan}  # only inside the SenseNova Token Plan beta
+  bailian:
+    free_quota_guard: confirmed  # console "stop when the free quota is used up" switch is on
+    models:
+      - id: deepseek-v3.2       # example id; use the console's ids
+        quota: {unit: tokens, period: total, limit: 1000000}
 targets:
   - adapter: openai-env
     path: ~/bot/.env
@@ -201,8 +230,10 @@ Example `dsh` result:
   UTC day is higher than the reported `used`, the budget uses the local count.
 - **Timeouts:** `testing.timeout_s` applies to probe requests only. Fetching the model list and the
   quota uses a fixed 30-second timeout.
-- **Providers:** OpenRouter and Groq. SiliconFlow was evaluated but its API does not say which
-  models are free; see [docs/providers.md](https://github.com/ndwlbj/freemodel-sync/blob/main/docs/providers.md).
+- **Providers:** OpenRouter, Groq, SenseNova and Bailian (the last three need an explicit confirmation).
+  Bailian's remaining free allowance has no verified public API yet, so its quota stays manual.
+  SiliconFlow was evaluated but its API does not say which models are free; see
+  [docs/providers.md](https://github.com/ndwlbj/freemodel-sync/blob/main/docs/providers.md).
 
 ## Notifications
 
@@ -281,7 +312,7 @@ ruff format --check src tests scripts
 pytest
 ```
 
-The dsh plugin (lists free OpenRouter/Groq models in the dsh picker) lives in `plugins/dsh-freemodel/` (TypeScript, pnpm; see its README and
+The dsh plugin (lists free OpenRouter/Groq/SenseNova models in the dsh picker) lives in `plugins/dsh-freemodel/` (TypeScript, pnpm; see its README and
 [docs/dsh-plugin-verification.md](https://github.com/ndwlbj/freemodel-sync/blob/main/docs/dsh-plugin-verification.md)).
 
 Tests never touch the network (HTTP is mocked with `httpx.MockTransport`). See

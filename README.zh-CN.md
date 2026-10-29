@@ -72,13 +72,29 @@ freemodel-sync sync                      # 写配置，有变化时通知
 | --- | --- | --- | --- |
 | `openrouter`（默认） | `OPENROUTER_API_KEY` | id 以 `:free` 结尾且所有价格（包括 `pricing.overrides`）为 0；没有 `:free` 后缀的零价模型不会被使用 | 模型列表公开，额度来自 `/api/v1/key` |
 | `groq` | `GROQ_API_KEY` | 你的 Groq 组织处于 **Free 计划**，需用 `plan: free` 确认 | Groq 的 API 不返回价格；获取模型列表需要 key |
+| `sensenova` | `SENSENOVA_API_KEY` | 你在 **SenseNova Token Plan** 公测内，需用 `plan: token-plan` 确认，且目录里的 `pricing` 必须是字符串 `"0"` | 默认关闭；没有额度 API（记为 `beta`/未知），不在 plan 内的 403 算模型失败 |
+| `bailian` | `DASHSCOPE_API_KEY` | 你确认 `free_quota_guard: confirmed`（控制台已开「免费额度用完即停」），并在 `models` 里列出模型和手填额度 | 默认关闭；只支持北京地域；额度是手动/未核实；403 `AllocationQuota.FreeTierOnly` 记为 `quota`，当天停该渠道 |
 
-Groq 和多 provider 合并排名需要 freemodel-sync 0.3.0 及以上版本。所有启用的 provider 会合并成一个排名。`providers` 配置段会**替换**默认值（只有 OpenRouter），所以可以不写 OpenRouter，或者设 `enabled: false`。每个 provider 使用各自的 key 环境变量、缓存文件、每日计数和限流暂停，某个 provider 出现额度问题只会停止它自己的探测。第一个启用的 provider 直接使用 `testing.cache_path`，其他 provider 使用同目录下的 `<name>.<provider>.json`（如 `results.groq.json`）。这个对应关系取决于 `providers` 段的顺序，调换顺序后，第一个 provider 的当日计数和限流暂停会算到另一个 provider 头上，直到下一个 UTC 日（缓存的探测结果按 provider 区分，不会串）。`providers.<name>.daily_free_limit` 可以单独覆盖某个 provider 的 `testing.daily_free_limit`。备用模型总是和主模型来自同一个 provider。用 `options.providers: [openrouter]` 把目标限制在它的工具有 key 的 provider 上，否则它的 base URL 可能换成别的 provider。细节和资料来源见 [docs/providers.md](https://github.com/ndwlbj/freemodel-sync/blob/main/docs/providers.md)。
+Groq 和多 provider 合并排名需要 freemodel-sync 0.3.0 及以上版本。SenseNova 是 P7 新增渠道，
+百炼是 P8 新增渠道，两者都默认关闭。不写 `plan: token-plan` 时 SenseNova 什么都不列出、不探测；
+目录价格不再是字符串 `"0"` 的模型会移出并告警。百炼必须同时配置 `free_quota_guard: confirmed`
+且 `models` 非空才会列出/探测；每个模型的额度只能手填，显示为「手动，未核实」，也不参与本地
+探测预算扣减。SenseNova 和百炼都不会进入公开的每日快照（都需要用户自己的账号）。
+
+所有启用的 provider 会合并成一个排名。`providers` 配置段会**替换**默认值（只有 OpenRouter），所以可以不写 OpenRouter，或者设 `enabled: false`。每个 provider 使用各自的 key 环境变量、缓存文件、每日计数和限流暂停，某个 provider 出现额度问题只会停止它自己的探测。第一个启用的 provider 直接使用 `testing.cache_path`，其他 provider 使用同目录下的 `<name>.<provider>.json`（如 `results.groq.json`）。这个对应关系取决于 `providers` 段的顺序，调换顺序后，第一个 provider 的当日计数和限流暂停会算到另一个 provider 头上，直到下一个 UTC 日（缓存的探测结果按 provider 区分，不会串）。`providers.<name>.daily_free_limit` 可以单独覆盖某个 provider 的 `testing.daily_free_limit`。备用模型总是和主模型来自同一个 provider。用 `options.providers: [openrouter]` 把目标限制在它的工具有 key 的 provider 上，否则它的 base URL 可能换成别的 provider。细节和资料来源见 [docs/providers.md](https://github.com/ndwlbj/freemodel-sync/blob/main/docs/providers.md)。
+
+每个模型现在带 `capabilities`（`tools`、`vision`、`reasoning`；`null` 表示目录没有说明，绝不等于 false）和可选的模型级 `quota`。统一额度类型支持 5 小时滚动窗口（`rolling_5h`）、每周窗口（`week`）、每日重置（`day`）、一次性总额（`total`）和公测期（`beta`）；缺失值保持 `unknown`。`rank --json` / `output.ranking_json` 现在写 `schema_version: 2`，每个模型带上述对象，每个 provider 带归一化后的额度，同时保留旧的 `daily_free_limit` / `daily_free_used` / `daily_free_remaining` 字段，旧版读取方仍可用。没有新字段的旧缓存和快照会按 unknown 读取。dsh 插件会在选择器里显示紧凑的能力/额度徽标，未知时显示「能力未知」/「额度未知」；手填额度会标「手动，未核实」。探测失败还可能是 `capacity`（排队/无容量）：它和 transient 一样短 TTL 重试，但单独计数、排名扣分，连续 `ranking.capacity_downgrade_after` 次（默认 3）后不可选。`quota` 失败（百炼 403 `AllocationQuota.FreeTierOnly`）会当天停该渠道。
 
 ```yaml
 providers:
   openrouter: {}
   groq: {plan: free}          # 只有 Groq 组织在 Free 计划时才这样写
+  sensenova: {plan: token-plan}  # 只有确认在 SenseNova Token Plan 公测内才这样写
+  bailian:
+    free_quota_guard: confirmed  # 控制台已开「免费额度用完即停」
+    models:
+      - id: deepseek-v3.2       # 示例 id，以控制台为准
+        quota: {unit: tokens, period: total, limit: 1000000}
 targets:
   - adapter: openai-env
     path: ~/bot/.env
@@ -109,7 +125,8 @@ targets:
 - **分时段价格**：`:free` 模型的 `pricing.overrides` 里只要有非零价格（比如高峰时段或长上下文），就会被跳过并给出警告。
 - **免费额度**：每日预算来自 `free_model_daily_requests`，不再根据 `is_free_tier` 推断；可用 `testing.daily_free_limit` 覆盖（按 UTC 日计数）。额度在探测前读取一次，而且 OpenRouter 的 `used` 计数可能跟不上已发出的请求，所以显示的额度数据可能滞后；本工具当天（UTC）自己记录的探测次数比上报的 `used` 多时，预算按本地计数算。
 - **超时**：`testing.timeout_s` 只作用于探测请求；获取模型列表和额度时固定使用 30 秒超时。
-- **Provider**：支持 OpenRouter 和 Groq。评估过硅基流动，但它的 API 无法判断哪些模型免费，详见 [docs/providers.md](https://github.com/ndwlbj/freemodel-sync/blob/main/docs/providers.md)。
+- **Provider**：支持 OpenRouter、Groq、SenseNova 和百炼（后三者都需要显式确认）。百炼剩余免费额度还没有可核实的公开 API，所以额度保持手填。评估过硅基流动，
+  但它的 API 无法判断哪些模型免费，详见 [docs/providers.md](https://github.com/ndwlbj/freemodel-sync/blob/main/docs/providers.md)。
 
 ## 通知
 

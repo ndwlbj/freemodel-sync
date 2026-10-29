@@ -64,6 +64,32 @@ def provider_spec(name: str) -> Dict[str, Any]:
     return providers_spec()["providers"][name]
 
 
+@cache
+def capabilities_spec() -> Dict[str, Any]:
+    """The shared capability vocabulary (``capabilities`` in providers.json)."""
+
+    return providers_spec()["capabilities"]
+
+
+@cache
+def quota_spec() -> Dict[str, Any]:
+    """The shared quota vocabulary (``quota`` in providers.json)."""
+
+    return providers_spec()["quota"]
+
+
+#: capability flags every implementation must understand
+CAPABILITY_FIELDS = tuple(capabilities_spec()["fields"])
+#: where a capability value can come from (unknown is explicit)
+CAPABILITY_SOURCES = tuple(capabilities_spec()["sources"])
+#: quota units, windows, sources and scopes shared with the dsh plugin
+QUOTA_UNITS = tuple(quota_spec()["units"])
+QUOTA_PERIODS = tuple(quota_spec()["periods"])
+QUOTA_PERIOD_SECONDS = dict(quota_spec()["periodSeconds"])
+QUOTA_SOURCES = tuple(quota_spec()["sources"])
+QUOTA_SCOPES = tuple(quota_spec()["scopes"])
+
+
 # ---------------------------------------------------------------------------
 # error classification rules
 # ---------------------------------------------------------------------------

@@ -7,6 +7,43 @@ plugin is versioned separately from the Python `freemodel-sync` package.
 
 ### Added
 
+- **Alibaba Cloud Bailian channel (P8).** New `bailian` channel (route
+  `freemodel-bailian`, `DASHSCOPE_API_KEY`, Beijing only), off by default. It
+  lists and probes nothing until `freeQuotaGuardConfirmed` is ticked and
+  `models` is non-empty. Models carry a hand-entered `quotaTokens` allowance
+  shown as `手动，未核实` and never deducted from the probe budget; ids
+  containing `distill` are marked `tools=false`. A 403
+  `AllocationQuota.FreeTierOnly` is a `quota` failure that stops the channel
+  until the next UTC day. Bailian is not part of the public daily snapshot.
+- **`capacity` failures and ranking penalty (P8).** Queue / no-capacity probe
+  results now use `failureKind: "capacity"`, the same short retry TTL as
+  transient failures, and a separate consecutive counter in the state file.
+  The picker penalty comes from `spec/ranking.json` (`capacity_penalty`); after
+  `ranking.capacityDowngradeAfter` (default 3) consecutive results the model is
+  no longer selectable. `quota` failures are kept out of the state results.
+  New Vitest cases cover classification, TTL, the counter, the penalty and the
+  downgrade, and the settings card can show a Bailian channel.
+
+- **SenseNova Token Plan (P7).** New channel `sensenova` (route
+  `freemodel-sensenova`, `SENSENOVA_API_KEY`), off by default. Nothing is listed or
+  probed until `tokenPlanConfirmed` is ticked, because the public beta has no quota API
+  and prices can change. An optional `models` allowlist is intersected with the
+  catalogue when it can be read (an empty list means every catalogue model priced the
+  string `"0"`); non-zero pricing is removed and logged. Capabilities are inferred from
+  `supported_features` / `businesses` (vision, tools, reasoning), missing hints stay
+  unknown. A 403 outside the plan is classified as a model failure; 401 is an account
+  failure. SenseNova is not part of the public daily snapshot.
+
+- **Capability and quota badges (P6).** Catalogue parsing now records
+  `capabilities` (`tools`, `vision`, `reasoning`; `null` when the catalogue does
+  not say) and an optional model-level `quota` using the shared `spec/` periods
+  (`rolling_5h`, `week`, `day`, `total`, `beta`, `unknown`). Picker labels and
+  descriptions append compact badges such as `工具`, `余 90k tokens · 5小时` or
+  `公测期`; missing data shows `能力未知` / `额度未知` instead of a false zero.
+  The pi-ai descriptor now passes through image input and reasoning when the
+  catalogue reports them. Old state files without the new fields still load as
+  unknown. The settings card's model rows show the same badges.
+
 - **Settings card (P5).** A browser half (`src/client/`, built to
   `lib/client.js`, exported as `./client`, declared through `dsh.client`) with
   four tabs: overview, channels, models and diagnostics. It reads the local

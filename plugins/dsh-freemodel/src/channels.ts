@@ -3,10 +3,15 @@
  * run where only the plugin package is installed (`dsh plugin exec`), with no
  * host packages beside it. The schemastery `Config` is in config.ts.
  */
-import { type ChannelId, CHANNEL_IDS, providerSpec } from "./spec.ts";
+import { type ChannelId, CHANNEL_IDS, providerSpec, rankingSpec } from "./spec.ts";
 
 /** Short channel names for settings text. */
-export const CHANNEL_LABELS: Record<ChannelId, string> = { openrouter: "OpenRouter", groq: "Groq" };
+export const CHANNEL_LABELS: Record<ChannelId, string> = {
+  openrouter: "OpenRouter",
+  groq: "Groq",
+  sensenova: "SenseNova Token Plan",
+  bailian: "阿里云百炼 (Bailian)",
+};
 
 export interface OpenRouterChannelConfig {
   enabled: boolean;
@@ -19,9 +24,35 @@ export interface GroqChannelConfig {
   freePlanConfirmed: boolean;
 }
 
+export interface SenseNovaChannelConfig {
+  enabled: boolean;
+  apiKeyEnv: string;
+  /** Confirm the key is inside the SenseNova Token Plan public beta. */
+  tokenPlanConfirmed: boolean;
+  /** Allowlist; an empty list means every catalogue model priced "0". */
+  models: string[];
+}
+
+export interface BailianModelConfig {
+  id: string;
+  /** Hand-entered one-off token allowance; omitted means unknown. */
+  quotaTokens?: number;
+}
+
+export interface BailianChannelConfig {
+  enabled: boolean;
+  apiKeyEnv: string;
+  /** Confirm the console's "stop when the free quota is used up" switch is on. */
+  freeQuotaGuardConfirmed: boolean;
+  /** Explicit allowlist with optional manual per-model allowances. */
+  models: BailianModelConfig[];
+}
+
 export interface ProvidersConfig {
   openrouter: OpenRouterChannelConfig;
   groq: GroqChannelConfig;
+  sensenova: SenseNovaChannelConfig;
+  bailian: BailianChannelConfig;
 }
 
 /**
@@ -39,6 +70,8 @@ export interface RankingConfig {
   requireTools: boolean;
   /** Hide models with a smaller context window (tokens). */
   minContext: number;
+  /** Consecutive capacity failures after which a model is not selectable. */
+  capacityDowngradeAfter: number;
 }
 
 /** When the catalogue is read and models are probed (plan 6.3). */
@@ -66,13 +99,16 @@ export interface FreemodelConfigInput {
   providers?: {
     openrouter?: Partial<OpenRouterChannelConfig>;
     groq?: Partial<GroqChannelConfig>;
+    sensenova?: Partial<SenseNovaChannelConfig>;
+    bailian?: Partial<BailianChannelConfig>;
   };
   ranking?: Partial<RankingConfig>;
   refresh?: Partial<RefreshConfig>;
 }
 
 export function defaultRanking(): RankingConfig {
-  return { requireTools: true, minContext: 32000 };
+  const capacity = rankingSpec.capacity as { downgradeAfter: number };
+  return { requireTools: true, minContext: 32000, capacityDowngradeAfter: capacity.downgradeAfter };
 }
 
 export function defaultRefresh(): RefreshConfig {
@@ -84,6 +120,18 @@ export function defaultProviders(): ProvidersConfig {
   return {
     openrouter: { enabled: true, apiKeyEnv: providerSpec("openrouter").apiKeyEnv },
     groq: { enabled: false, apiKeyEnv: providerSpec("groq").apiKeyEnv, freePlanConfirmed: false },
+    sensenova: {
+      enabled: false,
+      apiKeyEnv: providerSpec("sensenova").apiKeyEnv,
+      tokenPlanConfirmed: false,
+      models: [],
+    },
+    bailian: {
+      enabled: false,
+      apiKeyEnv: providerSpec("bailian").apiKeyEnv,
+      freeQuotaGuardConfirmed: false,
+      models: [],
+    },
   };
 }
 
@@ -142,6 +190,13 @@ export function channelStates(config: FreemodelConfig): ChannelState[] {
     const state: ChannelState = { id, route: routeOf(id), enabled: channel.enabled, apiKeyEnv: channel.apiKeyEnv };
     if (id === "groq" && channel.enabled && !providers.groq.freePlanConfirmed) {
       state.blocked = "freePlanConfirmed is off";
+    }
+    if (id === "sensenova" && channel.enabled && !providers.sensenova.tokenPlanConfirmed) {
+      state.blocked = "tokenPlanConfirmed is off";
+    }
+    if (id === "bailian" && channel.enabled) {
+      if (!providers.bailian.freeQuotaGuardConfirmed) state.blocked = "freeQuotaGuardConfirmed is off";
+      else if (providers.bailian.models.length === 0) state.blocked = "models is empty";
     }
     return state;
   });

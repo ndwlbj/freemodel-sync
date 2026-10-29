@@ -43,9 +43,14 @@ export function model(id: string, extra: Partial<CatalogModel> = {}): CatalogMod
     input: ["text"],
     maxTokens: null,
     expirationDate: null,
+    capabilities: { tools: true, vision: null, reasoning: null, source: "catalog" },
+    quota: null,
+    tier: 1,
     ...extra,
   };
 }
 
 export const OR_KEY = `sk-or-v1-${"ab12".repeat(16)}`;
 export const GROQ_KEY = `gsk_${"Zy9".repeat(16)}`;
+export const SENSENOVA_KEY = `sk-${"A1b2C3d4".repeat(4)}`;
+export const DASHSCOPE_KEY = `sk-ws-${"Ab1._-".repeat(18)}`;

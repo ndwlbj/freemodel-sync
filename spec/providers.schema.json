@@ -3,12 +3,59 @@
   "$id": "https://github.com/ndwlbj/freemodel-sync/spec/providers.schema.json",
   "title": "freemodel-sync provider rules",
   "type": "object",
-  "required": ["spec_version", "failureKinds", "defaultErrorMap", "streamError", "providers"],
+  "required": ["spec_version", "failureKinds", "capabilities", "quota", "defaultErrorMap", "streamError", "providers"],
   "properties": {
     "$schema": { "type": "string" },
     "spec_version": { "const": 1 },
     "description": { "type": "string" },
     "failureKinds": { "type": "array", "items": { "$ref": "#/$defs/kind" }, "uniqueItems": true },
+    "capabilities": {
+      "type": "object",
+      "required": ["fields", "sources"],
+      "properties": {
+        "description": { "type": "string" },
+        "fields": { "type": "array", "items": { "enum": ["tools", "vision", "reasoning"] }, "minItems": 1, "uniqueItems": true },
+        "sources": {
+          "type": "array",
+          "items": { "enum": ["catalog", "config", "probe", "manual", "unknown"] },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "quota": {
+      "type": "object",
+      "required": ["units", "periods", "sources", "scopes"],
+      "properties": {
+        "description": { "type": "string" },
+        "units": {
+          "type": "array",
+          "items": { "enum": ["requests", "tokens", "credits", "unknown"] },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "periods": {
+          "type": "array",
+          "items": { "enum": ["rolling_5h", "week", "day", "total", "beta", "unknown"] },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "periodSeconds": {
+          "type": "object",
+          "propertyNames": { "enum": ["rolling_5h", "week", "day"] },
+          "additionalProperties": { "type": "integer", "minimum": 1 }
+        },
+        "sources": {
+          "type": "array",
+          "items": { "enum": ["api", "headers", "manual", "none"] },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "scopes": { "type": "array", "items": { "enum": ["account", "model"] }, "minItems": 1, "uniqueItems": true }
+      },
+      "additionalProperties": false
+    },
     "defaultErrorMap": { "$ref": "#/$defs/errorMap" },
     "streamError": {
       "type": "object",
@@ -29,7 +76,7 @@
   },
   "additionalProperties": false,
   "$defs": {
-    "kind": { "enum": ["model", "transient", "account"] },
+    "kind": { "enum": ["model", "transient", "account", "capacity", "quota"] },
     "codes": { "type": "array", "items": { "type": "integer", "minimum": 100, "maximum": 599 } },
     "condition": {
       "oneOf": [
@@ -65,6 +112,18 @@
       },
       "additionalProperties": false
     },
+    "capabilityHint": {
+      "oneOf": [
+        { "type": "null", "description": "the catalogue does not say (unknown)" },
+        { "type": "boolean" },
+        {
+          "type": "object",
+          "required": ["where", "contains"],
+          "properties": { "where": { "type": "string" }, "contains": { "type": "string" } },
+          "additionalProperties": false
+        }
+      ]
+    },
     "provider": {
       "type": "object",
       "required": ["displayName", "tier", "authKind", "baseURL", "modelsPath", "apiKeyEnv", "freeRule", "probe", "errorMap", "rateLimitHeaders", "keyPatterns", "docs"],
@@ -82,6 +141,17 @@
           "properties": { "kind": { "enum": ["suffix-free", "plan-confirm", "pricing-zero", "allowlist+guard"] } }
         },
         "catalogFields": { "type": "object" },
+        "capabilities": {
+          "type": "object",
+          "required": ["tools", "vision", "reasoning", "source"],
+          "properties": {
+            "tools": { "$ref": "#/$defs/capabilityHint" },
+            "vision": { "$ref": "#/$defs/capabilityHint" },
+            "reasoning": { "$ref": "#/$defs/capabilityHint" },
+            "source": { "enum": ["catalog", "config", "probe", "manual", "unknown"] }
+          },
+          "additionalProperties": false
+        },
         "probe": {
           "type": "object",
           "required": ["path", "maxTokensParam", "defaultMaxTokens", "prompt"],

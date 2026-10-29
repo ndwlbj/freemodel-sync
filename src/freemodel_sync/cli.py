@@ -24,14 +24,14 @@ import sys
 import time
 from datetime import date
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 from . import __version__
 from .adapters import available_adapters, get_adapter_class
 from .config import Config, ConfigError, TargetConfig, load_config
 from .fileio import atomic_write_text
 from .lock import LockedError, RunLock
-from .models import ModelInfo, QuotaInfo, Selection, TestResult
+from .models import ModelInfo, Quota, QuotaInfo, Selection, TestResult
 from .notify import notify_switch
 from .providers import ProviderError, available_providers, get_provider_class
 from .ranking import RankWeights, filter_models, rank, score_model, select
@@ -127,8 +127,13 @@ def _dash(value: Any) -> str:
     return "-" if value is None else str(value)
 
 
-def _safe_quota(provider: Any) -> Optional[QuotaInfo]:
-    """Call ``provider.quota()`` defensively; never fail a command over it."""
+def _safe_quota(provider: Any) -> Optional[Union[QuotaInfo, Quota]]:
+    """Call ``provider.quota()`` defensively; never fail a command over it.
+
+    Providers may still return the legacy :class:`QuotaInfo`; callers use the
+    shared daily-request properties that :class:`Quota` also exposes, and the
+    JSON writer normalises both to the generic quota document.
+    """
 
     quota_fn = getattr(provider, "quota", None)
     if not callable(quota_fn):
@@ -217,6 +222,10 @@ EXIT_ACCOUNT_ERROR = 3
 #: another run holds the lock (nothing was probed or written)
 EXIT_LOCKED = 4
 
+#: version of the ``rank --json`` document; 2 adds capabilities, generic quota
+#: and the schema_version field. Version 1 documents remain readable.
+RANKING_SCHEMA_VERSION = 2
+
 
 class MissingKeyError(RuntimeError):
     """Probing was requested but the provider has no API key."""
@@ -229,7 +238,7 @@ def _probe_all(
     *,
     max_tests: Optional[int] = None,
     no_probe: bool = False,
-) -> Tuple[TestRun, Dict[str, Optional[QuotaInfo]]]:
+) -> Tuple[TestRun, Dict[str, Optional[Union[QuotaInfo, Quota]]]]:
     """Probe every provider's models with that provider's own cache and budget.
 
     ``max_tests`` applies per provider. A provider without an API key is
@@ -238,7 +247,7 @@ def _probe_all(
     """
 
     merged = TestRun()
-    quotas: Dict[str, Optional[QuotaInfo]] = {}
+    quotas: Dict[str, Optional[Union[QuotaInfo, Quota]]] = {}
     reasons: List[str] = []
     missing: List[str] = []
     first_name = config.enabled_providers()[0] if config.enabled_providers() else None
@@ -269,6 +278,8 @@ def _probe_all(
         merged.rate_limited = merged.rate_limited or run.rate_limited
         if run.account_error is not None and merged.account_error is None:
             merged.account_error = run.account_error
+        if run.quota_error is not None and merged.quota_error is None:
+            merged.quota_error = run.quota_error
         if run.stop_reason:
             reasons.append(f"{name}: {run.stop_reason}" if len(providers) > 1 else run.stop_reason)
     if missing and len(missing) == len([n for n, _ in providers if n in by_provider]):
@@ -294,7 +305,7 @@ def _probe(
     no_probe: bool = False,
     cache_path: Optional[Path] = None,
     quiet: bool = False,
-) -> Tuple[TestRun, Optional[QuotaInfo]]:
+) -> Tuple[TestRun, Optional[Union[QuotaInfo, Quota]]]:
     """Run probes with the configured cache, TTL and free-request budget.
 
     With ``no_probe`` only fresh cached results are used: no API key is
@@ -335,14 +346,14 @@ def _probe(
     if override is not None:
         daily_budget = int(override)
     elif quota is not None and quota.daily_free_remaining is not None:
-        remaining = quota.daily_free_remaining
+        remaining = int(quota.daily_free_remaining)
         local = cache.requests_today()
         if quota.daily_free_limit is not None and local > (quota.daily_free_used or 0):
             # The provider's counter trails probes this tool already sent today:
             # trust the larger (local) count so the reserve is not overrun.
-            remaining = min(remaining, max(0, quota.daily_free_limit - local))
+            remaining = min(remaining, max(0, int(quota.daily_free_limit) - local))
     elif quota is not None and quota.daily_free_limit is not None:
-        daily_budget = quota.daily_free_limit
+        daily_budget = int(quota.daily_free_limit)
     else:
         daily_budget = FALLBACK_DAILY_FREE_LIMIT
 
@@ -381,16 +392,47 @@ def _selection_dict(selection: Optional[Selection]) -> Optional[Dict[str, Any]]:
     }
 
 
+def _quota_json(quota: Optional[Union[QuotaInfo, Quota]]) -> Optional[Dict[str, Any]]:
+    """Normalise a legacy or generic quota to the v2 JSON shape.
+
+    The legacy ``QuotaInfo`` keys are kept next to the generic ones, so a v1
+    reader that only knows ``daily_free_limit`` keeps working. New readers use
+    ``unit``/``period``/``limit``/``remaining`` and the unknown markers.
+    """
+
+    if quota is None:
+        return None
+    if isinstance(quota, QuotaInfo):
+        data = quota.to_dict()
+        normalized = quota.to_quota().to_dict()
+        for key, value in normalized.items():
+            data.setdefault(key, value)
+        return data
+    data = quota.to_dict()
+    for name in ("daily_free_limit", "daily_free_used", "daily_free_remaining"):
+        legacy = getattr(quota, name)
+        if legacy is not None:
+            data[name] = int(legacy) if float(legacy).is_integer() else legacy
+    data.setdefault(
+        "remaining_estimate",
+        int(quota.remaining_estimate)
+        if quota.remaining_estimate is not None and float(quota.remaining_estimate).is_integer()
+        else quota.remaining_estimate,
+    )
+    return data
+
+
 def _ranking_payload(
     provider_names: Sequence[str],
     ranked: Sequence[Any],
     selection: Optional[Selection],
-    quotas: Dict[str, Optional[QuotaInfo]],
+    quotas: Dict[str, Optional[Union[QuotaInfo, Quota]]],
 ) -> Dict[str, Any]:
     return {
+        "schema_version": RANKING_SCHEMA_VERSION,
         "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "providers": list(provider_names),
-        "quota": {name: (q.to_dict() if q is not None else None) for name, q in quotas.items()},
+        "quota": {name: _quota_json(q) for name, q in quotas.items()},
         "ranking": [item.to_dict() for item in ranked],
         "selection": _selection_dict(selection),
     }
@@ -429,7 +471,7 @@ def _status(test: Optional[TestResult]) -> str:
         return "untested"
     if test.ok:
         return "ok"
-    return "transient" if test.failure_kind == "transient" else "failed"
+    return test.failure_kind if test.failure_kind in ("transient", "capacity") else "failed"
 
 
 def _read_state(path: Path) -> Dict[str, Any]:
@@ -533,7 +575,13 @@ def _cmd_test(args: argparse.Namespace, config: Config, providers: Providers) ->
 def _cmd_rank(args: argparse.Namespace, config: Config, providers: Providers) -> int:
     by_provider, models = _ordered(config, providers)
     results, quotas = _probe_all(config, providers, by_provider, no_probe=args.no_probe)
-    ranked = rank(models, results, config.ranking.weights, today=date.today())
+    ranked = rank(
+        models,
+        results,
+        config.ranking.weights,
+        today=date.today(),
+        capacity_downgrade_after=config.ranking.capacity_downgrade_after,
+    )
     selection = select(
         ranked,
         config.ranking.fallback_count,
@@ -569,7 +617,20 @@ def _cmd_rank(args: argparse.Namespace, config: Config, providers: Providers) ->
         print("no free models matched the filters")
 
     for name, quota in quotas.items():
-        if quota is not None:
+        if quota is not None and isinstance(quota, Quota):
+            line = f"\nquota ({name}): unit={quota.unit} period={quota.period} source={quota.source}"
+            if quota.limit is not None:
+                line += f" limit={_dash(quota.limit)}"
+            if quota.remaining is not None:
+                line += f" remaining={_dash(quota.remaining)}"
+            if quota.remaining_today is not None and quota.period == "day":
+                line += f" (about {quota.remaining_today} left after this run's {quota.probes_since_read} probe(s))"
+            if quota.resets_at is not None:
+                line += f" resets_at={quota.resets_at}"
+            if quota.expires_at is not None:
+                line += f" expires_at={quota.expires_at}"
+            print(line)
+        elif quota is not None:
             line = f"\nquota ({name}): free_tier={quota.is_free_tier} daily_free_limit={quota.daily_free_limit}"
             if quota.daily_free_used is not None or quota.daily_free_remaining is not None:
                 line += f" used={_dash(quota.daily_free_used)} remaining={_dash(quota.daily_free_remaining)}"
@@ -631,7 +692,13 @@ def _cmd_sync(args: argparse.Namespace, config: Config, providers: Providers) ->
     by_provider, models = _ordered(config, providers)
     no_probe = args.no_probe or (args.dry_run and not args.probe)
     results, _quotas = _probe_all(config, providers, by_provider, no_probe=no_probe)
-    ranked = rank(models, results, config.ranking.weights, today=date.today())
+    ranked = rank(
+        models,
+        results,
+        config.ranking.weights,
+        today=date.today(),
+        capacity_downgrade_after=config.ranking.capacity_downgrade_after,
+    )
     selection = select(
         ranked,
         config.ranking.fallback_count,

@@ -48,6 +48,7 @@ import yaml
 
 from .flags import parse_bool
 from .ranking import RankWeights
+from .spec import ranking_spec
 
 LOG = logging.getLogger(__name__)
 
@@ -89,9 +90,11 @@ DEFAULT_CONFIG: Dict[str, Any] = {
             "tools": 15.0,
             "expiry_penalty": 50.0,
             "untested_penalty": 40.0,
+            "capacity_penalty": 50.0,
         },
         "fallback_count": 3,
         "fallbacks_allow_untested": False,
+        "capacity_downgrade_after": int(ranking_spec()["capacity"]["downgradeAfter"]),
     },
     "output": {"ranking_json": None},
     "backups": {"keep": 5, "dir": None},
@@ -183,6 +186,10 @@ class RankingConfig(_Section):
     fallback_count: int = 3
     #: fill empty fallback slots with models that were never probed
     fallbacks_allow_untested: bool = False
+    #: consecutive capacity failures after which a model is no longer selectable
+    capacity_downgrade_after: int = field(
+        default_factory=lambda: int(ranking_spec()["capacity"]["downgradeAfter"])
+    )
 
 
 @dataclass
@@ -259,6 +266,7 @@ class Config(_Section):
                 weights=weights or RankWeights(),
                 fallback_count=int(dict(self.ranking).get("fallback_count", 3)),
                 fallbacks_allow_untested=bool(dict(self.ranking).get("fallbacks_allow_untested", False)),
+                capacity_downgrade_after=int(dict(self.ranking).get("capacity_downgrade_after", 3)),
             )
         if not isinstance(self.output, OutputConfig):
             self.output = OutputConfig(**dict(self.output))
@@ -415,6 +423,9 @@ def _parse_ranking(raw: Any) -> RankingConfig:
         fallback_count=_require_int(section.get("fallback_count", 3), "ranking.fallback_count", minimum=0),
         fallbacks_allow_untested=_require_bool(
             section.get("fallbacks_allow_untested", False), "ranking.fallbacks_allow_untested"
+        ),
+        capacity_downgrade_after=_require_int(
+            section.get("capacity_downgrade_after", 3), "ranking.capacity_downgrade_after", minimum=1
         ),
     )
 

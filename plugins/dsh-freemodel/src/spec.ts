@@ -11,8 +11,34 @@ import rankingJson from "../../../spec/ranking.json" with { type: "json" };
 export const SUPPORTED_SPEC_VERSION = 1;
 
 /** The channels the plugin knows about, in display order. */
-export const CHANNEL_IDS = ["openrouter", "groq"] as const;
+export const CHANNEL_IDS = ["openrouter", "groq", "sensenova", "bailian"] as const;
 export type ChannelId = (typeof CHANNEL_IDS)[number];
+
+export interface CapabilityHint {
+  where: string;
+  contains: string;
+}
+
+/** One provider's catalogue hints for the capability flags; null means unknown. */
+export interface ProviderCapabilities {
+  tools: boolean | null | CapabilityHint;
+  vision: boolean | null | CapabilityHint;
+  reasoning: boolean | null | CapabilityHint;
+  source: "catalog" | "config" | "probe" | "manual" | "unknown";
+}
+
+export interface CapabilitiesSpec {
+  fields: Array<"tools" | "vision" | "reasoning">;
+  sources: Array<"catalog" | "config" | "probe" | "manual" | "unknown">;
+}
+
+export interface QuotaSpec {
+  units: Array<"requests" | "tokens" | "credits" | "unknown">;
+  periods: Array<"rolling_5h" | "week" | "day" | "total" | "beta" | "unknown">;
+  periodSeconds: Partial<Record<"rolling_5h" | "week" | "day", number>>;
+  sources: Array<"api" | "headers" | "manual" | "none">;
+  scopes: Array<"account" | "model">;
+}
 
 export interface ProviderSpec {
   displayName: string;
@@ -20,11 +46,14 @@ export interface ProviderSpec {
   modelsPath: string;
   apiKeyEnv: string;
   docs: Record<string, string>;
+  capabilities?: ProviderCapabilities;
   [key: string]: unknown;
 }
 
 export interface ProvidersSpec {
   spec_version: number;
+  capabilities: CapabilitiesSpec;
+  quota: QuotaSpec;
   providers: Record<ChannelId, ProviderSpec> & Record<string, ProviderSpec>;
   [key: string]: unknown;
 }

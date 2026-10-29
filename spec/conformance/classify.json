@@ -343,6 +343,71 @@
       "status": 404,
       "error": {},
       "expected": "model"
+    },
+    {
+      "name": "sensenova: 401 bad key",
+      "provider": "sensenova",
+      "status": 401,
+      "error": {},
+      "expected": "account"
+    },
+    {
+      "name": "sensenova: 403 model outside the plan",
+      "provider": "sensenova",
+      "status": 403,
+      "error": {
+        "message": "The model is not included in the current plan"
+      },
+      "expected": "model"
+    },
+    {
+      "name": "sensenova: 429",
+      "provider": "sensenova",
+      "status": 429,
+      "error": {},
+      "expected": "transient"
+    },
+    {
+      "name": "sensenova: 500",
+      "provider": "sensenova",
+      "status": 500,
+      "error": {},
+      "expected": "transient"
+    },
+    {
+      "name": "bailian: 401 bad key",
+      "provider": "bailian",
+      "status": 401,
+      "error": {},
+      "expected": "account"
+    },
+    {
+      "name": "bailian: 403 FreeTierOnly stops the channel for the day",
+      "provider": "bailian",
+      "status": 403,
+      "error": { "code": "AllocationQuota.FreeTierOnly", "message": "free quota exhausted" },
+      "expected": "quota"
+    },
+    {
+      "name": "bailian: other 403 is a model problem",
+      "provider": "bailian",
+      "status": 403,
+      "error": { "code": "AccessDenied", "message": "no permission" },
+      "expected": "model"
+    },
+    {
+      "name": "bailian: 429 rate limit is transient",
+      "provider": "bailian",
+      "status": 429,
+      "error": {},
+      "expected": "transient"
+    },
+    {
+      "name": "bailian: 500 is transient",
+      "provider": "bailian",
+      "status": 500,
+      "error": {},
+      "expected": "transient"
     }
   ]
 }

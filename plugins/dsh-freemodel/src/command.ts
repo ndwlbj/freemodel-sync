@@ -5,6 +5,7 @@
  * contains a key.
  */
 import { ManualTestError, type ManualTestOutcome } from "./service.ts";
+import { CHANNEL_IDS, type ChannelId } from "./spec.ts";
 import type { StatusReport } from "./status.ts";
 
 /** The part of a command invocation this handler needs. */
@@ -19,7 +20,7 @@ export type CommandResultLike = { readonly kind: "success"; readonly text?: stri
 export interface FreemodelCommandDeps {
   status: () => Promise<StatusReport>;
   refresh: () => Promise<void>;
-  testModel: (channel: "openrouter" | "groq", model: string) => Promise<ManualTestOutcome>;
+  testModel: (channel: ChannelId, model: string) => Promise<ManualTestOutcome>;
 }
 
 export interface FreemodelCommand {
@@ -30,8 +31,6 @@ export interface FreemodelCommand {
 }
 
 export const USAGE = "usage: /freemodel status | refresh | test <channel> <model>";
-
-const CHANNELS = ["openrouter", "groq"] as const;
 
 function keyText(report: StatusReport["channels"][number]): string {
   if (report.key === "unknown") return "unknown";
@@ -111,10 +110,10 @@ export function createFreemodelCommand(deps: FreemodelCommandDeps): FreemodelCom
           if (extra.length > 0 || channel === undefined || model === undefined) {
             return { kind: "error", text: `test needs exactly a channel and a model id. ${USAGE}` };
           }
-          if (!(CHANNELS as readonly string[]).includes(channel)) {
-            return { kind: "error", text: `unknown channel ${channel}; use one of: ${CHANNELS.join(", ")}` };
+          if (!(CHANNEL_IDS as readonly string[]).includes(channel)) {
+            return { kind: "error", text: `unknown channel ${channel}; use one of: ${CHANNEL_IDS.join(", ")}` };
           }
-          return { kind: "success", text: testText(await deps.testModel(channel as (typeof CHANNELS)[number], model)) };
+          return { kind: "success", text: testText(await deps.testModel(channel as ChannelId, model)) };
         }
         return { kind: "error", text: `unknown subcommand ${verb}. ${USAGE}` };
       } catch (error) {

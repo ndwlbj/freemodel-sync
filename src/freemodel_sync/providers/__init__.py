@@ -1,4 +1,4 @@
-from . import groq, openrouter  # noqa: F401  (register the built-in providers)
+from . import bailian, groq, openrouter, sensenova  # noqa: F401  (register the built-in providers)
 from .base import (
     Provider,
     ProviderError,

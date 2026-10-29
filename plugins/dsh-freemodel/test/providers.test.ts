@@ -1,8 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { GroqChannel, parseDuration } from "../src/providers/groq.ts";
+import { pricingIsZero, SenseNovaChannel, senseNovaCapabilities } from "../src/providers/sensenova.ts";
 import { OpenRouterChannel, parseExpirationDate } from "../src/providers/openrouter.ts";
 import { ChannelError } from "../src/providers/types.ts";
-import { fakeFetch, GROQ_KEY, json, model, OR_KEY, sse, token } from "./helpers/fake-fetch.ts";
+import { fakeFetch, GROQ_KEY, json, model, OR_KEY, SENSENOVA_KEY, sse, token } from "./helpers/fake-fetch.ts";
 
 const freeText = (id: string, extra: Record<string, unknown> = {}) => ({
   id,
@@ -43,6 +44,9 @@ describe("OpenRouter catalogue", () => {
         input: ["text"],
         maxTokens: 4096,
         expirationDate: null,
+        capabilities: { tools: true, vision: false, reasoning: false, source: "catalog" },
+        quota: null,
+        tier: 1,
       },
       {
         provider: "openrouter",
@@ -53,6 +57,9 @@ describe("OpenRouter catalogue", () => {
         input: ["text", "image"],
         maxTokens: null,
         expirationDate: "2026-11-30",
+        capabilities: { tools: false, vision: true, reasoning: false, source: "catalog" },
+        quota: null,
+        tier: 1,
       },
     ]);
     expect(fetch.calls[0]?.url).toBe("https://openrouter.ai/api/v1/models");
@@ -115,6 +122,9 @@ describe("Groq catalogue", () => {
         input: ["text"],
         maxTokens: 32768,
         expirationDate: null,
+        capabilities: { tools: null, vision: null, reasoning: null, source: "unknown" },
+        quota: null,
+        tier: 1,
       },
     ]);
     expect(fetch.calls[0]?.url).toBe("https://api.groq.com/openai/v1/models");
@@ -216,5 +226,94 @@ describe("streaming probe", () => {
     const body = `data: ${JSON.stringify(token("a"))}\r\n\r\ndata: [DONE]\r`;
     const result = await new OpenRouterChannel(fakeFetch(() => new Response(body, { status: 200 }))).probe(m, OR_KEY);
     expect(result.ok).toBe(true);
+  });
+});
+
+
+describe("SenseNova catalogue", () => {
+  const sn = (id: string, extra: Record<string, unknown> = {}) => ({
+    id,
+    pricing: "0",
+    context_length: 262144,
+    supported_features: ["text", "image"],
+    ...extra,
+  });
+
+  it("intersects the allowlist, drops non-zero pricing, and reads capabilities", async () => {
+    const warn = vi.fn();
+    const fetch = fakeFetch(() =>
+      json({
+        data: [
+          sn("deepseek-v4-flash", { supported_features: ["text", "function_call"] }),
+          sn("sensenova-6.8-flash-lite", { businesses: ["vision"] }),
+          sn("sensenova-6.8-pro", { pricing: "0.02" }),
+          sn("not-in-the-allowlist"),
+          "junk",
+        ],
+      }),
+    );
+    const models = await new SenseNovaChannel(fetch, { warn }).discover(
+      SENSENOVA_KEY,
+      undefined,
+      ["deepseek-v4-flash", "sensenova-6.8-flash-lite", "sensenova-6.8-pro"],
+    );
+    expect(models.map((m) => m.id)).toEqual(["deepseek-v4-flash", "sensenova-6.8-flash-lite"]);
+    expect(models[0]?.capabilities).toEqual({ tools: true, vision: null, reasoning: null, source: "catalog" });
+    expect(models[1]?.capabilities.vision).toBe(true);
+    expect(models[1]?.input).toEqual(["text", "image"]);
+    expect(models[1]?.contextLength).toBe(262144);
+    expect(fetch.calls[0]?.url).toBe("https://token.sensenova.cn/v1/models");
+    expect(new Headers(fetch.calls[0]?.init?.headers).get("authorization")).toBe(`Bearer ${SENSENOVA_KEY}`);
+    expect(warn.mock.calls.flat().join(" ")).toMatch(/sensenova-6.8-pro.*not the string "0"/);
+  });
+
+  it("uses every zero-priced catalogue model when the allowlist is empty", async () => {
+    const fetch = fakeFetch(() => json({ data: [sn("a"), sn("b", { pricing: "0.1" }), sn("c", { pricing: 0 })] }));
+    expect((await new SenseNovaChannel(fetch).discover(SENSENOVA_KEY, undefined, [])).map((m) => m.id)).toEqual(["a"]);
+  });
+
+  it("falls back to a confirmed allowlist when the catalogue is unavailable", async () => {
+    const warn = vi.fn();
+    const models = await new SenseNovaChannel(fakeFetch(() => json({}, 503)), { warn }).discover(
+      SENSENOVA_KEY,
+      undefined,
+      ["deepseek-v4-flash"],
+    );
+    expect(models).toHaveLength(1);
+    expect(models[0]?.id).toBe("deepseek-v4-flash");
+    expect(models[0]?.capabilities.source).toBe("unknown");
+    expect(warn).toHaveBeenCalled();
+    await expect(new SenseNovaChannel(fakeFetch(() => json({}, 503))).discover(SENSENOVA_KEY, undefined, [])).rejects.toThrow(
+      /model list failed: HTTP 503/,
+    );
+  });
+
+  it("needs the key and reads pricing strictly", async () => {
+    await expect(new SenseNovaChannel(fakeFetch(() => json({ data: [] }))).discover(undefined)).rejects.toThrow(/needs SENSENOVA_API_KEY/);
+    expect(pricingIsZero("0")).toBe(true);
+    expect(pricingIsZero(" 0 ")).toBe(true);
+    expect(pricingIsZero(0)).toBe(false);
+    expect(pricingIsZero("0.00")).toBe(false);
+    expect(senseNovaCapabilities(null)).toEqual({ tools: null, vision: null, reasoning: null, source: "unknown" });
+    expect(senseNovaCapabilities({ supported_features: ["reasoning"] }).reasoning).toBe(true);
+  });
+
+  it("classifies 403 as a model failure and 401 as an account failure", async () => {
+    const m = model("deepseek-v4-flash", { provider: "sensenova" });
+    const forbidden = await new SenseNovaChannel(
+      fakeFetch(() => json({ error: { message: "model not in plan" } }, 403)),
+    ).probe(m, SENSENOVA_KEY);
+    expect(forbidden).toMatchObject({ ok: false, statusCode: 403, failureKind: "model" });
+    const auth = await new SenseNovaChannel(fakeFetch(() => json({ error: { message: "bad key" } }, 401))).probe(m, SENSENOVA_KEY);
+    expect(auth).toMatchObject({ ok: false, statusCode: 401, failureKind: "account" });
+  });
+
+  it("probes with max_tokens", async () => {
+    const fetch = fakeFetch(() => sse([token("ok"), "[DONE]"]));
+    const result = await new SenseNovaChannel(fetch).probe(model("deepseek-v4-flash", { provider: "sensenova" }), SENSENOVA_KEY);
+    expect(result.ok).toBe(true);
+    const body = JSON.parse(String(fetch.calls[0]?.init?.body));
+    expect(body.max_tokens).toBeGreaterThan(0);
+    expect(body.max_completion_tokens).toBeUndefined();
   });
 });

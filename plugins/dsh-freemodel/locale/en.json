@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "FreeModel",
-    "description": "Finds models that are free right now on OpenRouter (and Groq's free plan, opt-in), probes them and lists the ones that work. Keys stay in dsh's credential store; the default model is never changed."
+    "description": "Finds models that are free right now on OpenRouter, Groq's free plan (opt-in), SenseNova's Token Plan beta (opt-in) and Alibaba Cloud Bailian (opt-in, confirmation + allowlist), probes them and lists the ones that work. Keys stay in dsh's credential store; the default model is never changed."
   }
 }

@@ -1,7 +1,8 @@
 /**
  * One probing round for a channel: reuse fresh results, respect the daily
- * free-request budget and the reserve, stop on account-level failures and on
- * a nearly exhausted rate limit. Port of `freemodel_sync.tester.run_tests`.
+ * free-request budget and the reserve, stop on account/quota failures and on
+ * a nearly exhausted rate limit. Capacity results get their own consecutive
+ * counter. Port of `freemodel_sync.tester.run_tests`.
  */
 import type { OpenAICompatChannel } from "./providers/openai-compat.ts";
 import type { CatalogModel, ProbeResult } from "./providers/types.ts";
@@ -32,11 +33,19 @@ export interface ProbeRound {
   probes: number;
   stopReason: string | null;
   accountError: ProbeResult | null;
+  /** A quota failure that stopped this channel for the rest of the UTC day. */
+  quotaError: ProbeResult | null;
   rateLimited: boolean;
 }
 
 function utcMinute(epochS: number): string {
   return `${new Date(epochS * 1000).toISOString().slice(0, 16).replace("T", " ")} UTC`;
+}
+
+/** Unix seconds of the next UTC midnight (when a daily quota resets). */
+export function nextUtcMidnight(nowS: number = Date.now() / 1000): number {
+  const day = new Date(nowS * 1000);
+  return Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate() + 1) / 1000;
 }
 
 /**
@@ -50,7 +59,14 @@ export async function runProbeRound(
   options: ProbeRoundOptions,
 ): Promise<ProbeRound> {
   const nowS = options.nowS ?? (() => Date.now() / 1000);
-  const run: ProbeRound = { results: new Map(), probes: 0, stopReason: null, accountError: null, rateLimited: false };
+  const run: ProbeRound = {
+    results: new Map(),
+    probes: 0,
+    stopReason: null,
+    accountError: null,
+    quotaError: null,
+    rateLimited: false,
+  };
   if (options.maxTests < 1) run.stopReason = `max_tests is ${options.maxTests}: no probe allowed`;
   let allowed: number | null = null;
   if (options.remainingBudget !== null) allowed = Math.max(0, options.remainingBudget - options.reserve);
@@ -100,11 +116,22 @@ export async function runProbeRound(
     if (result.error !== null) result = { ...result, error: redact(result.error, [options.apiKey]) };
     run.probes += 1;
     addRequests(state, 1, nowS() * 1000);
+    if (!result.ok && result.failureKind === "quota") {
+      run.quotaError = result;
+      run.stopReason = `quota exhausted (${result.statusCode ?? "n/a"}): ${result.error}; stopped until the next UTC day`;
+      state.blockedUntil = Math.max(state.blockedUntil ?? 0, nextUtcMidnight(nowS()));
+      continue;
+    }
     if (!result.ok && result.failureKind === "account") {
       run.accountError = result;
       run.stopReason = `account/quota error (${result.statusCode ?? "n/a"}): ${result.error}`;
       if (result.retryAfterS) state.blockedUntil = nowS() + result.retryAfterS;
       continue;
+    }
+    if (!result.ok && result.failureKind === "capacity") {
+      const previous = state.results[key];
+      const prior = previous !== undefined && !previous.ok && previous.failureKind === "capacity" ? (previous.capacityStreak ?? 0) : 0;
+      result = { ...result, capacityStreak: prior + 1 };
     }
     state.results[key] = result;
     run.results.set(key, result);

@@ -2,7 +2,20 @@
   "$schema": "./providers.schema.json",
   "spec_version": 1,
   "description": "Provider rules shared by the Python package (src/freemodel_sync) and the dsh plugin (plugins/dsh-freemodel). Change a rule here, add a case under spec/conformance/, and both implementations must pass it.",
-  "failureKinds": ["model", "transient", "account"],
+  "failureKinds": ["model", "transient", "account", "capacity", "quota"],
+  "capabilities": {
+    "description": "Capability flags shared by both implementations. null means the catalogue does not say (unknown); it is never treated as false.",
+    "fields": ["tools", "vision", "reasoning"],
+    "sources": ["catalog", "config", "probe", "manual", "unknown"]
+  },
+  "quota": {
+    "description": "Generic quota vocabulary shared by both implementations. A window with no fixed length (total, beta) has no periodSeconds.",
+    "units": ["requests", "tokens", "credits", "unknown"],
+    "periods": ["rolling_5h", "week", "day", "total", "beta", "unknown"],
+    "periodSeconds": { "rolling_5h": 18000, "week": 604800, "day": 86400 },
+    "sources": ["api", "headers", "manual", "none"],
+    "scopes": ["account", "model"]
+  },
   "defaultErrorMap": {
     "description": "Conservative default for OpenAI-compatible providers without their own rules.",
     "preStream": [
@@ -38,6 +51,12 @@
         "contextLength": ["context_length", "top_provider.context_length"],
         "toolsWhen": { "field": "supported_parameters", "contains": "tools" },
         "expirationDate": "expiration_date"
+      },
+      "capabilities": {
+        "tools": { "where": "supported_parameters", "contains": "tools" },
+        "vision": { "where": "architecture.input_modalities", "contains": "image" },
+        "reasoning": { "where": "supported_parameters", "contains": "reasoning" },
+        "source": "catalog"
       },
       "probe": { "path": "/chat/completions", "maxTokensParam": "max_tokens", "defaultMaxTokens": 16, "prompt": "Reply with OK." },
       "errorMap": {
@@ -99,6 +118,12 @@
         "toolsWhen": null,
         "activeField": "active"
       },
+      "capabilities": {
+        "tools": null,
+        "vision": null,
+        "reasoning": null,
+        "source": "unknown"
+      },
       "probe": { "path": "/chat/completions", "maxTokensParam": "max_completion_tokens", "defaultMaxTokens": 16, "prompt": "Reply with OK." },
       "errorMap": {
         "preStream": [
@@ -120,6 +145,120 @@
         { "url": "https://console.groq.com/docs/rate-limits", "checked": "2026-10-22" },
         { "url": "https://console.groq.com/docs/errors", "checked": "2026-10-22" },
         { "url": "https://console.groq.com/docs/billing-faqs", "checked": "2026-10-22" }
+      ]
+    },
+    "sensenova": {
+      "displayName": "SenseNova Token Plan",
+      "tier": 1,
+      "authKind": "api_key",
+      "baseURL": "https://token.sensenova.cn/v1",
+      "modelsPath": "/models",
+      "modelsNeedKey": true,
+      "apiKeyEnv": "SENSENOVA_API_KEY",
+      "freeRule": {
+        "kind": "plan-confirm",
+        "description": "Free only inside the SenseNova Token Plan public beta, which the API cannot report: nothing is listed or probed until the user confirms the plan. Models whose catalogue price is not the string \"0\" are removed.",
+        "option": "plan",
+        "value": "token-plan"
+      },
+      "catalogFields": {
+        "id": "id",
+        "pricing": "pricing",
+        "contextLength": ["context_length", "context_window"],
+        "maxTokens": ["max_tokens", "max_completion_tokens"],
+        "supportedFeatures": "supported_features",
+        "businesses": "businesses"
+      },
+      "capabilities": {
+        "tools": { "where": "supported_features", "contains": "function" },
+        "vision": { "where": "supported_features", "contains": "image" },
+        "reasoning": { "where": "supported_features", "contains": "reasoning" },
+        "source": "catalog"
+      },
+      "probe": { "path": "/chat/completions", "maxTokensParam": "max_tokens", "defaultMaxTokens": 16, "prompt": "Reply with OK." },
+      "errorMap": {
+        "preStream": [
+          { "status": [401, 402], "kind": "account" },
+          { "status": [403], "kind": "model" },
+          { "status": [408, 429], "kind": "transient" },
+          { "statusMin": 500, "kind": "transient" }
+        ],
+        "default": "model"
+      },
+      "rateLimitHeaders": {
+        "retryAfter": "retry-after",
+        "reset": "x-ratelimit-reset",
+        "resetFormat": "epoch-or-relative",
+        "remaining": "x-ratelimit-remaining"
+      },
+      "keyPatterns": [{ "prefix": "sk-", "regex": "\\bsk-[A-Za-z0-9]{32}\\b" }],
+      "docs": [
+        { "url": "https://platform.sensenova.cn/", "checked": "2026-10-27" },
+        { "url": "https://token.sensenova.cn/v1/models", "checked": "2026-10-27" }
+      ]
+    },
+    "bailian": {
+      "displayName": "阿里云百炼 (Bailian)",
+      "tier": 1,
+      "authKind": "api_key",
+      "baseURL": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "modelsPath": "/models",
+      "modelsNeedKey": true,
+      "apiKeyEnv": "DASHSCOPE_API_KEY",
+      "freeRule": {
+        "kind": "allowlist+guard",
+        "description": "Free only on the user's new-user allowance, which the API cannot report per call: nothing is listed or probed until the user confirms free_quota_guard=confirmed (\u514d\u8d39\u989d\u5ea6\u7528\u5b8c\u5373\u505c) and supplies a model allowlist. Per-model allowances are manual and unverified. Beijing region only.",
+        "guardOption": "free_quota_guard",
+        "guardValue": "confirmed",
+        "modelsOption": "models"
+      },
+      "catalogFields": {
+        "id": "id",
+        "contextLength": ["context_length", "context_window"],
+        "maxTokens": ["max_tokens", "max_completion_tokens"]
+      },
+      "capabilities": {
+        "tools": null,
+        "vision": null,
+        "reasoning": null,
+        "source": "unknown"
+      },
+      "probe": { "path": "/chat/completions", "maxTokensParam": "max_tokens", "defaultMaxTokens": 16, "prompt": "Reply with OK." },
+      "errorMap": {
+        "preStream": [
+          { "status": [401], "kind": "account" },
+          { "status": [403], "when": [{ "in": "code", "values": ["AllocationQuota.FreeTierOnly"] }], "kind": "quota" },
+          {
+            "status": [400, 403, 429],
+            "when": [
+              {
+                "in": "code",
+                "values": ["ModelUnavailable", "ModelBusy", "ServiceUnavailable", "Throttling.AllocationQuota"]
+              }
+            ],
+            "kind": "capacity"
+          },
+          { "status": [403], "kind": "model" },
+          { "status": [429], "kind": "transient" },
+          { "status": [408], "kind": "transient" },
+          { "statusMin": 500, "kind": "transient" }
+        ],
+        "default": "model"
+      },
+      "rateLimitHeaders": {
+        "retryAfter": "retry-after",
+        "reset": "x-ratelimit-reset",
+        "resetFormat": "epoch-or-relative",
+        "remaining": "x-ratelimit-remaining"
+      },
+      "keyPatterns": [
+        { "prefix": "sk-ws-", "regex": "\\bsk-(?:ws|sp)-[A-Za-z0-9._-]{20,}" },
+        { "prefix": "sk-", "regex": "\\bsk-[A-Fa-f0-9]{32}\\b" }
+      ],
+      "docs": [
+        { "url": "https://help.aliyun.com/zh/model-studio/compatibility-of-openai-with-dashscope", "checked": "2026-10-29" },
+        { "url": "https://help.aliyun.com/zh/model-studio/error-code", "checked": "2026-10-29" },
+        { "url": "https://help.aliyun.com/zh/model-studio/new-free-quota", "checked": "2026-10-29" }
       ]
     }
   }

@@ -52,7 +52,7 @@ describe("dsh-freemodel CLI", () => {
     const result = await run(["status", "--json"], { DSH_HOME: home, OPENROUTER_API_KEY: fakeKey });
     const report = JSON.parse(result.out);
     expect(report).toMatchObject({ schemaVersion: 2, plugin: "dsh-freemodel", version: "0.1.0", stateExists: true });
-    expect(report.channels.map((c: { route: string }) => c.route)).toEqual(["freemodel-openrouter", "freemodel-groq"]);
+    expect(report.channels.map((c: { route: string }) => c.route)).toEqual(["freemodel-openrouter", "freemodel-groq", "freemodel-sensenova", "freemodel-bailian"]);
     expect(report.channels[0].models).toMatchObject({ catalogFetchedAt: null, listed: [], hidden: [] });
     expect(result.out).not.toContain(fakeKey);
   });
@@ -61,7 +61,7 @@ describe("dsh-freemodel CLI", () => {
     const home = mkdtempSync(join(tmpdir(), "fm-home-"));
     const state = emptyState();
     const nowS = Date.now() / 1000;
-    const m = (id: string) => ({ provider: "openrouter" as const, id, name: id, contextLength: 131072, tools: true, input: ["text" as const], maxTokens: null, expirationDate: null });
+    const m = (id: string) => ({ provider: "openrouter" as const, id, name: id, contextLength: 131072, tools: true, input: ["text" as const], maxTokens: null, expirationDate: null, capabilities: { tools: true, vision: false, reasoning: false, source: "catalog" as const }, quota: null, tier: 1 });
     state.channels.openrouter.catalog = { fetchedAt: nowS, models: [m("good:free"), m("bad:free"), m("new:free")], error: null, errorAt: null };
     const base = { totalMs: 1, testedAt: nowS, retryAfterS: null, rateLimitRemaining: null };
     state.channels.openrouter.results["openrouter|good:free"] = { ...base, key: "openrouter|good:free", ok: true, ttftMs: 321, error: null, statusCode: 200, failureKind: null };
@@ -86,7 +86,15 @@ describe("dsh-freemodel CLI", () => {
     const report = JSON.parse(result.out);
     expect(report.ok).toBe(true);
     const levels = Object.fromEntries(report.checks.map((c: { id: string; level: string }) => [c.id, c.level]));
-    expect(levels).toMatchObject({ node: "ok", dsh: "warn", spec: "ok", "key:openrouter": "warn", "key:groq": "ok" });
+    expect(levels).toMatchObject({
+      node: "ok",
+      dsh: "warn",
+      spec: "ok",
+      "key:openrouter": "warn",
+      "key:groq": "ok",
+      "key:sensenova": "ok",
+      "key:bailian": "ok",
+    });
   });
 });
 

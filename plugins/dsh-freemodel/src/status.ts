@@ -8,6 +8,7 @@ import { createRequire } from "node:module";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { type ChannelState, channelStates, defaultProviders, type FreemodelConfig, rankingOf } from "./channels.ts";
+import type { Capabilities, Quota } from "./providers/types.ts";
 import { filterModels, rank } from "./rank.ts";
 import { satisfies } from "./semver.ts";
 import { providersSpec, SUPPORTED_SPEC_VERSION } from "./spec.ts";
@@ -35,7 +36,14 @@ export interface ModelsReport {
   /** Free models after the listing filters. */
   candidates: number;
   /** Models whose latest probe passed: these are the ones the route lists. */
-  listed: Array<{ id: string; ttftMs: number | null; testedAt: number }>;
+  listed: Array<{
+    id: string;
+    ttftMs: number | null;
+    testedAt: number;
+    capabilities: Capabilities;
+    quota: Quota | null;
+    tier: number;
+  }>;
   /** Models kept out of the picker, with the reason. */
   hidden: Array<{ id: string; reason: string }>;
   probesToday: number;
@@ -83,14 +91,21 @@ export function modelsReport(state: StateData, config: FreemodelConfig, id: Chan
   const ranking = rankingOf(config);
   const today = new Date(now).toISOString().slice(0, 10);
   const candidates = filterModels(channel.catalog?.models ?? [], { ...ranking, today });
-  const ranked = rank(candidates, channel.results, undefined, today);
+  const ranked = rank(candidates, channel.results, undefined, today, ranking.capacityDowngradeAfter);
   return {
     catalogFetchedAt: channel.catalog?.fetchedAt ?? null,
     catalogError: channel.catalog?.error ?? null,
     candidates: candidates.length,
     listed: ranked
       .filter((r) => r.test?.ok === true)
-      .map((r) => ({ id: r.model.id, ttftMs: r.test?.ttftMs ?? null, testedAt: r.test?.testedAt ?? 0 })),
+      .map((r) => ({
+        id: r.model.id,
+        ttftMs: r.test?.ttftMs ?? null,
+        testedAt: r.test?.testedAt ?? 0,
+        capabilities: r.model.capabilities,
+        quota: r.model.quota,
+        tier: r.model.tier ?? 1,
+      })),
     hidden: ranked
       .filter((r) => r.test?.ok !== true)
       .map((r) => ({ id: r.model.id, reason: r.test === null ? "not probed yet" : (r.reasons[0] ?? "failed") })),
