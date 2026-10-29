@@ -187,9 +187,7 @@ class RankingConfig(_Section):
     #: fill empty fallback slots with models that were never probed
     fallbacks_allow_untested: bool = False
     #: consecutive capacity failures after which a model is no longer selectable
-    capacity_downgrade_after: int = field(
-        default_factory=lambda: int(ranking_spec()["capacity"]["downgradeAfter"])
-    )
+    capacity_downgrade_after: int = field(default_factory=lambda: int(ranking_spec()["capacity"]["downgradeAfter"]))
 
 
 @dataclass

@@ -203,9 +203,7 @@ class BailianProvider(OpenAICompatProvider):
         if catalog is None:
             return [self._model(None, model_id, limit) for model_id, limit in configured]
         return [
-            self._model(catalog[model_id], model_id, limit)
-            for model_id, limit in configured
-            if model_id in catalog
+            self._model(catalog[model_id], model_id, limit) for model_id, limit in configured if model_id in catalog
         ]
 
     def capabilities_for(self, model: ModelInfo) -> Capabilities:
