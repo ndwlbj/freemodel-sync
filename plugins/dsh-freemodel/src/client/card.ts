@@ -8,7 +8,7 @@ import { API_PREFIX } from "../api-paths.ts";
 import { capabilityBadges, quotaBadge } from "./badges.ts";
 import { type Translator } from "./i18n.ts";
 import { getReact, type ReactElementLike } from "./react-runtime.ts";
-import type { ChannelId, ChannelReport, ManualEntryView, ManualTestView, StatusReport } from "./types.ts";
+import type { ChannelId, ChannelModels, ChannelReport, ManualEntryView, ManualTestView, StatusReport } from "./types.ts";
 
 export type Tab = "overview" | "channels" | "models" | "manual" | "diagnostics";
 
@@ -194,7 +194,7 @@ function channelCard(t: Translator, channel: ChannelReport): ReactElementLike {
     kv(t("route"), channel.route, "route"),
     kv(
       t("catalog"),
-      `${models.catalogFetchedAt === null ? t("never") : when(models.catalogFetchedAt)} · ${models.candidates} ${t("listed")}`,
+      `${models.catalogFetchedAt === null ? t("never") : when(models.catalogFetchedAt)} · ${models.candidates} ${t("catalogFree")}`,
       "catalog",
     ),
     kv(t("probesToday"), String(models.probesToday), "probes"),
@@ -222,6 +222,7 @@ function channelCard(t: Translator, channel: ChannelReport): ReactElementLike {
       h("h4", { className: `${CLASS}-channel-name` }, channelName(t, channel.id)),
       badge(channel.enabled ? t("enabled") : t("disabled"), channel.enabled ? "ok" : "muted"),
       badge(channel.key === "unknown" ? t("keyUnknown") : channel.key.configured ? t("keyConfigured") : t("keyMissing"), channel.key === "unknown" ? "warn" : channel.key.configured ? "ok" : "bad"),
+      badge(`${models.listed.length} ${t("listed")}`, "ok"),
     ),
     channel.blocked === undefined ? null : h("p", { className: `${CLASS}-warn` }, `${t("blocked")}: ${channel.blocked}`),
     h("dl", { className: `${CLASS}-kv-list` }, ...rows),
@@ -294,6 +295,16 @@ function modelRow(
   );
 }
 
+/** Empty message for hidden models depending on catalogue state. */
+function emptyHiddenMessage(t: Translator, models: ChannelModels): string {
+  if (models.candidates === 0) {
+    if (models.catalogError !== null) return t("noCatalogData");
+    if (models.catalogFetchedAt === null) return t("noCatalogYet");
+    return t("noCatalogFree");
+  }
+  return t("noHidden");
+}
+
 function modelsTab(props: CardProps): ReactElementLike {
   const t = props.t;
   const channels = channelsOf(props.state.status);
@@ -327,7 +338,7 @@ function modelsTab(props: CardProps): ReactElementLike {
       h("h5", { className: `${CLASS}-model-list-title` }, t("listed")),
       listed.length === 0 ? h("p", { className: `${CLASS}-empty` }, t("noListed")) : h("ul", { className: `${CLASS}-model-list` }, ...listed),
       h("h5", { className: `${CLASS}-model-list-title` }, t("hidden")),
-      hidden.length === 0 ? h("p", { className: `${CLASS}-empty` }, t("noHidden")) : h("ul", { className: `${CLASS}-model-list` }, ...hidden),
+      hidden.length === 0 ? h("p", { className: `${CLASS}-empty` }, emptyHiddenMessage(t, model)) : h("ul", { className: `${CLASS}-model-list` }, ...hidden),
     );
   });
 

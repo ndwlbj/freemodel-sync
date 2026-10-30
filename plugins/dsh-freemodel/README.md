@@ -6,7 +6,7 @@ A [dsh](https://www.npmjs.com/package/@deepseek-ai/dsh) plugin for free models f
 
 > [!NOTE]
 > - **Release status**: Version 1.0.0 (private; **not published to npm**).
-> - **Screenshots**: Real captures of the settings card (headless Chrome on a fresh dsh profile, offline, see [Settings Card & UI](#settings-card--ui)).
+> - **Screenshots**: Real captures of the settings card (headless Chrome on a fresh, networked dsh profile, see [Settings Card & UI](#settings-card--ui)).
 > - **Real-device test status**: Verified on Linux with dsh 0.2.1-rc.3; **not run: Windows/macOS real-device tests**.
 > - **Profile layout**: The current-profile patch path `$DSH_HOME/profiles/<id>/cordis.patch.yml` was checked on a real dsh 0.2.1-rc.3 home (the profile directory and `profileContext.patchPath`). The `autoDefaultModel` disk write itself was not exercised on a real profile.
 
@@ -149,7 +149,7 @@ The browser extension (`lib/client.js`) attaches a comprehensive management card
 4. **Manual**: Shows configured tier-2 entries, detection status of corresponding dsh routes, expiration status, and last probe results.
 5. **Diagnostics**: Schema versions, local API endpoint prefix, error logs, and troubleshooting guidance.
 
-**Screenshots** (English UI, in the order of the tabs). They were taken with headless Chrome on a freshly created dsh profile with the plugin installed, **offline** and without typing any key: a key shows as "configured" only because it exists in the environment or dsh's credential store, the catalogue is empty and the channel shows a catalogue error because no network was available. The images are kept in the repository only and are not part of the npm package (`screenshots.json` lists them; Chinese versions are in `README.zh-CN.md`).
+**Screenshots** (English UI, in the order of the tabs). Captured with headless Chrome on a fresh, networked dsh profile with the plugin installed, without typing any key; the OpenRouter catalogue lists 15 free models; 4 passed probing and are listed; 11 are not listed (5 not yet probed, 3 returned 429, 1 returned 503, 2 only available on agentic harnesses); "configured" only means the matching key exists in an environment variable or the dsh credential store. The images are kept in the repository only and are not part of the npm package (`screenshots.json` lists them; Chinese versions are in `README.zh-CN.md`).
 
 | Overview | Channels |
 | --- | --- |

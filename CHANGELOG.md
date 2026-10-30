@@ -14,7 +14,7 @@ All notable changes to this project are documented here. The format follows
   `autoDefaultModel` (default `false`, refuses QQ/bot profiles, refuses home patch layer,
   requires `DSH_FREEMODEL_APPLY_DEFAULT=1` env var to write disk changes), icon assets
   (`icons/dsh-freemodel-128.png`, `-64.png`, `dsh-freemodel.svg`), `screenshots.json`
-  referencing clearly-labelled placeholder image (`docs/assets/dsh-freemodel-settings-card-placeholder.png`),
+  lists real settings-card screenshots (10 images, EN and zh-CN, under plugins/dsh-freemodel/docs/assets/, kept in the repo only, not in the npm package),
   complete English and Chinese plugin documentation (`README.md` and `README.zh-CN.md`),
   and explicit notices that Windows/macOS real-device tests have not been run.
 - **Tier-2 manual registration + probes (P9).** New `manual_providers` section

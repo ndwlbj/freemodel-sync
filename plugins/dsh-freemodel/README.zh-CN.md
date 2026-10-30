@@ -6,7 +6,7 @@
 
 > [!NOTE]
 > - **发布状态**：版本 1.0.0（私有包；**未发布到 npm**）。
-> - **界面截图**：真实截图（新建 dsh profile 上用 headless Chrome 截取，断网、未手动填写任何 key，详见[设置卡片](#设置卡片与管理界面)一节）。
+> - **界面截图**：真实截图（新建 dsh profile 上用 headless Chrome 截取，已联网、未手动填写任何 key，详见[设置卡片](#设置卡片与管理界面)一节）。
 > - **真机测试状态**：已在 Linux（dsh 0.2.1-rc.3）环境下验证；**未在 Windows / macOS 真实设备上运行测试**。
 > - **Profile 文件布局**：当前 profile 的 patch 路径 `$DSH_HOME/profiles/<id>/cordis.patch.yml` 已在真实 dsh 0.2.1-rc.3 的 home 上核对（profile 目录及 `profileContext.patchPath`）；`autoDefaultModel` 的实际写盘流程未在真实 profile 上执行过。
 
@@ -150,7 +150,7 @@ dsh plugin --profile <测试profile名> exec dsh-freemodel doctor
 5. **诊断（Diagnostics）**：数据格式版本号、本地 API 前缀、目录加载错误、提前中止记录以及 `dsh-freemodel doctor` 建议。
 
 > [!NOTE]
-**界面截图**（中文界面，按栏目顺序）：在新建的 dsh profile 上安装插件后，用 headless Chrome **断网**截取，且没有手动填写任何 key。"已配置"仅表示环境变量或 dsh 凭据库里已有对应 key；因为没有网络，目录为空并显示目录获取失败。图片只保留在仓库里，不在 npm 包内（`screenshots.json` 登记了英文和中文共 10 张）。
+**界面截图**（中文界面，按栏目顺序）：在已联网的新建 dsh profile 上安装插件后，用 headless Chrome 截取，未手动填写任何 key；OpenRouter 目录列出 15 个免费模型；4 个通过探测并已列出；11 个未列出（5 个尚未探测，3 个返回 429，1 个返回 503，2 个仅限 agentic harness 使用）；"已配置"仅表示环境变量或 dsh 凭据库里已有对应 key。图片只保留在仓库里，不在 npm 包内（`screenshots.json` 登记了英文和中文共 10 张）。
 
 | 概览 | 渠道 |
 | --- | --- |

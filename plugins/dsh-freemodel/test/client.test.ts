@@ -451,6 +451,142 @@ describe("client module", () => {
     expect(en("unknown")).toBe("unknown");
     expect(zh("unknown")).toBe("未知");
   });
+
+  it("renders the four empty hidden-models messages correctly in en and zh-CN", () => {
+    setReact(fakeReact());
+    const cases = [
+      {
+        name: "not fetched yet",
+        models: { catalogFetchedAt: null, catalogError: null, candidates: 0 },
+        en: "Catalogue not fetched yet.",
+        zh: "还没有获取目录。",
+      },
+      {
+        name: "fetch failed with timestamp",
+        models: { catalogFetchedAt: NOW, catalogError: "network error", candidates: 0 },
+        en: "No catalogue data: the last catalogue fetch failed.",
+        zh: "没有目录数据：上次获取目录失败。",
+      },
+      {
+        name: "fetch failed without timestamp",
+        models: { catalogFetchedAt: null, catalogError: "network error", candidates: 0 },
+        en: "No catalogue data: the last catalogue fetch failed.",
+        zh: "没有目录数据：上次获取目录失败。",
+      },
+      {
+        name: "no free models after filtering",
+        models: { catalogFetchedAt: NOW, catalogError: null, candidates: 0 },
+        en: "The catalogue has no free models after filtering.",
+        zh: "目录里没有符合过滤条件的免费模型。",
+      },
+      {
+        name: "every model listed",
+        models: { catalogFetchedAt: NOW, catalogError: null, candidates: 2 },
+        en: "Every catalogue model is listed.",
+        zh: "目录里的模型均已列出。",
+      },
+    ];
+
+    for (const testCase of cases) {
+      const status: StatusReport = {
+        ...STATUS,
+        channels: [
+          {
+            id: "openrouter",
+            route: "freemodel-openrouter",
+            enabled: true,
+            apiKeyEnv: "OPENROUTER_API_KEY",
+            key: { configured: true, source: "file" },
+            models: {
+              ...testCase.models,
+              listed: [],
+              hidden: [],
+              probesToday: 0,
+              lastRound: null,
+              blockedUntil: null,
+            },
+          },
+        ],
+      };
+
+      const enTree = renderCard(
+        props("models", {
+          t: createTranslator("en"),
+          state: { phase: "ready", status, loadedAt: NOW },
+        }),
+      );
+      const enText = textOf(enTree);
+      expect(enText, testCase.name).toContain(testCase.en);
+
+      const zhTree = renderCard(
+        props("models", {
+          t: createTranslator(resolveLocale("zh-CN")),
+          state: { phase: "ready", status, loadedAt: NOW },
+        }),
+      );
+      const zhText = textOf(zhTree);
+      expect(zhText, testCase.name).toContain(testCase.zh);
+
+      if (testCase.models.candidates === 0) {
+        expect(enText, testCase.name).not.toContain("Every catalogue model is listed.");
+        expect(zhText, testCase.name).not.toContain("目录里的模型均已列出。");
+      }
+    }
+  });
+
+  it("renders catalogue free models count and listed badge on the channels card", () => {
+    setReact(fakeReact());
+    const channelStatus: StatusReport = {
+      ...STATUS,
+      channels: [
+        {
+          id: "openrouter",
+          route: "freemodel-openrouter",
+          enabled: true,
+          apiKeyEnv: "OPENROUTER_API_KEY",
+          key: { configured: true, source: "file" },
+          models: {
+            catalogFetchedAt: NOW,
+            catalogError: null,
+            candidates: 15,
+            listed: [
+              { id: "model-1", ttftMs: 100, testedAt: NOW },
+              { id: "model-2", ttftMs: 120, testedAt: NOW },
+              { id: "model-3", ttftMs: 150, testedAt: NOW },
+            ],
+            hidden: [],
+            probesToday: 3,
+            lastRound: null,
+            blockedUntil: null,
+          },
+        },
+      ],
+    };
+
+    const enTree = renderCard(
+      props("channels", {
+        t: createTranslator("en"),
+        state: { phase: "ready", status: channelStatus, loadedAt: NOW },
+      }),
+    );
+    const enText = textOf(enTree);
+
+    expect(enText).toContain("15 free models in catalogue");
+    expect(enText).toContain("3 Listed");
+    expect(enText).not.toContain("15 Listed");
+
+    const zhTree = renderCard(
+      props("channels", {
+        t: createTranslator(resolveLocale("zh-CN")),
+        state: { phase: "ready", status: channelStatus, loadedAt: NOW },
+      }),
+    );
+    const zhText = textOf(zhTree);
+
+    expect(zhText).toContain("15 个免费模型在目录中");
+    expect(zhText).toContain("3 已列出");
+    expect(zhText).not.toContain("15 已列出");
+  });
 });
 
 function response(body: unknown, status = 200) {
