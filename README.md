@@ -15,6 +15,20 @@ recent probe. It cannot guarantee the model keeps working between runs.
 > **Not a proxy.** freemodel-sync never sees or forwards your traffic. It only edits config
 > files (with a backup) and then gets out of the way. Your tools keep talking to the provider directly.
 
+## Two ways to use it
+
+- **Python CLI** (`pip install freemodel-sync`): discovers, probes and ranks free models, then writes
+  the winner into your tools' config files. Runs anywhere, e.g. from cron or CI.
+- **dsh plugin** ([`dsh-freemodel`](https://github.com/ndwlbj/freemodel-sync/blob/main/plugins/dsh-freemodel/README.md), in `plugins/dsh-freemodel/`): a
+  self-contained TypeScript plugin for [dsh](https://www.npmjs.com/package/@deepseek-ai/dsh). It lists the
+  free OpenRouter, Groq, SenseNova and Bailian models that passed a probe directly in the dsh model
+  picker, with capability and quota badges, a settings card, a `/freemodel` command and
+  `dsh-freemodel status` / `doctor`. Keys stay in dsh's credential store or your environment. Optional
+  `freemodel-auto` best-model routing and the guarded default-model switch are both off by default.
+  Version 1.0.0, not yet published to npm (build it from this repo).
+
+![dsh-freemodel settings card, Models tab](https://raw.githubusercontent.com/ndwlbj/freemodel-sync/main/plugins/dsh-freemodel/docs/assets/dsh-freemodel-card-en-models.png)
+
 ## How it works
 
 ```

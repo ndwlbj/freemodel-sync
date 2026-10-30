@@ -12,6 +12,13 @@
 
 > **不是代理。** freemodel-sync 不经手、不转发你的任何请求，只负责修改配置文件（先备份），然后就退出。你的工具仍然直接连接模型服务商。
 
+## 两种用法
+
+- **Python 命令行**（`pip install freemodel-sync`）：发现、探测、排名免费模型，再把选中的模型写进你的工具配置文件。哪里都能跑，比如定时任务或 CI。
+- **dsh 插件**（[`dsh-freemodel`](https://github.com/ndwlbj/freemodel-sync/blob/main/plugins/dsh-freemodel/README.zh-CN.md)，在 `plugins/dsh-freemodel/`）：给 [dsh](https://www.npmjs.com/package/@deepseek-ai/dsh) 用的独立 TypeScript 插件。把探测通过的 OpenRouter、Groq、商汤 SenseNova、阿里云百炼免费模型直接列进 dsh 的模型选择器，带能力和额度标记，另有插件设置卡片、`/freemodel` 命令和 `dsh-freemodel status` / `doctor` 自检。密钥只放在 dsh 的凭据库或环境变量里。可选的 `freemodel-auto` 自动选最佳模型、受控的默认模型切换，两者都默认关闭。当前版本 1.0.0，尚未发布到 npm（需从本仓库构建）。
+
+![dsh-freemodel 设置卡片：模型页](https://raw.githubusercontent.com/ndwlbj/freemodel-sync/main/plugins/dsh-freemodel/docs/assets/dsh-freemodel-card-zh-models.png)
+
 ## 工作流程
 
 ```
