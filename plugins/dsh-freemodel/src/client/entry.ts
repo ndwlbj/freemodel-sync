@@ -14,3 +14,4 @@ export { apply, inject, name };
 export { FreemodelCard, renderCard } from "./card.ts";
 export { FreemodelApiClient, LocalApiError } from "./api.ts";
 export { createTranslator, resolveLocale } from "./i18n.ts";
+export { capabilityBadges, quotaBadge, modelBadges, quotaWindowLabel, quotaUnitLabel } from "./badges.ts";

@@ -101,6 +101,18 @@ targets:
     options: {providers: [openrouter]}   # 这个机器人只有 OpenRouter 的 key
 ```
 
+## 第二层手动登记（P9）
+
+ZCode / Qoder / WorkBuddy 这类没有公开接口的平台，可以在 `manual_providers`
+里手动登记。登记只写模型 id、可选的说明/额度备注和到期日；Python 端**从不**
+请求这些平台的域名。`freemodel-sync registry list|check [--json]` 只读本地
+配置，列出入登记项、到期日和是否已过期。手动条目属于 tier 2，显示为
+「手动，未核实」，默认不参与自动选择；target 必须在 `options.providers` 里
+显式列出才可能被选中。Python 完全不做可用性探测；dsh 插件只在
+`manualProbe.enabled` 和该条 `probe` 同时打开时经 `ctx.llm` 探测，每模型每天
+最多 1 次。account 类错误当天停该平台，capacity 只记录、不停。详见
+[docs/manual-registry.md](https://github.com/ndwlbj/freemodel-sync/blob/main/docs/manual-registry.md)。
+
 ## 配置目标（适配器）
 
 | 适配器 | 文件 | 写入内容 |
@@ -164,6 +176,7 @@ targets:
 ```python
 from freemodel_sync.providers import Provider, register_provider
 
+
 @register_provider
 class MyProvider(Provider):
     name = "myprovider"
@@ -185,7 +198,7 @@ ruff format --check src tests scripts
 pytest
 ```
 
-dsh 插件骨架在 `plugins/dsh-freemodel/`（TypeScript，用 pnpm；见其 README 和
+dsh 插件在 `plugins/dsh-freemodel/`（TypeScript，用 pnpm；支持 OpenRouter、Groq、SenseNova、百炼免费模型，可选自动路由 `freemodel-auto` 与受控的 `autoDefaultModel` 默认模型切换，两者均默认关闭；详见其 README 和
 [docs/dsh-plugin-verification.md](https://github.com/ndwlbj/freemodel-sync/blob/main/docs/dsh-plugin-verification.md)）。
 
 测试完全不联网（HTTP 用 `httpx.MockTransport` 模拟）。贡献指南见 [CONTRIBUTING.md](https://github.com/ndwlbj/freemodel-sync/blob/main/CONTRIBUTING.md)。

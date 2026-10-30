@@ -8,6 +8,36 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **dsh-freemodel plugin v1.0.0 (P10).** Native TypeScript plugin version 1.0.0
+  (private, not published to npm). Added opt-in `autoRoute.enabled` (default `false`)
+  registering `freemodel-auto` (`best`) with pre-output in-process failover, opt-in
+  `autoDefaultModel` (default `false`, refuses QQ/bot profiles, refuses home patch layer,
+  requires `DSH_FREEMODEL_APPLY_DEFAULT=1` env var to write disk changes), icon assets
+  (`icons/dsh-freemodel-128.png`, `-64.png`, `dsh-freemodel.svg`), `screenshots.json`
+  referencing clearly-labelled placeholder image (`docs/assets/dsh-freemodel-settings-card-placeholder.png`),
+  complete English and Chinese plugin documentation (`README.md` and `README.zh-CN.md`),
+  and explicit notices that Windows/macOS real-device tests have not been run.
+- **Tier-2 manual registration + probes (P9).** New `manual_providers` section
+  (schema [`spec/manual.schema.json`](spec/manual.schema.json)) for platforms
+  with no public API: ZCode, Qoder and WorkBuddy. Entries contain only a model
+  id, optional label/quota note and expiry date; `token`/`pat`/`cookie`/
+  `password`/`secret`/`key` fields and key-shaped values are rejected (the
+  `api_key_env` name-only exception remains for tier-1 providers). Python's new
+  `ManualProvider` is tier 2, source `manual`, labelled `手动，未核实`, excludes
+  expired models, and **never opens a network connection**. Manual entries are
+  excluded from automatic selection (`filters.include_manual: false`); only a
+  target's explicit `options.providers` can select one. New local-only CLI
+  `freemodel-sync registry list|check [--json]` reports registrations, expiry
+  and expired state without contacting any platform. `examples/config.example.yml`,
+  `docs/manual-registry.md` and both READMEs document the ToS boundary. The dsh
+  plugin gains `manual[]` (default `[]`, each entry `probe: false`) and
+  `manualProbe.enabled` (default `false`); when both are on it probes through
+  `ctx.llm` once per model per UTC day (hard cap), stops a platform for the day
+  on an account error such as WorkBuddy `11140`, records capacity without
+  stopping, and stores only `{provider, model, ok, failure_kind, error_code,
+  tested_at}`. It detects the dsh route through the public provider list and
+  never reads third-party routes, vaults or state files. Shared conformance
+  cases cover rejection, expiry and the probe rules on both sides.
 - **Alibaba Cloud Bailian + `capacity` failures (P8).** New opt-in provider `bailian`
   (`https://dashscope.aliyuncs.com/compatible-mode/v1`, Beijing only, `DASHSCOPE_API_KEY`,
   tier 1, `api_key`). Nothing is listed or probed until **both**

@@ -6,6 +6,7 @@ Commands::
     freemodel-sync [-c CONFIG] [-v] test [--max-tests N]
     freemodel-sync [-c CONFIG] [-v] rank [--json] [--output FILE]
     freemodel-sync [-c CONFIG] [-v] sync [--dry-run] [--no-notify]
+    freemodel-sync [-c CONFIG] [-v] registry list|check [--json]
     freemodel-sync [-c CONFIG] [-v] providers
     freemodel-sync [-c CONFIG] [-v] adapters
     freemodel-sync --version
@@ -34,6 +35,7 @@ from .lock import LockedError, RunLock
 from .models import ModelInfo, Quota, QuotaInfo, Selection, TestResult
 from .notify import notify_switch
 from .providers import ProviderError, available_providers, get_provider_class
+from .providers.manual import ManualProvider
 from .ranking import RankWeights, filter_models, rank, score_model, select
 from .redact import KEY_PATTERNS, register_secret
 from .redact import redact as redact_text
@@ -71,11 +73,19 @@ Providers = List[Tuple[str, Any]]
 def _resolve_providers(
     config: Config,
     provider_factory: Optional[ProviderFactory] = None,
+    *,
+    include_manual: Optional[bool] = None,
 ) -> Providers:
-    """Instantiate every enabled provider, in config order."""
+    """Instantiate every enabled provider, in config order.
+
+    Tier-2 manual registrations are added only when ``include_manual`` is true
+    (or, when it is ``None``, ``filters.include_manual`` is true).  They are
+    built from public registration data and never send a request.
+    """
 
     names = config.enabled_providers()
-    if not names:
+    want_manual = config.filters.include_manual if include_manual is None else include_manual
+    if not names and not (want_manual and config.manual_providers):
         raise ConfigError("no providers are enabled in the config")
     providers: Providers = []
     for name in names:
@@ -85,6 +95,9 @@ def _resolve_providers(
         register_secret(api_key)
         provider = _build_provider(name, api_key or None, dict(settings.options), provider_factory)
         providers.append((name, provider))
+    if want_manual:
+        for name, entry in config.manual_providers.items():
+            providers.append((name, ManualProvider.from_config(entry)))
     return providers
 
 
@@ -254,6 +267,10 @@ def _probe_all(
     for name, provider in providers:
         models = by_provider.get(name)
         if models is None:
+            continue
+        if getattr(provider, "tier", 1) == 2:
+            # Tier-2 availability is checked only by the dsh plugin; Python never
+            # sends a request to these platforms and never caches a fake failure.
             continue
         try:
             run, quota = _probe(
@@ -586,6 +603,7 @@ def _cmd_rank(args: argparse.Namespace, config: Config, providers: Providers) ->
         ranked,
         config.ranking.fallback_count,
         allow_untested=config.ranking.fallbacks_allow_untested,
+        include_manual=config.filters.include_manual,
     )
     payload = _ranking_payload([name for name, _ in providers], ranked, selection, quotas)
 
@@ -679,12 +697,15 @@ def _target_selection(config: Config, target: TargetConfig, ranked: Sequence[Any
     """Select within the providers a target allows (``options.providers``)."""
 
     allowed = target.options.get("providers")
+    include_manual = False
     if allowed:
         ranked = [item for item in ranked if item.model.provider in allowed]
+        include_manual = any(str(name) in config.manual_providers for name in allowed)
     return select(
         ranked,
         config.ranking.fallback_count,
         allow_untested=config.ranking.fallbacks_allow_untested,
+        include_manual=include_manual,
     )
 
 
@@ -704,6 +725,14 @@ def _cmd_sync(args: argparse.Namespace, config: Config, providers: Providers) ->
         config.ranking.fallback_count,
         allow_untested=config.ranking.fallbacks_allow_untested,
     )
+    if selection is None:
+        # A target may explicitly name a tier-2 manual provider; use its
+        # selection as the run's headline instead of failing before the loop.
+        for target in config.targets:
+            candidate = _target_selection(config, target, ranked)
+            if candidate is not None:
+                selection = candidate
+                break
 
     if selection is None:
         if results.account_problem:
@@ -799,6 +828,70 @@ def _cmd_sync(args: argparse.Namespace, config: Config, providers: Providers) ->
 
     if failures:
         return 1
+    return 0
+
+
+def _registry_payload(config: Config) -> List[Dict[str, Any]]:
+    return [entry.to_dict() for entry in config.manual_providers.values()]
+
+
+def _cmd_registry_list(args: argparse.Namespace, config: Config) -> int:
+    payload = _registry_payload(config)
+    if args.json:
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        return 0
+    if not payload:
+        print("no manual_providers registered")
+        return 0
+    rows = []
+    for entry in payload:
+        models = entry["models"]
+        expired = [model["id"] for model in models if model["expired"]]
+        rows.append(
+            [
+                entry["name"],
+                entry["auth"],
+                entry["dsh_provider"],
+                ", ".join(model["id"] for model in models) or "-",
+                "yes" if entry["expired"] else ("partial: " + ", ".join(expired) if expired else "no"),
+            ]
+        )
+    _print_table(["MANUAL PROVIDER", "AUTH", "DSH PROVIDER", "MODELS", "EXPIRED"], rows)
+    return 0
+
+
+def _cmd_registry_check(args: argparse.Namespace, config: Config) -> int:
+    """Local-only check: config shape and expiry. No platform domain is contacted."""
+
+    entries = _registry_payload(config)
+    warnings: List[str] = []
+    for entry in entries:
+        for model in entry["models"]:
+            if model["expired"]:
+                warnings.append(f"{entry['name']}/{model['id']}: expired on {model['expires_at']} (excluded)")
+        if not entry.get("dsh_provider"):
+            warnings.append(f"{entry['name']}: no dsh_provider is set, so no dsh route can be detected")
+        if not any(model["quota"] is not None for model in entry["models"]):
+            warnings.append(f"{entry['name']}: no hand-entered quota; it will be shown as unknown")
+    payload = {
+        "ok": True,
+        "manual_providers": entries,
+        "warnings": warnings,
+        "network": "none: freemodel-sync never requests these platforms",
+    }
+    if args.json:
+        print(json.dumps(payload, indent=2, ensure_ascii=False))
+        return 0
+    if not entries:
+        print("manual registry: no entries (nothing to validate)")
+        return 0
+    models = sum(len(entry["models"]) for entry in entries)
+    print(f"manual registry: {len(entries)} provider(s), {models} model(s); no network request is made")
+    if warnings:
+        for warning in warnings:
+            print(f"warning: {warning}")
+    else:
+        print("no expired entries or missing fields")
     return 0
 
 
@@ -944,6 +1037,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sync.add_argument("--no-notify", action="store_true", help="do not send notifications")
 
+    registry = subparsers.add_parser(
+        "registry",
+        help="list/check tier-2 manual registrations (local only; never contacts the platforms)",
+    )
+    registry_commands = registry.add_subparsers(dest="registry_command", metavar="ACTION", required=True)
+    registry_list = registry_commands.add_parser("list", help="list manual registrations, expiry and expired flags")
+    registry_list.add_argument("--json", action="store_true", help="print JSON")
+    registry_check = registry_commands.add_parser("check", help="validate the manual registry locally and show expiry")
+    registry_check.add_argument("--json", action="store_true", help="print JSON")
+
     subparsers.add_parser("providers", help="list registered providers")
     subparsers.add_parser("adapters", help="list registered adapters")
 
@@ -981,6 +1084,10 @@ def main(
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
+    if args.command == "registry":
+        if args.registry_command == "list":
+            return _cmd_registry_list(args, config)
+        return _cmd_registry_check(args, config)
     if args.command == "providers":
         return _cmd_providers(args, config)
     if args.command == "adapters":

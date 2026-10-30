@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 from datetime import date
-from typing import Any, Dict, List, Mapping, Optional
+from typing import Any, Dict, List, Literal, Mapping, Optional
+
+#: How a provider authenticates. ``oauth_manual`` is for tier-2 registrations
+#: only: the login belongs to the third-party dsh plugin, we never hold it.
+AuthKind = Literal["none", "api_key", "pat", "oauth_manual"]
 
 #: values shared with ``spec/providers.json`` (``capabilities.sources``)
 CAPABILITY_SOURCES = ("catalog", "config", "probe", "manual", "unknown")

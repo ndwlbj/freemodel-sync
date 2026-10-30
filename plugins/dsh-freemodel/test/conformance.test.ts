@@ -7,6 +7,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { type Classifier, classifierFor, classifyStreamError, classifyWith, defaultErrorMap } from "../src/classify.ts";
+import { entryExpired, manualProbeDecision, type ManualProbeRecord, validateManualEntry } from "../src/manual.ts";
 import { groqRateLimitHints } from "../src/providers/groq.ts";
 import { isFreeModel, openRouterRateLimitHints } from "../src/providers/openrouter.ts";
 import type { CatalogModel, ProbeResult } from "../src/providers/types.ts";
@@ -50,7 +51,7 @@ describe("conformance files", () => {
       .filter((f) => f.endsWith(".json"))
       .map((f) => f.slice(0, -5))
       .sort();
-    expect(areas).toEqual(["capabilities", "capacity", "classify", "free_rule", "non_chat", "quota", "rate_limit", "score", "stream_classify"]);
+    expect(areas).toEqual(["capabilities", "capacity", "classify", "free_rule", "manual", "non_chat", "quota", "rate_limit", "score", "stream_classify"]);
   });
 });
 
@@ -292,5 +293,51 @@ describe("key patterns", () => {
         expect(out).toContain(pattern.prefix);
       }
     }
+  });
+});
+
+describe("manual", () => {
+  type Case =
+    | { name: string; kind: "entry"; input: Record<string, unknown>; expected: { ok: boolean } }
+    | { name: string; kind: "expiry"; expiresAt: string | null; expected: boolean }
+    | {
+        name: string;
+        kind: "probe";
+        enabled: boolean;
+        entry: Record<string, unknown>;
+        now: string;
+        probes: ManualProbeRecord[];
+        expected: { allowed: boolean; reason: string | null };
+      };
+  const file = load<Case>("manual");
+  const today = file.today as string;
+
+  it.each(file.cases.map((c) => [label(c), c] as const))("%s", (_name, c) => {
+    if (c.kind === "entry") {
+      let ok = true;
+      try {
+        validateManualEntry(c.input);
+      } catch {
+        ok = false;
+      }
+      expect(ok).toBe(c.expected.ok);
+      return;
+    }
+    if (c.kind === "expiry") {
+      expect(entryExpired(c.expiresAt ?? "", today)).toBe(c.expected);
+      return;
+    }
+    const decision = manualProbeDecision(
+      {
+        dshProvider: String(c.entry.dshProvider),
+        model: String(c.entry.model),
+        probe: c.entry.probe === true,
+        expiresAt: typeof c.entry.expiresAt === "string" ? c.entry.expiresAt : "",
+      },
+      c.probes,
+      c.enabled,
+      new Date(c.now),
+    );
+    expect(decision).toEqual(c.expected);
   });
 });

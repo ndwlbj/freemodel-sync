@@ -9,18 +9,58 @@
  * never changed.
  */
 import type { Context } from "@deepseek-ai/cordis";
-import { dirname, join } from "node:path";
-import { createAdapter, channelOfRoute, displayName } from "./adapter.ts";
-import { type FreemodelConfig, routeOf } from "./channels.ts";
+import type { StreamChunk } from "@deepseek-ai/dsh-llm";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { createAdapter, channelOfRoute, displayName, FREE_BADGE } from "./adapter.ts";
+import {
+  AUTO_MODEL_ID,
+  AUTO_ROUTE,
+  AutoRouteAdapter,
+  collectCandidates,
+  createAutoRouteAdapter,
+  isAutoRoute,
+  type AutoRouteCandidate,
+} from "./auto-route.ts";
+import {
+  autoDefaultModelOf,
+  autoRouteOf,
+  defaultAutoRoute,
+  type AutoRouteConfig,
+  type FreemodelConfig,
+  routeOf,
+} from "./channels.ts";
 import { createFreemodelCommand } from "./command.ts";
+import {
+  applyDefaultModelSwitch,
+  assertSafeProfile,
+  planDefaultModelSwitch,
+  QQ_PROFILE_DENY,
+  resolveProfile,
+  updateDefaultModelPatch,
+  type DefaultModelLogRecord,
+  type DefaultModelPlan,
+  type ResolvedProfile,
+} from "./default-model.ts";
 import { API_PREFIX, createLocalApiHandler, generateSecret, loadOrCreateSecret } from "./local-api.ts";
 import { FreemodelService } from "./service.ts";
 import { CHANNEL_IDS, type ChannelId, providerSpec } from "./spec.ts";
-import { buildStatus, type DescribeKey, statePath } from "./status.ts";
+import { buildStatus, type DescribeKey, dshHome, statePath } from "./status.ts";
 import { PLUGIN_VERSION } from "./version.ts";
 
-export { channelStates, defaultProviders, defaultRanking, defaultRefresh, providersOf, routeOf } from "./channels.ts";
+export {
+  autoDefaultModelOf,
+  autoRouteOf,
+  channelStates,
+  defaultAutoRoute,
+  defaultProviders,
+  defaultRanking,
+  defaultRefresh,
+  providersOf,
+  routeOf,
+} from "./channels.ts";
 export type {
+  AutoRouteConfig,
   ChannelState,
   FreemodelConfig,
   FreemodelConfigInput,
@@ -29,6 +69,24 @@ export type {
   RankingConfig,
   RefreshConfig,
 } from "./channels.ts";
+export {
+  AUTO_MODEL_ID,
+  AUTO_ROUTE,
+  AutoRouteAdapter,
+  collectCandidates,
+  createAutoRouteAdapter,
+  isAutoRoute,
+} from "./auto-route.ts";
+export type { AutoRouteCandidate } from "./auto-route.ts";
+export {
+  applyDefaultModelSwitch,
+  assertSafeProfile,
+  planDefaultModelSwitch,
+  QQ_PROFILE_DENY,
+  resolveProfile,
+  updateDefaultModelPatch,
+} from "./default-model.ts";
+export type { DefaultModelLogRecord, DefaultModelPlan, ResolvedProfile } from "./default-model.ts";
 export { Config } from "./config.ts";
 export { buildStatus, runDoctor, statePath } from "./status.ts";
 export type { DoctorReport, StatusReport } from "./status.ts";
@@ -52,6 +110,15 @@ interface LlmService {
     settingsNs: string,
     discover: (request: { provider?: string; apiKey?: string }, signal?: AbortSignal) => Promise<readonly unknown[]>,
   ): () => void;
+  /** Public registry read used to detect manual dsh routes (no third-party state files). */
+  listProviders(): Array<{ id: string; name: string }>;
+  stream(options: {
+    provider: string;
+    model: string;
+    messages: Array<{ role: "user"; content: Array<{ type: "text"; text: string }> }>;
+    maxTokens: number;
+    signal?: AbortSignal;
+  }): AsyncIterable<{ type: string; reason?: { kind?: string; failure?: { code?: string; status?: number; message?: string } } }>;
 }
 
 /**
@@ -72,30 +139,78 @@ export function apply(ctx: Context, config: FreemodelConfig): void {
     logger: ctx.logger,
     keys: {
       async configured(ref) {
-        if (credentials === undefined) return false;
-        return (await credentials.describe(ref)).configured;
+        if (credentials !== undefined) {
+          try {
+            const desc = await credentials.describe(ref);
+            if (desc?.configured) {
+              return true;
+            }
+          } catch {
+            // credentials lookup threw; fall through to process.env
+          }
+        }
+        const envVal = process.env[ref];
+        return envVal !== undefined && envVal.trim() !== "";
       },
       async resolve(ref) {
-        return credentials === undefined ? undefined : (await credentials.resolve(ref))?.value;
+        if (credentials !== undefined) {
+          try {
+            const res = await credentials.resolve(ref);
+            if (res?.value !== undefined && res.value.trim() !== "") {
+              return res.value;
+            }
+          } catch {
+            // credentials resolve threw; fall through to process.env
+          }
+        }
+        const envVal = process.env[ref];
+        return envVal !== undefined && envVal.trim() !== "" ? envVal : undefined;
       },
     },
     onChange: () => sync(),
+    llm,
   });
   const { adapter, invalidate } = createAdapter(service, () => ctx.get("attachments"));
+  const autoAdapter = createAutoRouteAdapter(service, (options) => {
+    return typeof (llm as unknown as { stream?: unknown }).stream === "function"
+      ? (llm as unknown as { stream: (opts: unknown) => AsyncIterable<StreamChunk> }).stream(options)
+      : adapter.stream(options as Parameters<typeof adapter.stream>[0]);
+  });
 
   const describeKey: DescribeKey = async (ref) => {
-    if (credentials === undefined) return { configured: false };
-    const info = await credentials.describe(ref);
-    return info.source === undefined ? { configured: info.configured } : { configured: info.configured, source: info.source };
+    if (credentials !== undefined) {
+      try {
+        const info = await credentials.describe(ref);
+        if (info?.configured) {
+          return info.source === undefined ? { configured: true } : { configured: true, source: info.source };
+        }
+      } catch {
+        // credentials lookup threw; fall through to process.env
+      }
+    }
+    const envVal = process.env[ref];
+    if (envVal !== undefined && envVal.trim() !== "") {
+      return { configured: true, source: "env" };
+    }
+    return { configured: false };
   };
-  const readStatus = () => buildStatus(config, credentials === undefined ? undefined : describeKey);
+  const readStatus = () =>
+    buildStatus(
+      config,
+      describeKey,
+      process.env,
+      () => llm.listProviders().map((provider) => provider.id),
+    );
 
   let adapterHandle: ReturnType<LlmService["registerAdapter"]> | undefined;
+  let autoAdapterHandle: ReturnType<LlmService["registerAdapter"]> | undefined;
   let lastSummary = "";
   let disposed = false;
+  let warnedMissingProfile = false;
+  const lastDefaultModelLog = { current: undefined as DefaultModelLogRecord | undefined };
 
-  const directoryEntries = () =>
-    CHANNEL_IDS.map((id) => {
+  const directoryEntries = () => {
+    const entries: Array<Record<string, unknown>> = CHANNEL_IDS.map((id) => {
       const view = service.view(id);
       const entry: Record<string, unknown> = {
         provider: routeOf(id),
@@ -108,17 +223,38 @@ export function apply(ctx: Context, config: FreemodelConfig): void {
       if (view.enabled && !view.active && view.blocked !== null && view.blocked !== "disabled") entry.error = view.blocked;
       return entry;
     });
+    if (autoRouteOf(config).enabled) {
+      entries.push({
+        provider: AUTO_ROUTE,
+        displayName: "FreeModel Auto (best)",
+        settingsNs,
+        settingsPath: ["autoRoute"],
+        declared: false,
+      });
+    }
+    return entries;
+  };
   const directory = llm.registerConfigurableProviders(directoryEntries());
 
   function sync(): void {
     if (disposed) return;
     invalidate();
     const routes = service.activeRoutes();
+    const autoEnabled = autoRouteOf(config).enabled;
     try {
       if (adapterHandle === undefined) {
         if (routes.length > 0) adapterHandle = llm.registerAdapter(routes, adapter);
       } else {
         adapterHandle.replace(routes);
+      }
+      if (autoEnabled) {
+        if (autoAdapterHandle === undefined) {
+          autoAdapterHandle = llm.registerAdapter([AUTO_ROUTE], autoAdapter);
+        } else {
+          autoAdapterHandle.replace([AUTO_ROUTE]);
+        }
+      } else if (autoAdapterHandle !== undefined) {
+        autoAdapterHandle.replace([]);
       }
       directory.replace(directoryEntries());
     } catch (error) {
@@ -133,9 +269,64 @@ export function apply(ctx: Context, config: FreemodelConfig): void {
       lastSummary = summary;
       ctx.logger.info(`dsh-freemodel ${PLUGIN_VERSION}: ${summary}`);
     }
+
+    const defaultModelEnabled = autoDefaultModelOf(config);
+    if (defaultModelEnabled) {
+      try {
+        const profile = resolveProfile((k) => ctx.get(k), process.env);
+        if (!profile?.name) {
+          if (!warnedMissingProfile) {
+            warnedMissingProfile = true;
+            ctx.logger.warn(
+              "dsh-freemodel: autoDefaultModel is on but the current profile cannot be determined (no profileContext, no DSH_PROFILE); skipping",
+            );
+          }
+        } else {
+          const candidates = collectCandidates(service);
+          const topCandidate = candidates[0];
+          const top = topCandidate !== undefined ? { route: topCandidate.route, modelId: topCandidate.ranked.model.id } : null;
+          const plan = planDefaultModelSwitch({
+            enabled: defaultModelEnabled,
+            profileId: profile.name,
+            autoRouteEnabled: autoEnabled,
+            top,
+          });
+          if (plan.action !== "skipped") {
+            const home = dshHome();
+            const homePatch = join(home, "cordis.patch.yml");
+            const profilePatch = profile.dir
+              ? (resolve(profile.dir) === resolve(home) || resolve(profile.dir) === resolve(homePatch)
+                  ? homePatch
+                  : join(profile.dir, "cordis.patch.yml"))
+              : join(home, "profiles", profile.name, "cordis.patch.yml");
+            applyDefaultModelSwitch(plan, {
+              readPatch: (p) => readFileSync(p, "utf-8"),
+              writePatch: (p, text) => {
+                mkdirSync(dirname(p), { recursive: true });
+                writeFileSync(p, text, "utf-8");
+              },
+              profilePatchPath: profilePatch,
+              homePatchPath: homePatch,
+              logger: ctx.logger,
+              lastLog: lastDefaultModelLog,
+            });
+          }
+        }
+      } catch (error) {
+        ctx.logger.warn("dsh-freemodel: failed to apply default model switch", error);
+      }
+    }
   }
 
   const releaseDiscovery = llm.registerModelDiscovery(settingsNs, async (request, signal) => {
+    if (isAutoRoute(request.provider)) {
+      return [
+        {
+          id: AUTO_MODEL_ID,
+          name: `Auto · ${FREE_BADGE}`,
+        },
+      ];
+    }
     const id = channelOfRoute(request.provider);
     if (id === undefined) throw new Error("dsh-freemodel: discovery serves only the freemodel-* routes");
     const models = await service.discoverFor(id, request.apiKey, signal);
@@ -196,11 +387,28 @@ export function apply(ctx: Context, config: FreemodelConfig): void {
     scoped.effect(() => web.register({ kind: "prefix", path: API_PREFIX, handler }));
   });
 
+  let releaseAdaptersListener: (() => void) | undefined;
+  if (typeof (ctx as unknown as { on?: unknown }).on === "function") {
+    releaseAdaptersListener = (ctx as unknown as { on(event: string, fn: () => void): () => void }).on(
+      "llm/adapters-updated",
+      () => {
+        try {
+          const registeredRoutes = llm.listProviders().map((p) => p.id);
+          service.recheckManualRoutes(registeredRoutes);
+        } catch {
+          // ignore
+        }
+      },
+    );
+  }
+
   ctx.effect(() => () => {
     disposed = true;
     service.dispose();
     releaseDiscovery();
+    releaseAdaptersListener?.();
     adapterHandle?.();
+    autoAdapterHandle?.();
     directory();
   });
 

@@ -36,6 +36,39 @@ providers:
         quota: {unit: tokens, period: total, limit: 1000000}  # hand-entered, unverified
       # - id: qwen3-8b-distill    # distilled models are marked tools=false
 
+# Tier-2 manual registration (P9): platforms with no public API. Only model
+# ids, hand-written quota notes and expiry dates belong here. NEVER put a
+# token, PAT, cookie, password or key in this file: the login is owned by the
+# platform's own dsh plugin, and freemodel-sync's Python side never requests
+# these domains. Manual entries are excluded from automatic selection unless a
+# target lists their name in options.providers (and they are still unverified
+# unless the dsh plugin probed them). See docs/manual-registry.md.
+manual_providers:
+  zcode:
+    display_name: ZCode Start Plan (BigModel CN)
+    auth: oauth_manual            # informational only: dsh-zcode owns the login
+    dsh_provider: dsh-zcode       # route id in dsh
+    dsh_plugin: '@tnnevol/dsh-zcode'
+    models:
+      - id: glm-5.3
+        tools: true
+        quota: {unit: tokens, period: day, limit: 3000000, resets_at: "23:59+08:00"}
+      - id: glm-5.3-flash
+        tools: true
+        quota: {unit: tokens, period: day, limit: 5000000, resets_at: "23:59+08:00"}
+  qoder-global:
+    auth: pat
+    dsh_provider: qoder-global
+    dsh_plugin: dsh-qoder-connect
+    models:
+      - {id: qfmodel, name: Qwen3.8-Flash}
+      - {id: dfmodel, name: DeepSeek-Flash}
+  workbuddy:
+    auth: oauth_manual
+    models:
+      - {id: deepseek-v4.1-flash, expires_at: "2026-11-01"}
+      - {id: hy3, expires_at: "2026-11-01"}
+
 filters:
   require_tools: false          # only keep models that support tool calling
   min_context: 32000            # minimum context window (tokens)
@@ -43,6 +76,7 @@ filters:
   include: []                   # globs on model ids (case-insensitive), e.g. ["deepseek/*", "*qwen*"]
   exclude: []                   # extra globs to drop
   exclude_non_chat: true        # drop safety classifiers, embedding/rerank and speech models
+  include_manual: false         # true: include manual_providers in discover/rank (still never auto-selected)
 
 testing:
   max_tests: 5                  # new probe requests per run (cached results are reused)

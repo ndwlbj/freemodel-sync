@@ -21,7 +21,7 @@ const fakeKey = ["sk", "or", "v1", "f".repeat(64)].join("-");
 
 describe("dsh-freemodel CLI", () => {
   it("prints the version and help", async () => {
-    expect((await run(["--version"])).out).toBe("0.1.0");
+    expect((await run(["--version"])).out).toBe("1.0.0");
     expect((await run(["--help"])).out).toContain("usage: dsh-freemodel");
   });
 
@@ -51,7 +51,7 @@ describe("dsh-freemodel CLI", () => {
     writeFileSync(join(home, "freemodel", "state.json"), "{}");
     const result = await run(["status", "--json"], { DSH_HOME: home, OPENROUTER_API_KEY: fakeKey });
     const report = JSON.parse(result.out);
-    expect(report).toMatchObject({ schemaVersion: 2, plugin: "dsh-freemodel", version: "0.1.0", stateExists: true });
+    expect(report).toMatchObject({ schemaVersion: 2, plugin: "dsh-freemodel", version: "1.0.0", stateExists: true });
     expect(report.channels.map((c: { route: string }) => c.route)).toEqual(["freemodel-openrouter", "freemodel-groq", "freemodel-sensenova", "freemodel-bailian"]);
     expect(report.channels[0].models).toMatchObject({ catalogFetchedAt: null, listed: [], hidden: [] });
     expect(result.out).not.toContain(fakeKey);

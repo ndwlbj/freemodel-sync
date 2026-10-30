@@ -88,10 +88,40 @@ export interface RefreshConfig {
   dailyProbeLimit: number;
 }
 
+/** One tier-2 manual registration (plan 6.3). Public facts only; never a credential. */
+export interface ManualEntryConfig {
+  /** dsh route id registered by the third-party plugin, e.g. dsh-zcode. */
+  dshProvider: string;
+  model: string;
+  label: string;
+  /** Hand-written quota note; always shown as manual/unverified. */
+  quotaNote: string;
+  /** `YYYY-MM-DD` after which the entry is expired; empty means no date. */
+  expiresAt: string;
+  /** Per-entry opt-in; the global manualProbe.enabled switch must also be on. */
+  probe: boolean;
+}
+
+/** The global tier-2 probe switch (off by default). */
+export interface ManualProbeConfig {
+  enabled: boolean;
+}
+
+/** Optional auto route (plan 6.3 / Q5). Default OFF. */
+export interface AutoRouteConfig {
+  enabled: boolean;
+}
+
 export interface FreemodelConfig {
   providers: Live<ProvidersConfig> | ProvidersConfig;
   ranking?: Live<RankingConfig> | RankingConfig;
   refresh?: Live<RefreshConfig> | RefreshConfig;
+  manual?: Live<ManualEntryConfig[]> | ManualEntryConfig[];
+  manualProbe?: Live<ManualProbeConfig> | ManualProbeConfig;
+  /** Optional auto route (plan 6.3 / Q5). Default OFF. */
+  autoRoute?: Live<AutoRouteConfig> | AutoRouteConfig;
+  /** Opt-in switch of current-profile default model. Default OFF. Never QQ profiles. */
+  autoDefaultModel?: boolean;
 }
 
 /** What a user (or a patch file) may write: every field optional. */
@@ -104,6 +134,10 @@ export interface FreemodelConfigInput {
   };
   ranking?: Partial<RankingConfig>;
   refresh?: Partial<RefreshConfig>;
+  manual?: Array<Partial<ManualEntryConfig> & Pick<ManualEntryConfig, "dshProvider" | "model">>;
+  manualProbe?: Partial<ManualProbeConfig>;
+  autoRoute?: Partial<AutoRouteConfig>;
+  autoDefaultModel?: boolean;
 }
 
 export function defaultRanking(): RankingConfig {
@@ -113,6 +147,42 @@ export function defaultRanking(): RankingConfig {
 
 export function defaultRefresh(): RefreshConfig {
   return { onStartup: true, catalogHours: 6, probeHours: 12, probeTopN: 5, reserveRequests: 10, dailyProbeLimit: 0 };
+}
+
+/** No manual registrations and no probing by default (plan 6.3). */
+export function defaultManualProbe(): ManualProbeConfig {
+  return { enabled: false };
+}
+
+/** Auto route disabled by default (plan 6.3). */
+export function defaultAutoRoute(): AutoRouteConfig {
+  return { enabled: false };
+}
+
+/** Current manual registrations, unwrapping the live value. */
+export function manualOf(config: FreemodelConfig): ManualEntryConfig[] {
+  if (config.manual === undefined) return [];
+  const entries = isLive(config.manual) ? config.manual.get() : config.manual;
+  return Array.isArray(entries) ? entries : [];
+}
+
+/** Current global manual-probe switch (default off). */
+export function manualProbeOf(config: FreemodelConfig): ManualProbeConfig {
+  return liveOr(config.manualProbe, defaultManualProbe());
+}
+
+/** Current auto route settings (default off). */
+export function autoRouteOf(config: FreemodelConfig): AutoRouteConfig {
+  return liveOr(config.autoRoute, defaultAutoRoute());
+}
+
+/** Opt-in switch for current profile default model (default false). */
+export function autoDefaultModelOf(config: FreemodelConfig): boolean {
+  if (config.autoDefaultModel === undefined) return false;
+  if (isLive(config.autoDefaultModel as unknown as Live<boolean>)) {
+    return Boolean((config.autoDefaultModel as unknown as Live<boolean>).get());
+  }
+  return Boolean(config.autoDefaultModel);
 }
 
 /** The settings every field defaults to (key variable names come from spec/providers.json). */

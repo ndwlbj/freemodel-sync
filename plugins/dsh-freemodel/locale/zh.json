@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "免费模型",
-    "description": "自动找出 OpenRouter、需手动确认的 Groq 免费计划、SenseNova Token Plan 公测以及阿里云百炼中当前免费的模型，探测后只列出能用的。key 保存在 dsh 凭据库里，不会改动默认模型。"
+    "description": "自动找出 OpenRouter、需手动确认的 Groq 免费计划、SenseNova Token Plan 公测以及阿里云百炼中当前免费的模型，探测后只列出能用的。另提供第二层手动登记（ZCode / Qoder / WorkBuddy），默认不探测；探测只经 dsh，每模型每天最多 1 次，且需总开关和单条开关同时打开。可选的自动优选路由与默认模型切换均默认关闭。key 保存在 dsh 凭据库里。"
   }
 }

@@ -195,6 +195,7 @@ def select(
     fallback_count: int = 3,
     *,
     allow_untested: bool = False,
+    include_manual: bool = False,
 ) -> Optional[Selection]:
     """Pick the best usable model plus fallbacks.
 
@@ -204,7 +205,14 @@ def select(
     be used.  Only when ``allow_untested`` is true are remaining
     slots filled with untested models (callers should flag them); failed models
     are never selected.
+
+    Tier-2 manual registrations are excluded unless ``include_manual`` is true;
+    a target must list their provider explicitly (``options.providers``) for
+    that to happen.
     """
+
+    if not include_manual:
+        ranked = [item for item in ranked if item.model.tier != 2]
 
     primary: Optional[RankedModel] = None
     for item in ranked:

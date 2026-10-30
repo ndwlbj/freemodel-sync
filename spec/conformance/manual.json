@@ -1,0 +1,195 @@
+{
+  "spec_version": 1,
+  "area": "manual",
+  "description": "Tier-2 manual registration: reject secret-bearing keys and key-shaped values, expire entries by date, and apply the opt-in/daily/platform rules for the dsh probe (max one request per model per UTC day; an account failure stops the platform for the day; capacity is recorded but does not stop it). Both runners must agree.",
+  "today": "2026-11-02",
+  "cases": [
+    {
+      "name": "rejects a token key",
+      "kind": "entry",
+      "input": { "dshProvider": "dsh-zcode", "model": "glm-5.3", "token": "not-a-real-token" },
+      "expected": { "ok": false }
+    },
+    {
+      "name": "rejects a PAT key",
+      "kind": "entry",
+      "input": { "dshProvider": "qoder-global", "model": "qfmodel", "pat": "not-a-real-pat" },
+      "expected": { "ok": false }
+    },
+    {
+      "name": "rejects a cookie key",
+      "kind": "entry",
+      "input": { "dshProvider": "dsh-zcode", "model": "glm-5.3", "cookie": "not-a-real-cookie" },
+      "expected": { "ok": false }
+    },
+    {
+      "name": "rejects a secret key",
+      "kind": "entry",
+      "input": { "dshProvider": "dsh-zcode", "model": "glm-5.3", "secret": "not-a-real-secret" },
+      "expected": { "ok": false }
+    },
+    {
+      "name": "rejects a key-shaped label",
+      "kind": "entry",
+      "input": { "dshProvider": "dsh-zcode", "model": "glm-5.3", "label": "sk-...not-a-real-key-1234" },
+      "expected": { "ok": false }
+    },
+    {
+      "name": "accepts public registration fields only",
+      "kind": "entry",
+      "input": {
+        "dshProvider": "dsh-zcode",
+        "model": "glm-5.3",
+        "label": "ZCode Start Plan",
+        "quotaNote": "3M tokens/day",
+        "expiresAt": "2026-12-31",
+        "probe": true
+      },
+      "expected": { "ok": true }
+    },
+    {
+      "name": "an entry is expired after its date",
+      "kind": "expiry",
+      "expiresAt": "2026-11-01",
+      "expected": true
+    },
+    {
+      "name": "an entry is not expired on its date",
+      "kind": "expiry",
+      "expiresAt": "2026-11-02",
+      "expected": false
+    },
+    {
+      "name": "an entry without a date never expires",
+      "kind": "expiry",
+      "expiresAt": null,
+      "expected": false
+    },
+    {
+      "name": "probe is allowed when both switches are on and it has not run today",
+      "kind": "probe",
+      "enabled": true,
+      "entry": { "dshProvider": "dsh-zcode", "model": "glm-5.3", "probe": true },
+      "now": "2026-11-02T10:00:00Z",
+      "probes": [],
+      "expected": { "allowed": true, "reason": null }
+    },
+    {
+      "name": "the global switch off refuses every probe",
+      "kind": "probe",
+      "enabled": false,
+      "entry": { "dshProvider": "dsh-zcode", "model": "glm-5.3", "probe": true },
+      "now": "2026-11-02T10:00:00Z",
+      "probes": [],
+      "expected": { "allowed": false, "reason": "disabled" }
+    },
+    {
+      "name": "an entry opt-out refuses its probe",
+      "kind": "probe",
+      "enabled": true,
+      "entry": { "dshProvider": "dsh-zcode", "model": "glm-5.3", "probe": false },
+      "now": "2026-11-02T10:00:00Z",
+      "probes": [],
+      "expected": { "allowed": false, "reason": "probe-off" }
+    },
+    {
+      "name": "an expired entry is never probed",
+      "kind": "probe",
+      "enabled": true,
+      "entry": { "dshProvider": "workbuddy", "model": "hy3", "probe": true, "expiresAt": "2026-11-01" },
+      "now": "2026-11-02T10:00:00Z",
+      "probes": [],
+      "expected": { "allowed": false, "reason": "expired" }
+    },
+    {
+      "name": "a model is probed at most once per UTC day",
+      "kind": "probe",
+      "enabled": true,
+      "entry": { "dshProvider": "dsh-zcode", "model": "glm-5.3", "probe": true },
+      "now": "2026-11-02T10:00:00Z",
+      "probes": [
+        {
+          "provider": "dsh-zcode",
+          "model": "glm-5.3",
+          "ok": true,
+          "failure_kind": null,
+          "error_code": null,
+          "tested_at": 1793609999
+        }
+      ],
+      "expected": { "allowed": false, "reason": "daily-limit" }
+    },
+    {
+      "name": "yesterday's probe does not block today",
+      "kind": "probe",
+      "enabled": true,
+      "entry": { "dshProvider": "dsh-zcode", "model": "glm-5.3", "probe": true },
+      "now": "2026-11-02T10:00:00Z",
+      "probes": [
+        {
+          "provider": "dsh-zcode",
+          "model": "glm-5.3",
+          "ok": true,
+          "failure_kind": null,
+          "error_code": null,
+          "tested_at": 1793500000
+        }
+      ],
+      "expected": { "allowed": true, "reason": null }
+    },
+    {
+      "name": "an account failure stops the whole platform for the day",
+      "kind": "probe",
+      "enabled": true,
+      "entry": { "dshProvider": "workbuddy", "model": "hy3", "probe": true },
+      "now": "2026-11-02T10:00:00Z",
+      "probes": [
+        {
+          "provider": "workbuddy",
+          "model": "deepseek-v4.1-flash",
+          "ok": false,
+          "failure_kind": "account",
+          "error_code": "11140",
+          "tested_at": 1793609999
+        }
+      ],
+      "expected": { "allowed": false, "reason": "platform-stopped" }
+    },
+    {
+      "name": "a capacity failure is recorded but does not stop the platform",
+      "kind": "probe",
+      "enabled": true,
+      "entry": { "dshProvider": "qoder-global", "model": "dfmodel", "probe": true },
+      "now": "2026-11-02T10:00:00Z",
+      "probes": [
+        {
+          "provider": "qoder-global",
+          "model": "qfmodel",
+          "ok": false,
+          "failure_kind": "capacity",
+          "error_code": "model_busy",
+          "tested_at": 1793609999
+        }
+      ],
+      "expected": { "allowed": true, "reason": null }
+    },
+    {
+      "name": "account failure from yesterday does not stop today",
+      "kind": "probe",
+      "enabled": true,
+      "entry": { "dshProvider": "workbuddy", "model": "hy3", "probe": true },
+      "now": "2026-11-02T10:00:00Z",
+      "probes": [
+        {
+          "provider": "workbuddy",
+          "model": "deepseek-v4.1-flash",
+          "ok": false,
+          "failure_kind": "account",
+          "error_code": "11140",
+          "tested_at": 1793500000
+        }
+      ],
+      "expected": { "allowed": true, "reason": null }
+    }
+  ]
+}

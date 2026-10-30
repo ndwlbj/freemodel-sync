@@ -1,18 +1,18 @@
 /**
- * The read-only settings card: four tabs (overview, channels, models,
+ * The read-only settings card: five tabs (overview, channels, models, manual,
  * diagnostics), each rendered from the local API's status document. Editing
  * stays in the host's schema form; this file only shows state and offers the
  * per-model manual probe.
  */
 import { API_PREFIX } from "../api-paths.ts";
-import { capabilityBadges, quotaBadge } from "../badges.ts";
+import { capabilityBadges, quotaBadge } from "./badges.ts";
 import { type Translator } from "./i18n.ts";
 import { getReact, type ReactElementLike } from "./react-runtime.ts";
-import type { ChannelId, ChannelReport, ManualTestView, StatusReport } from "./types.ts";
+import type { ChannelId, ChannelReport, ManualEntryView, ManualTestView, StatusReport } from "./types.ts";
 
-export type Tab = "overview" | "channels" | "models" | "diagnostics";
+export type Tab = "overview" | "channels" | "models" | "manual" | "diagnostics";
 
-export const TABS: readonly Tab[] = ["overview", "channels", "models", "diagnostics"];
+export const TABS: readonly Tab[] = ["overview", "channels", "models", "manual", "diagnostics"];
 
 export interface TestState {
   running: boolean;
@@ -302,8 +302,8 @@ function modelsTab(props: CardProps): ReactElementLike {
     const listed = model.listed.map((entry) =>
       modelRow(props, channel.id, entry.id, [
         badge(t("testOk"), "ok"),
-        ...capabilityBadges(entry.capabilities ?? null).map((text) => badge(text, "muted")),
-        badge(quotaBadge(entry.quota ?? null), entry.quota == null ? "muted" : "ok"),
+        ...capabilityBadges(t, entry.capabilities ?? null).map((text) => badge(text, "muted")),
+        badge(quotaBadge(t, entry.quota ?? null), entry.quota == null ? "muted" : "ok"),
         h("span", { className: `${CLASS}-muted` }, t("ttft", { ms: ms(entry.ttftMs) })),
         h("span", { className: `${CLASS}-muted` }, t("testedAt", { when: when(entry.testedAt) })),
       ]),
@@ -337,6 +337,73 @@ function modelsTab(props: CardProps): ReactElementLike {
     h("h3", { className: `${CLASS}-section-title` }, t("modelsTitle")),
     h("p", { className: `${CLASS}-note` }, t("modelsNote")),
     sections.length === 0 ? h("p", { className: `${CLASS}-empty` }, t("none")) : h("div", { className: `${CLASS}-model-groups` }, ...sections),
+  );
+}
+
+function detectionBadge(t: Translator, entry: ManualEntryView): ReactElementLike {
+  if (entry.detected === null) return badge(t("manualDetectUnknown"), "muted");
+  return entry.detected ? badge(t("manualDetected"), "ok") : badge(t("manualNotDetected"), "warn");
+}
+
+function manualProbeLine(t: Translator, entry: ManualEntryView): string {
+  const last = entry.lastProbe;
+  if (last === null) {
+    if (entry.detected === false || entry.notRunReason === "route-not-registered") {
+      return t("manualNotRunRouteNotRegistered");
+    }
+    return t("manualNeverProbed");
+  }
+  const result = last.ok ? t("manualProbeOk") : t("manualProbeFailed");
+  const kind = last.failure_kind === null ? "" : ` · ${last.failure_kind}`;
+  const code = last.error_code === null ? "" : ` · ${last.error_code}`;
+  return `${t("manualLastProbe", { when: when(last.tested_at) })}: ${result}${kind}${code}`;
+}
+
+function manualEntry(t: Translator, entry: ManualEntryView): ReactElementLike {
+  const title = entry.label === "" ? `${entry.dshProvider}/${entry.model}` : entry.label;
+  return h(
+    "li",
+    { key: `${entry.dshProvider}|${entry.model}`, className: `${CLASS}-model ${CLASS}-manual` },
+    h(
+      "div",
+      { className: `${CLASS}-model-main` },
+      h("strong", null, title),
+      h("code", { className: `${CLASS}-model-id` }, `${entry.dshProvider}/${entry.model}`),
+      detectionBadge(t, entry),
+      entry.expired
+        ? badge(t("manualExpired"), "bad")
+        : badge(
+            entry.expiresAt === "" ? t("manualNoExpiry") : t("manualExpires", { date: entry.expiresAt }),
+            entry.expiresAt === "" ? "muted" : "warn",
+          ),
+      badge(entry.probe ? t("manualEntryProbeOn") : t("manualEntryProbeOff"), entry.probe ? "ok" : "muted"),
+    ),
+    h("p", { className: `${CLASS}-muted` }, manualProbeLine(t, entry)),
+    entry.quotaNote === ""
+      ? null
+      : h("p", { className: `${CLASS}-note` }, `${t("manualQuotaNote")}: ${entry.quotaNote}`),
+  );
+}
+
+function manualTab(props: CardProps): ReactElementLike {
+  const t = props.t;
+  const manual = props.state.status?.manual;
+  const entries = manual?.entries ?? [];
+  return h(
+    "div",
+    { className: `${CLASS}-panel`, role: "tabpanel" },
+    h("h3", { className: `${CLASS}-section-title` }, t("manualTitle")),
+    h(
+      "div",
+      { className: `${CLASS}-actions` },
+      badge(manual?.enabled === true ? t("manualProbeOn") : t("manualProbeOff"), manual?.enabled === true ? "ok" : "muted"),
+    ),
+    h("p", { className: `${CLASS}-note` }, t("manualNote")),
+    entries.length === 0
+      ? h("p", { className: `${CLASS}-empty` }, t("manualEmpty"))
+      : h("ul", { className: `${CLASS}-model-list` }, ...entries.map((entry) => manualEntry(t, entry))),
+    h("p", { className: `${CLASS}-note` }, t("manualEditHint")),
+    h("p", { className: `${CLASS}-note` }, t("manualDetectionHint")),
   );
 }
 
@@ -403,6 +470,8 @@ function body(props: CardProps): ReactElementLike {
       return channelsTab(props);
     case "models":
       return modelsTab(props);
+    case "manual":
+      return manualTab(props);
     case "diagnostics":
       return diagnosticsTab(props);
     default:

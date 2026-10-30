@@ -7,15 +7,17 @@ disagrees with a case, its CI fails. See spec/README.md.
 from __future__ import annotations
 
 import json
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 import pytest
 
 from freemodel_sync import spec
+from freemodel_sync.config import check_secret_free
 from freemodel_sync.models import Capabilities, ModelInfo, Quota, TestResult
 from freemodel_sync.providers.bailian import BailianProvider
 from freemodel_sync.providers.groq import GroqProvider
+from freemodel_sync.providers.manual import entry_expired, manual_probe_allowed
 from freemodel_sync.providers.openai_compat import classify_status, classify_stream_error
 from freemodel_sync.providers.openrouter import OpenRouterProvider, _is_free_model
 from freemodel_sync.providers.sensenova import SenseNovaProvider
@@ -81,6 +83,36 @@ def test_state_schema_rejects_a_stored_key_field():
         jsonschema.validate(state, schema)
 
 
+def test_manual_schema_accepts_public_fields_and_rejects_credentials():
+    jsonschema = pytest.importorskip("jsonschema")
+    schema = json.loads((SPEC / "manual.schema.json").read_text(encoding="utf-8"))
+    jsonschema.Draft202012Validator.check_schema(schema)
+    entry = {
+        "dshProvider": "dsh-zcode",
+        "model": "glm-5.3",
+        "label": "ZCode Start Plan",
+        "quotaNote": "3M tokens/day",
+        "expiresAt": "2026-12-31",
+        "probe": True,
+    }
+    jsonschema.validate([entry], schema)
+    jsonschema.validate(
+        {
+            "zcode": {
+                "display_name": "ZCode",
+                "auth": "oauth_manual",
+                "dsh_provider": "dsh-zcode",
+                "models": [{"id": "glm-5.3", "tools": True, "expires_at": "2026-12-31"}],
+            }
+        },
+        schema,
+    )
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate([{**entry, "token": "not-a-real-token"}], schema)
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate([{**entry, "label": "sk-...not-a-real-key-1234"}], schema)
+
+
 def test_every_conformance_file_has_a_runner():
     assert {p.stem for p in CONFORMANCE.glob("*.json")} == {
         "classify",
@@ -92,6 +124,7 @@ def test_every_conformance_file_has_a_runner():
         "capabilities",
         "quota",
         "capacity",
+        "manual",
     }
 
 
@@ -304,3 +337,25 @@ def test_capacity(case):
 @_params("non_chat")
 def test_non_chat(case):
     assert is_non_chat(ModelInfo("openrouter", case["id"], name=case["name"])) is case["expected"]
+
+
+@_params("manual")
+def test_manual(case):
+    from freemodel_sync.config import ConfigError
+
+    if case["kind"] == "entry":
+        try:
+            check_secret_free(case["input"], "manual[0]")
+        except ConfigError:
+            assert case["expected"]["ok"] is False
+        else:
+            assert case["expected"]["ok"] is True
+        return
+    if case["kind"] == "expiry":
+        manual_today = date.fromisoformat(_cases("manual")["today"])
+        assert entry_expired(case["expiresAt"], manual_today) is case["expected"]
+        return
+    assert case["kind"] == "probe"
+    now = datetime.fromisoformat(str(case["now"]).replace("Z", "+00:00"))
+    allowed, reason = manual_probe_allowed(case["entry"], case["probes"], enabled=case["enabled"], now=now)
+    assert {"allowed": allowed, "reason": reason} == case["expected"]

@@ -7,6 +7,7 @@
  */
 import { chmodSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
+import type { ManualProbeRecord, ManualProbeState } from "./manual.ts";
 import type { CatalogModel, ProbeResult } from "./providers/types.ts";
 import { parseCapabilities, parseQuota } from "./providers/types.ts";
 import { CHANNEL_IDS, type ChannelId } from "./spec.ts";
@@ -45,6 +46,8 @@ export interface StateData {
   plugin: "dsh-freemodel";
   updatedAt: string;
   channels: Record<ChannelId, ChannelStateData>;
+  /** Tier-2 manual probe results; only the six public fields per record. */
+  manual: ManualProbeState;
 }
 
 export function emptyChannel(): ChannelStateData {
@@ -54,7 +57,13 @@ export function emptyChannel(): ChannelStateData {
 export function emptyState(): StateData {
   const channels = {} as Record<ChannelId, ChannelStateData>;
   for (const id of CHANNEL_IDS) channels[id] = emptyChannel();
-  return { schemaVersion: STATE_SCHEMA_VERSION, plugin: "dsh-freemodel", updatedAt: new Date(0).toISOString(), channels };
+  return {
+    schemaVersion: STATE_SCHEMA_VERSION,
+    plugin: "dsh-freemodel",
+    updatedAt: new Date(0).toISOString(),
+    channels,
+    manual: { probes: {} },
+  };
 }
 
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
@@ -98,6 +107,36 @@ function readResult(raw: unknown): ProbeResult | null {
       : {}),
     retryAfterS: num(raw.retryAfterS),
     rateLimitRemaining: num(raw.rateLimitRemaining),
+  };
+}
+
+const MANUAL_KINDS = new Set(["model", "transient", "account", "capacity", "quota"]);
+
+/** Read one manual probe record, keeping only the six documented fields. */
+function readManualProbe(raw: unknown): ManualProbeRecord | null {
+  if (
+    !isRecord(raw) ||
+    typeof raw.provider !== "string" ||
+    raw.provider === "" ||
+    typeof raw.model !== "string" ||
+    raw.model === "" ||
+    typeof raw.ok !== "boolean"
+  ) {
+    return null;
+  }
+  const kind = raw.failure_kind;
+  if (kind !== null && (typeof kind !== "string" || !MANUAL_KINDS.has(kind))) return null;
+  const errorCode = raw.error_code;
+  if (errorCode !== null && typeof errorCode !== "string") return null;
+  const testedAt = num(raw.tested_at);
+  if (testedAt === null) return null;
+  return {
+    provider: raw.provider,
+    model: raw.model,
+    ok: raw.ok,
+    failure_kind: raw.ok ? null : (kind as ManualProbeRecord["failure_kind"]),
+    error_code: raw.ok ? null : errorCode,
+    tested_at: testedAt,
   };
 }
 
@@ -146,6 +185,12 @@ export function parseState(text: string): StateData {
   if (!isRecord(payload) || payload.schemaVersion !== STATE_SCHEMA_VERSION || !isRecord(payload.channels)) return state;
   state.updatedAt = str(payload.updatedAt) ?? state.updatedAt;
   for (const id of CHANNEL_IDS) state.channels[id] = readChannel(id, payload.channels[id]);
+  if (isRecord(payload.manual) && isRecord(payload.manual.probes)) {
+    for (const [key, value] of Object.entries(payload.manual.probes)) {
+      const record = readManualProbe(value);
+      if (record !== null) state.manual.probes[key] = record;
+    }
+  }
   return state;
 }
 

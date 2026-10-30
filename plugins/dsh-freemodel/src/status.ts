@@ -8,6 +8,7 @@ import { createRequire } from "node:module";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { type ChannelState, channelStates, defaultProviders, type FreemodelConfig, rankingOf } from "./channels.ts";
+import { type ManualReport, manualReport } from "./manual.ts";
 import type { Capabilities, Quota } from "./providers/types.ts";
 import { filterModels, rank } from "./rank.ts";
 import { satisfies } from "./semver.ts";
@@ -64,6 +65,8 @@ export interface StatusReport {
   statePath: string;
   stateExists: boolean;
   channels: ChannelReport[];
+  /** Tier-2 manual registrations, detection and last probe results. */
+  manual: ManualReport;
 }
 
 /** `$DSH_HOME`, else `~/.dsh`, as dsh itself resolves it. */
@@ -81,7 +84,7 @@ export function statePath(env: NodeJS.ProcessEnv = process.env): string {
 export function describeFromEnv(env: NodeJS.ProcessEnv = process.env): DescribeKey {
   return async (ref) => {
     const value = env[ref];
-    return value !== undefined && value !== "" ? { configured: true, source: "env" } : { configured: false };
+    return value !== undefined && value.trim() !== "" ? { configured: true, source: "env" } : { configured: false };
   };
 }
 
@@ -125,6 +128,7 @@ export async function buildStatus(
   config: FreemodelConfig,
   describe?: DescribeKey,
   env: NodeJS.ProcessEnv = process.env,
+  routeIds?: () => readonly string[],
 ): Promise<StatusReport> {
   const path = statePath(env);
   const state = loadState(path);
@@ -139,7 +143,23 @@ export async function buildStatus(
         key = "unknown";
       }
     }
+    if (key === "unknown" || (typeof key === "object" && !key.configured)) {
+      const val = env[entry.apiKeyEnv];
+      if (val !== undefined && val.trim() !== "") {
+        key = { configured: true, source: "env" };
+      } else if (describe === undefined) {
+        key = { configured: false };
+      }
+    }
     channels.push({ ...entry, key, models: modelsReport(state, config, entry.id) });
+  }
+  let routes: readonly string[] | null = null;
+  if (routeIds !== undefined) {
+    try {
+      routes = routeIds();
+    } catch {
+      routes = null;
+    }
   }
   return {
     schemaVersion: STATUS_SCHEMA_VERSION,
@@ -149,6 +169,7 @@ export async function buildStatus(
     statePath: path,
     stateExists: existsSync(path),
     channels,
+    manual: manualReport(config, state.manual.probes, routes),
   };
 }
 

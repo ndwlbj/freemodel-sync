@@ -11,11 +11,19 @@
  */
 import {
   type FreemodelConfig,
+  manualProbeOf,
   providersOf,
   rankingOf,
   refreshOf,
   routeOf,
 } from "./channels.ts";
+import {
+  manualEntriesOf,
+  type ManualLlm,
+  manualKey,
+  manualProbeDecision,
+  probeManualEntry,
+} from "./manual.ts";
 import { FALLBACK_DAILY_FREE_LIMIT, nextUtcMidnight, runProbeRound } from "./probe.ts";
 import { BailianChannel } from "./providers/bailian.ts";
 import { GroqChannel } from "./providers/groq.ts";
@@ -53,6 +61,8 @@ export interface ServiceOptions {
   keys: KeyAccess;
   logger: ServiceLogger;
   channels?: Partial<Record<ChannelId, OpenAICompatChannel>>;
+  /** Host LLM runtime used only for opt-in tier-2 manual probes. */
+  llm?: ManualLlm;
   /** Called whenever active channels or listed models may have changed. */
   onChange?: () => void;
   now?: () => number;
@@ -112,6 +122,7 @@ export class FreemodelService {
   private keyTimer: NodeJS.Timeout | undefined;
   private running: Promise<void> | undefined;
   private readonly abort = new AbortController();
+  private readonly lastManualAttempt = new Map<string, number>();
   private disposed = false;
 
   constructor(private readonly options: ServiceOptions) {
@@ -351,6 +362,21 @@ export class FreemodelService {
         consider(Math.max(last + TRANSIENT_TTL_S, channel.blockedUntil ?? 0));
       }
     }
+    if (manualProbeOf(this.options.config).enabled) {
+      const now = new Date(this.now());
+      const records = Object.values(this.state.manual.probes);
+      const refresh = refreshOf(this.options.config);
+      for (const entry of manualEntriesOf(this.options.config)) {
+        if (!manualProbeDecision(entry, records, true, now).allowed) continue;
+        const key = manualKey(entry.dshProvider, entry.model);
+        const lastAttempt = this.lastManualAttempt.get(key);
+        if (lastAttempt !== undefined) {
+          consider(lastAttempt + refresh.probeHours * 3600);
+        } else {
+          consider(nowS);
+        }
+      }
+    }
     return next;
   }
 
@@ -384,9 +410,72 @@ export class FreemodelService {
         this.options.logger.warn(`dsh-freemodel: ${id} refresh failed: ${redact(String(error), [apiKey])}`);
       }
     }
+    if (!this.disposed && (await this.probeManualDue(force.probe === true))) dirty = true;
     if (dirty && !this.disposed) {
       this.save();
       this.options.onChange?.();
+    }
+  }
+
+  /**
+   * Probe the manual entries that are due now. Only `manualProbe.enabled` plus
+   * the entry's own `probe: true` sends anything, and the per-model daily cap
+   * is enforced from the stored records (hard-coded, not a setting). Account
+   * failures recorded in this loop stop later entries of the same platform;
+   * capacity does not. A target route not yet registered (NO_ADAPTER) is
+   * treated as not run: it writes no record, consumes no daily cap, and
+   * retries on the next scheduled round only.
+   */
+  private async probeManualDue(force = false): Promise<boolean> {
+    const llm = this.options.llm;
+    if (llm === undefined) return false;
+    const enabled = manualProbeOf(this.options.config).enabled;
+    if (!enabled) return false;
+    const refresh = refreshOf(this.options.config);
+    const nowS = this.now() / 1000;
+    let dirty = false;
+    for (const entry of manualEntriesOf(this.options.config)) {
+      if (this.disposed) break;
+      const key = manualKey(entry.dshProvider, entry.model);
+      if (!force) {
+        const lastAttempt = this.lastManualAttempt.get(key);
+        if (lastAttempt !== undefined && nowS < lastAttempt + refresh.probeHours * 3600) {
+          continue;
+        }
+      }
+      const now = new Date(this.now());
+      const decision = manualProbeDecision(entry, Object.values(this.state.manual.probes), enabled, now);
+      if (!decision.allowed) continue;
+      const record = await probeManualEntry(llm, entry, now);
+      if (record === null) {
+        // NO_ADAPTER: treated as not run, do not write ok:false record, retry on next scheduled round
+        this.lastManualAttempt.set(key, nowS);
+        continue;
+      }
+      this.lastManualAttempt.delete(key);
+      this.state.manual.probes[key] = record;
+      dirty = true;
+      this.options.logger.info(
+        `dsh-freemodel: manual probe ${record.provider}/${record.model}: ` +
+          (record.ok ? "ok" : `failed (${record.failure_kind ?? "unknown"}${record.error_code === null ? "" : ` ${record.error_code}`})`),
+      );
+    }
+    return dirty;
+  }
+
+  /** Re-check manual entries when host adapters update; retry pending entries whose route is now registered. */
+  recheckManualRoutes(registeredRoutes: readonly string[]): void {
+    if (this.disposed || !manualProbeOf(this.options.config).enabled) return;
+    let anyNewlyRegistered = false;
+    for (const entry of manualEntriesOf(this.options.config)) {
+      const key = manualKey(entry.dshProvider, entry.model);
+      if (this.lastManualAttempt.has(key) && registeredRoutes.includes(entry.dshProvider)) {
+        this.lastManualAttempt.delete(key);
+        anyNewlyRegistered = true;
+      }
+    }
+    if (anyNewlyRegistered) {
+      void this.refresh({ probe: true });
     }
   }
 

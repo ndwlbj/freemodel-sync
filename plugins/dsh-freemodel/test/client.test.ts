@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { FreemodelApiClient, LocalApiError } from "../src/client/api.ts";
+import { quotaUnitLabel, quotaWindowLabel } from "../src/client/badges.ts";
 import { renderCard, TABS, type CardProps, type Tab } from "../src/client/card.ts";
-import { createTranslator, resolveLocale } from "../src/client/i18n.ts";
+import { createTranslator, dictionaries, resolveLocale } from "../src/client/i18n.ts";
 import * as client from "../src/client/index.ts";
 import { setReact, type ReactElementLike, type ReactLike } from "../src/client/react-runtime.ts";
 import type { ManualTestView, StatusReport } from "../src/client/types.ts";
@@ -58,7 +59,7 @@ const NOW = 1_700_000_000;
 const STATUS: StatusReport = {
   schemaVersion: 2,
   plugin: "dsh-freemodel",
-  version: "0.1.0",
+  version: "1.0.0",
   specVersion: 1,
   statePath: "/tmp/dsh/freemodel/state.json",
   stateExists: true,
@@ -102,7 +103,114 @@ const STATUS: StatusReport = {
       },
     },
   ],
+  manual: {
+    enabled: true,
+    entries: [
+      {
+        dshProvider: "dsh-zcode",
+        model: "glm-5.3",
+        label: "ZCode Start Plan",
+        quotaNote: "3M tokens/day",
+        expiresAt: "2026-12-31",
+        probe: true,
+        expired: false,
+        detected: true,
+        lastProbe: {
+          provider: "dsh-zcode",
+          model: "glm-5.3",
+          ok: true,
+          failure_kind: null,
+          error_code: null,
+          tested_at: NOW - 30,
+        },
+      },
+    ],
+  },
 };
+
+const BADGED_STATUS: StatusReport = {
+  ...STATUS,
+  channels: [
+    {
+      id: "openrouter",
+      route: "freemodel-openrouter",
+      enabled: true,
+      apiKeyEnv: "OPENROUTER_API_KEY",
+      key: { configured: true, source: "file" },
+      models: {
+        catalogFetchedAt: NOW,
+        catalogError: null,
+        candidates: 4,
+        listed: [
+          {
+            id: "vendor/known:free",
+            ttftMs: 142,
+            testedAt: NOW - 60,
+            capabilities: { tools: true, vision: true, reasoning: true, source: "catalog" },
+            quota: {
+              unit: "tokens",
+              period: "rolling_5h",
+              limit: 120000,
+              used: null,
+              remaining: 90000,
+              resetsAt: null,
+              expiresAt: null,
+              source: "api",
+              scope: "model",
+            },
+          },
+          {
+            id: "vendor/daily:free",
+            ttftMs: 98,
+            testedAt: NOW - 30,
+            capabilities: { tools: true, vision: null, reasoning: false, source: "catalog" },
+            quota: {
+              unit: "requests",
+              period: "day",
+              limit: 50,
+              used: null,
+              remaining: 20,
+              resetsAt: "00:00",
+              expiresAt: "2026-12-31",
+              source: "manual",
+              scope: "model",
+            },
+          },
+          {
+            id: "vendor/beta:free",
+            ttftMs: 200,
+            testedAt: NOW - 10,
+            capabilities: { tools: false, vision: true, reasoning: null, source: "catalog" },
+            quota: {
+              unit: "tokens",
+              period: "beta",
+              limit: null,
+              used: null,
+              remaining: null,
+              resetsAt: null,
+              expiresAt: null,
+              source: "catalog",
+              scope: "model",
+            },
+          },
+          {
+            id: "vendor/unknown:free",
+            ttftMs: null,
+            testedAt: NOW,
+            capabilities: { tools: null, vision: null, reasoning: null, source: "unknown" },
+            quota: null,
+          },
+        ],
+        hidden: [],
+        probesToday: 3,
+        lastRound: null,
+        blockedUntil: null,
+      },
+    },
+  ],
+};
+
+const CJK_REGEX = /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/;
 
 function props(tab: Tab, overrides: Partial<CardProps> = {}): CardProps {
   return {
@@ -187,12 +295,13 @@ describe("client module", () => {
     expect(locale.register).toHaveBeenCalledWith("dsh-freemodel.client", expect.objectContaining({ zh: expect.any(Object), en: expect.any(Object) }));
   });
 
-  it("renders all four tabs without throwing and shows model reasons", () => {
+  it("renders all five tabs without throwing and shows model reasons", () => {
     setReact(fakeReact());
     const expected: Record<Tab, string[]> = {
       overview: ["At a glance", "OpenRouter", "FreeModel"],
       channels: ["Channels", "OPENROUTER_API_KEY", "configured", "freePlanConfirmed is off"],
       models: ["Models and probe results", "vendor/working:free", "vendor/untested:free", "Reason: untested", "Test now"],
+      manual: ["Manual registrations (tier 2)", "ZCode Start Plan", "dsh route detected", "last probe"],
       diagnostics: ["Diagnostics", "State file", "freePlanConfirmed is off", "dsh-freemodel doctor"],
     };
 
@@ -200,7 +309,7 @@ describe("client module", () => {
       const tree = renderCard(props(tab));
       const text = textOf(tree);
       for (const needle of expected[tab]) expect(text, `${tab}: ${needle}`).toContain(needle);
-      expect(buttonsOf(tree).length).toBeGreaterThan(0);
+      if (tab !== "manual") expect(buttonsOf(tree).length).toBeGreaterThan(0);
     }
   });
 
@@ -223,6 +332,41 @@ describe("client module", () => {
     expect(onTest).toHaveBeenCalledWith("openrouter", "vendor/working:free");
   });
 
+  it("shows 'not run yet (route not registered)' in manual tab when route is not registered", () => {
+    setReact(fakeReact());
+    const notRunStatus: StatusReport = {
+      ...STATUS,
+      manual: {
+        enabled: true,
+        entries: [
+          {
+            dshProvider: "workbuddy",
+            model: "hy3",
+            label: "WorkBuddy Test",
+            quotaNote: "",
+            expiresAt: "",
+            probe: true,
+            expired: false,
+            detected: false,
+            lastProbe: null,
+            notRunReason: "route-not-registered",
+          },
+        ],
+      },
+    };
+    const tree = renderCard(props("manual", { state: { phase: "ready", status: notRunStatus } }));
+    const text = textOf(tree);
+    expect(text).toContain("not run yet (route not registered)");
+
+    const zhTree = renderCard(
+      props("manual", {
+        t: createTranslator(resolveLocale("zh-CN")),
+        state: { phase: "ready", status: notRunStatus },
+      }),
+    );
+    expect(textOf(zhTree)).toContain("尚未运行（路由未注册）");
+  });
+
   it("renders loading and error states without a fake status", () => {
     setReact(fakeReact());
     const loading = textOf(renderCard(props("overview", { state: { phase: "loading" } })));
@@ -230,6 +374,82 @@ describe("client module", () => {
     const error = textOf(renderCard(props("overview", { state: { phase: "error", error: "HTTP 500" } })));
     expect(error).toContain("Could not read status");
     expect(error).toContain("HTTP 500");
+  });
+
+  it("has identical translation key sets in en and zh dictionaries", () => {
+    const enKeys = Object.keys(dictionaries.en).sort();
+    const zhKeys = Object.keys(dictionaries.zh).sort();
+    expect(enKeys).toEqual(zhKeys);
+    expect(enKeys.length).toBeGreaterThan(0);
+    for (const key of enKeys as Array<keyof typeof dictionaries.en>) {
+      expect(dictionaries.en[key]).toBeTruthy();
+      expect(dictionaries.zh[key]).toBeTruthy();
+    }
+  });
+
+  it("renders English badge copy and no CJK characters from badges with locale en", () => {
+    setReact(fakeReact());
+    const tree = renderCard(
+      props("models", {
+        t: createTranslator("en"),
+        state: { phase: "ready", status: BADGED_STATUS, loadedAt: NOW },
+      }),
+    );
+    const text = textOf(tree);
+
+    expect(text).toContain("tools");
+    expect(text).toContain("vision");
+    expect(text).toContain("reasoning");
+    expect(text).toContain("capabilities unknown");
+    expect(text).toContain("quota unknown");
+    expect(text).toContain("90k tokens left · 5h rolling");
+    expect(text).toContain("20 requests left · per-day · manual, unverified · resets 00:00 · until 2026-12-31");
+    expect(text).toContain("beta");
+
+    expect(CJK_REGEX.test(text)).toBe(false);
+  });
+
+  it("renders Chinese badge copy with locale zh-CN", () => {
+    setReact(fakeReact());
+    const tree = renderCard(
+      props("models", {
+        t: createTranslator(resolveLocale("zh-CN")),
+        state: { phase: "ready", status: BADGED_STATUS, loadedAt: NOW },
+      }),
+    );
+    const text = textOf(tree);
+
+    expect(text).toContain("工具");
+    expect(text).toContain("视觉");
+    expect(text).toContain("推理");
+    expect(text).toContain("能力未知");
+    expect(text).toContain("额度未知");
+    expect(text).toContain("余 90k tokens · 5小时");
+    expect(text).toContain("余 20 次 · 每日 · 手动，未核实 · 重置 00:00 · 至 2026-12-31");
+    expect(text).toContain("公测期");
+  });
+
+  it("routes window and unit labels through i18n dictionaries", () => {
+    const en = createTranslator("en");
+    const zh = createTranslator(resolveLocale("zh-CN"));
+
+    expect(quotaWindowLabel(en, "day")).toBe("per-day");
+    expect(quotaWindowLabel(zh, "day")).toBe("每日");
+
+    expect(quotaWindowLabel(en, "minute")).toBe("per-minute");
+    expect(quotaWindowLabel(zh, "minute")).toBe("每分钟");
+
+    expect(quotaWindowLabel(en, "rolling_5h")).toBe("5h rolling");
+    expect(quotaWindowLabel(zh, "rolling_5h")).toBe("5小时");
+
+    expect(quotaUnitLabel(en, "requests")).toBe("requests");
+    expect(quotaUnitLabel(zh, "requests")).toBe("次");
+
+    expect(quotaUnitLabel(en, "tokens")).toBe("tokens");
+    expect(quotaUnitLabel(zh, "tokens")).toBe("tokens");
+
+    expect(en("unknown")).toBe("unknown");
+    expect(zh("unknown")).toBe("未知");
   });
 });
 
@@ -261,7 +481,7 @@ describe("FreemodelApiClient", () => {
     });
     const api = new FreemodelApiClient(fetchImpl);
     const status = await api.load();
-    expect(status.version).toBe("0.1.0");
+    expect(status.version).toBe("1.0.0");
     expect(api.hasWriteToken()).toBe(true);
     expect(JSON.stringify(api)).not.toContain("write-token");
     await expect(api.test("openrouter", "vendor/working:free")).resolves.toEqual(TEST_RESULT);

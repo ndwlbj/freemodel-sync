@@ -57,11 +57,12 @@ describe("capacity cache and streak", () => {
     };
     const first = await runProbeRound(channel, [m], state, opts);
     expect(first.results.get(modelKey(m))?.capacityStreak).toBe(1);
+    const testedAt = state.results[modelKey(m)]!.testedAt;
     const second = await runProbeRound(channel, [m], state, {
       ...opts,
       cacheTtlS: 0,
       transientTtlS: 0,
-      nowS: () => CACHE_NOW + 1,
+      nowS: () => testedAt + 1,
     });
     expect(second.results.get(modelKey(m))?.capacityStreak).toBe(2);
 

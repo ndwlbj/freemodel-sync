@@ -1,5 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { channelStates, defaultProviders, defaultRanking, defaultRefresh, providersOf, rankingOf, refreshOf, routeOf } from "../src/channels.ts";
+import {
+  autoDefaultModelOf,
+  autoRouteOf,
+  channelStates,
+  defaultAutoRoute,
+  defaultProviders,
+  defaultRanking,
+  defaultRefresh,
+  providersOf,
+  rankingOf,
+  refreshOf,
+  routeOf,
+} from "../src/channels.ts";
 import { Config } from "../src/config.ts";
 import { providerSpec } from "../src/spec.ts";
 
@@ -176,5 +188,23 @@ describe("ranking and refresh settings", () => {
   it("are live, so edits apply without a restart", () => {
     expect(field("ranking").meta.volatile).toBe(true);
     expect(field("refresh").meta.volatile).toBe(true);
+  });
+});
+
+describe("autoRoute and autoDefaultModel settings", () => {
+  it("default to off", () => {
+    const config = Config({});
+    expect(autoRouteOf(config)).toEqual(defaultAutoRoute());
+    expect(autoRouteOf(config).enabled).toBe(false);
+    expect(autoDefaultModelOf(config)).toBe(false);
+  });
+
+  it("accepts enabled overrides", () => {
+    expect(autoRouteOf(Config({ autoRoute: { enabled: true } })).enabled).toBe(true);
+    expect(autoDefaultModelOf(Config({ autoDefaultModel: true }))).toBe(true);
+  });
+
+  it("autoRoute is live (volatile)", () => {
+    expect(field("autoRoute").meta.volatile).toBe(true);
   });
 });

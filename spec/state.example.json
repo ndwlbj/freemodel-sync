@@ -2,6 +2,26 @@
   "schemaVersion": 1,
   "plugin": "dsh-freemodel",
   "updatedAt": "2026-10-27T12:00:00.000Z",
+  "manual": {
+    "probes": {
+      "dsh-zcode|glm-5.3": {
+        "provider": "dsh-zcode",
+        "model": "glm-5.3",
+        "ok": true,
+        "failure_kind": null,
+        "error_code": null,
+        "tested_at": 1793102415
+      },
+      "workbuddy|deepseek-v4.1-flash": {
+        "provider": "workbuddy",
+        "model": "deepseek-v4.1-flash",
+        "ok": false,
+        "failure_kind": "account",
+        "error_code": "11140",
+        "tested_at": 1793102416
+      }
+    }
+  },
   "channels": {
     "openrouter": {
       "catalog": {

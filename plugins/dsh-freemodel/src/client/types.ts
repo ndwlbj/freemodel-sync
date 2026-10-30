@@ -74,6 +74,35 @@ export interface ChannelReport {
   models: ChannelModels;
 }
 
+export interface ManualProbeView {
+  provider: string;
+  model: string;
+  ok: boolean;
+  failure_kind: string | null;
+  error_code: string | null;
+  tested_at: number;
+}
+
+export interface ManualEntryView {
+  dshProvider: string;
+  model: string;
+  label: string;
+  quotaNote: string;
+  expiresAt: string;
+  probe: boolean;
+  expired: boolean;
+  /** null when dsh's provider list is unavailable (e.g. the CLI). */
+  detected: boolean | null;
+  lastProbe: ManualProbeView | null;
+  /** Set when a probe was not run because the route was not registered in dsh. */
+  notRunReason?: "route-not-registered" | null;
+}
+
+export interface ManualReport {
+  enabled: boolean;
+  entries: ManualEntryView[];
+}
+
 export interface StatusReport {
   schemaVersion: number;
   plugin: string;
@@ -82,6 +111,7 @@ export interface StatusReport {
   statePath: string;
   stateExists: boolean;
   channels: ChannelReport[];
+  manual?: ManualReport;
 }
 
 export interface ProbeResultView {

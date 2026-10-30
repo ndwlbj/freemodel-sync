@@ -39,14 +39,17 @@ from __future__ import annotations
 import copy
 import logging
 import os
+import re
 from collections.abc import Iterator
 from dataclasses import dataclass, field
+from datetime import date
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Union
 
 import yaml
 
 from .flags import parse_bool
+from .models import AuthKind, Quota
 from .ranking import RankWeights
 from .spec import ranking_spec
 
@@ -55,6 +58,9 @@ LOG = logging.getLogger(__name__)
 DEFAULT_CONFIG_PATH = "~/.config/freemodel-sync/config.yml"
 DEFAULT_CACHE_PATH = "~/.cache/freemodel-sync/results.json"
 DEFAULT_STATE_PATH = "~/.local/state/freemodel-sync/state.json"
+
+#: authentication kinds a manual registration may declare
+AUTH_KINDS: tuple[AuthKind, ...] = ("none", "api_key", "pat", "oauth_manual")
 
 #: Defaults for every supported config key.  ``load_config`` deep-merges the
 #: user's file onto a copy of this mapping.
@@ -72,6 +78,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "include": [],
         "exclude": [],
         "exclude_non_chat": True,
+        "include_manual": False,
     },
     "testing": {
         "max_tests": 5,
@@ -99,6 +106,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "output": {"ranking_json": None},
     "backups": {"keep": 5, "dir": None},
     "state_path": DEFAULT_STATE_PATH,
+    "manual_providers": {},
     "targets": [],
     "notify": {"telegram": None, "webhook": None},
 }
@@ -144,6 +152,85 @@ class ProviderConfig(_Section):
 
 
 @dataclass
+class ManualModelConfig(_Section):
+    """One model of a manually registered, tier-2 platform.
+
+    Only public facts live here: a model id, optional label, capability hint,
+    hand-entered quota and expiry date. There is deliberately no credential
+    field; the login belongs to the platform's dsh plugin.
+    """
+
+    id: str
+    name: str = ""
+    tools: Optional[bool] = None
+    quota: Optional[Quota] = None
+    expires_at: Optional[str] = None
+
+    def __post_init__(self) -> None:
+        if isinstance(self.quota, Mapping):
+            self.quota = Quota.from_dict(self.quota)
+        if self.quota is not None:
+            self.quota.source = "manual"
+            if self.quota.expires_at is None and self.expires_at is not None:
+                self.quota.expires_at = self.expires_at
+        if self.expires_at is not None:
+            self.expires_at = _require_date(self.expires_at, f"manual model {self.id}.expires_at")
+
+    @property
+    def expiration_date(self) -> Optional[date]:
+        return date.fromisoformat(self.expires_at) if self.expires_at else None
+
+    def expired(self, today: Optional[date] = None) -> bool:
+        expiry = self.expiration_date
+        return expiry is not None and expiry < (today or date.today())
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "tools": self.tools,
+            "quota": self.quota.to_dict() if self.quota is not None else None,
+            "expires_at": self.expires_at,
+            "expired": self.expired(),
+        }
+
+
+@dataclass
+class ManualProviderConfig(_Section):
+    """A manually registered platform (ZCode / Qoder / WorkBuddy, ...)."""
+
+    name: str
+    display_name: str = ""
+    auth: str = "oauth_manual"
+    dsh_provider: str = ""
+    dsh_plugin: str = ""
+    models: List[ManualModelConfig] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        self.display_name = self.display_name or self.name
+        self.dsh_provider = self.dsh_provider or self.name
+        self.models = [
+            model if isinstance(model, ManualModelConfig) else ManualModelConfig(**dict(model)) for model in self.models
+        ]
+
+    def expired(self, today: Optional[date] = None) -> bool:
+        """True when every registered model has expired (nothing can be discovered)."""
+
+        return bool(self.models) and all(model.expired(today) for model in self.models)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "name": self.name,
+            "display_name": self.display_name,
+            "auth": self.auth,
+            "dsh_provider": self.dsh_provider,
+            "dsh_plugin": self.dsh_plugin,
+            "expired": self.expired(),
+            "models": [model.to_dict() for model in self.models],
+        }
+
+
+@dataclass
 class FilterConfig(_Section):
     require_tools: bool = False
     min_context: int = 0
@@ -152,6 +239,8 @@ class FilterConfig(_Section):
     exclude: List[str] = field(default_factory=list)
     #: drop safety classifiers, embedding/rerank and speech models (ranking.NON_CHAT_PATTERNS)
     exclude_non_chat: bool = True
+    #: include tier-2 manual registrations in discovery/ranking (off by default)
+    include_manual: bool = False
 
 
 @dataclass
@@ -238,6 +327,8 @@ class Config(_Section):
     providers: Dict[str, ProviderConfig] = field(
         default_factory=lambda: {"openrouter": ProviderConfig(enabled=True, api_key_env="OPENROUTER_API_KEY")}
     )
+    #: Tier-2 manual registrations, keyed by provider name. Never hold a credential.
+    manual_providers: Dict[str, ManualProviderConfig] = field(default_factory=dict)
     filters: FilterConfig = field(default_factory=FilterConfig)
     testing: TestingConfig = field(default_factory=TestingConfig)
     ranking: RankingConfig = field(default_factory=RankingConfig)
@@ -251,6 +342,12 @@ class Config(_Section):
         self.providers = {
             str(name): value if isinstance(value, ProviderConfig) else ProviderConfig(**dict(value))
             for name, value in self.providers.items()
+        }
+        self.manual_providers = {
+            str(name): value
+            if isinstance(value, ManualProviderConfig)
+            else ManualProviderConfig(name=str(name), **dict(value))
+            for name, value in self.manual_providers.items()
         }
         if not isinstance(self.filters, FilterConfig):
             self.filters = FilterConfig(**dict(self.filters))
@@ -348,6 +445,165 @@ def _optional_str_list(value: Any, where: str) -> List[str]:
     return list(value)
 
 
+def _require_date(value: Any, where: str) -> str:
+    if not isinstance(value, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        raise ConfigError(f"{where} must be a YYYY-MM-DD date")
+    try:
+        date.fromisoformat(value)
+    except ValueError as exc:
+        raise ConfigError(f"{where} is not a valid date: {exc}") from None
+    return value
+
+
+#: Keys that would hold a credential (compared with ``_``/``-`` removed, lower-case).
+_FORBIDDEN_KEYS = frozenset(
+    {
+        "token",
+        "pat",
+        "cookie",
+        "password",
+        "secret",
+        "key",
+        "apikey",
+        "apikeyenv",
+        "accesstoken",
+        "refreshtoken",
+        "clientsecret",
+    }
+)
+_ENV_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+#: A string that looks like a real key rather than a placeholder (``sk-...`` etc.).
+_KEY_LIKE_RE = re.compile(
+    r"(?:^|[^A-Za-z0-9])(?:sk-|gsk_|pat_|ghp_|xox[abp]-)[A-Za-z0-9._-]{12,}|(?i:bearer\s+[A-Za-z0-9._-]{20,})"
+)
+
+
+def _normalise_key(name: Any) -> str:
+    return re.sub(r"[_-]", "", str(name)).lower()
+
+
+def _looks_like_key(value: str) -> bool:
+    return _KEY_LIKE_RE.search(value) is not None
+
+
+def check_secret_free(value: Any, where: str, *, allow_api_key_env: bool = False) -> None:
+    """Reject credential-shaped keys and values anywhere under *value*.
+
+    Used for ``manual_providers`` and every ``providers.*`` section. The only
+    permitted exception is the ``api_key_env`` key, whose value must be an
+    environment-variable *name* (never a key).
+    """
+
+    if isinstance(value, Mapping):
+        for key, item in value.items():
+            key_text = str(key)
+            if _normalise_key(key_text) in _FORBIDDEN_KEYS:
+                if not (allow_api_key_env and key_text == "api_key_env"):
+                    raise ConfigError(
+                        f"{where}.{key_text}: credential-bearing keys are not allowed in the config; "
+                        "store the value in an environment variable and write only the variable name "
+                        "(api_key_env for a tier-1 provider; tier-2 platforms keep their login in their dsh plugin)"
+                    )
+            if key_text == "api_key_env":
+                if not isinstance(item, str) or not _ENV_NAME_RE.fullmatch(item):
+                    raise ConfigError(f"{where}.api_key_env must be an environment variable name, not a key")
+                continue
+            check_secret_free(item, f"{where}.{key_text}", allow_api_key_env=allow_api_key_env)
+    elif isinstance(value, (list, tuple)):
+        for index, item in enumerate(value):
+            check_secret_free(item, f"{where}[{index}]", allow_api_key_env=allow_api_key_env)
+    elif isinstance(value, str) and _looks_like_key(value):
+        raise ConfigError(
+            f"{where}: value looks like an API key or token; store it in an environment variable / the dsh "
+            "credential store instead, never in the config file"
+        )
+
+
+_QUOTA_KEYS = frozenset({"unit", "period", "limit", "used", "remaining", "resets_at", "expires_at", "source", "scope"})
+
+
+def _parse_manual_model(raw: Any, where: str) -> ManualModelConfig:
+    section = _require_mapping(raw, where)
+    check_secret_free(section, where)
+    unknown = set(section) - {"id", "name", "tools", "quota", "expires_at"}
+    if unknown:
+        raise ConfigError(f"{where}: unknown key(s): {', '.join(sorted(str(key) for key in unknown))}")
+    model_id = _require_str(section.get("id"), f"{where}.id")
+    name = section.get("name", "")
+    if name is None:
+        name = ""
+    if not isinstance(name, str):
+        raise ConfigError(f"{where}.name must be a string")
+    tools = section.get("tools")
+    if tools is not None and not isinstance(tools, bool):
+        raise ConfigError(f"{where}.tools must be a boolean")
+    quota: Optional[Quota] = None
+    if section.get("quota") is not None:
+        quota_raw = _require_mapping(section["quota"], f"{where}.quota")
+        check_secret_free(quota_raw, f"{where}.quota")
+        unknown_quota = set(quota_raw) - _QUOTA_KEYS
+        if unknown_quota:
+            raise ConfigError(f"{where}.quota: unknown key(s): {', '.join(sorted(str(key) for key in unknown_quota))}")
+        quota = Quota.from_dict(quota_raw)
+        quota.source = "manual"
+    expires_at = section.get("expires_at")
+    if expires_at is not None:
+        expires_at = _require_date(expires_at, f"{where}.expires_at")
+    return ManualModelConfig(id=model_id, name=name, tools=tools, quota=quota, expires_at=expires_at)
+
+
+def _parse_manual_providers(raw: Any, known_providers: Mapping[str, Any]) -> Dict[str, ManualProviderConfig]:
+    if raw is None:
+        return {}
+    mapping = _require_mapping(raw, "manual_providers")
+    entries: Dict[str, ManualProviderConfig] = {}
+    for name, value in mapping.items():
+        provider_name = str(name)
+        where = f"manual_providers.{provider_name}"
+        if not re.fullmatch(r"[a-z][a-z0-9-]*", provider_name):
+            raise ConfigError(f"{where}: name must match [a-z][a-z0-9-]*")
+        if provider_name in known_providers:
+            raise ConfigError(f"{where}: conflicts with the tier-1 provider {provider_name!r}; choose another name")
+        section = _require_mapping(value if value is not None else {}, where)
+        check_secret_free(section, where)
+        unknown = set(section) - {"display_name", "auth", "dsh_provider", "dsh_plugin", "models"}
+        if unknown:
+            raise ConfigError(f"{where}: unknown key(s): {', '.join(sorted(str(key) for key in unknown))}")
+        display_name = section.get("display_name", provider_name)
+        if not isinstance(display_name, str):
+            raise ConfigError(f"{where}.display_name must be a string")
+        auth = section.get("auth", "oauth_manual")
+        if auth not in AUTH_KINDS:
+            raise ConfigError(f"{where}.auth must be one of: {', '.join(AUTH_KINDS)}")
+        dsh_provider = section.get("dsh_provider", provider_name)
+        if dsh_provider is None:
+            dsh_provider = ""
+        if not isinstance(dsh_provider, str):
+            raise ConfigError(f"{where}.dsh_provider must be a string")
+        dsh_plugin = section.get("dsh_plugin", "")
+        if dsh_plugin is None:
+            dsh_plugin = ""
+        if not isinstance(dsh_plugin, str):
+            raise ConfigError(f"{where}.dsh_plugin must be a string")
+        models_raw = section.get("models")
+        if not isinstance(models_raw, list) or not models_raw:
+            raise ConfigError(f"{where}.models must be a non-empty list")
+        models = [_parse_manual_model(item, f"{where}.models[{index}]") for index, item in enumerate(models_raw)]
+        ids = [model.id for model in models]
+        duplicates = sorted({model_id for model_id in ids if ids.count(model_id) > 1})
+        if duplicates:
+            raise ConfigError(f"{where}.models: duplicate model id(s): {', '.join(duplicates)}")
+        entries[provider_name] = ManualProviderConfig(
+            name=provider_name,
+            display_name=display_name,
+            auth=str(auth),
+            dsh_provider=dsh_provider,
+            dsh_plugin=dsh_plugin,
+            models=models,
+        )
+    return entries
+
+
 def _parse_providers(raw: Any) -> Dict[str, ProviderConfig]:
     mapping = _require_mapping(raw, "providers")
     from .providers import available_providers, get_provider_class
@@ -359,6 +615,7 @@ def _parse_providers(raw: Any) -> Dict[str, ProviderConfig]:
         if str(name) not in known:
             raise ConfigError(f"{where}: unknown provider {name!r}; available: {', '.join(sorted(known))}")
         section = _require_mapping(value if value is not None else {}, where)
+        check_secret_free(section, where, allow_api_key_env=True)
         enabled = _require_bool(section.get("enabled", True), f"{where}.enabled")
         # Default to the provider's own variable: never send one provider's key to another.
         api_key_env = section.get("api_key_env", get_provider_class(str(name)).api_key_env)
@@ -384,6 +641,7 @@ def _parse_filters(raw: Any) -> FilterConfig:
         include=_optional_str_list(section.get("include", []), "filters.include"),
         exclude=_optional_str_list(section.get("exclude", []), "filters.exclude"),
         exclude_non_chat=_require_bool(section.get("exclude_non_chat", True), "filters.exclude_non_chat"),
+        include_manual=_require_bool(section.get("include_manual", False), "filters.include_manual"),
     )
 
 
@@ -588,15 +846,18 @@ def load_config(
 
     notify = _parse_notify(merged.get("notify", {}))
     providers = _parse_providers(merged.get("providers", {}))
+    manual_providers = _parse_manual_providers(merged.get("manual_providers", {}), providers)
     targets = _parse_targets(merged.get("targets", []))
     enabled = [name for name, cfg in providers.items() if cfg.enabled]
+    selectable = set(providers) | set(manual_providers)
     for target in targets:
         allowed = target.options.get("providers")
-        unknown = [name for name in allowed or [] if name not in providers]
+        unknown = [name for name in allowed or [] if name not in selectable]
         if unknown:
             raise ConfigError(
                 f"target {target.adapter} ({target.path}): options.providers lists "
-                f"provider(s) not in the providers section: {', '.join(unknown)}"
+                f"provider(s) not in the providers section: {', '.join(unknown)} "
+                f"(manual_providers names are accepted too)"
             )
         if len(enabled) > 1 and not allowed:
             LOG.warning(
@@ -612,6 +873,7 @@ def load_config(
 
     return Config(
         providers=providers,
+        manual_providers=manual_providers,
         filters=_parse_filters(merged.get("filters", {})),
         testing=_parse_testing(merged.get("testing", {})),
         ranking=_parse_ranking(merged.get("ranking", {})),

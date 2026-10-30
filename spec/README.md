@@ -10,8 +10,9 @@ once, as JSON. Code is written twice; rules are written once.
 | `providers.json` | per provider: base URL, models path, key variable name, how "free" is decided, catalogue fields, **capabilities** and the generic **quota** vocabulary, probe request, **error classification** (`errorMap`), rate-limit headers, key formats, sources with the date they were checked |
 | `ranking.json` | default ranking weights, score constants, non-chat model globs |
 | `*.schema.json` | JSON Schema (2020-12) of the files above and of the conformance files |
-| `state.schema.json` | format of the dsh plugin's state file `$DSH_HOME/freemodel/state.json` (catalogue cache, probe results, daily counters; never a key); `state.example.json` is a valid sample both test suites read |
-| `conformance/*.json` | golden cases: input -> expected output, for classification, stream errors, the free rule, rate-limit headers, scores, `capacity`, the non-chat filter, capability parsing and quota normalisation |
+| `state.schema.json` | format of the dsh plugin's state file `$DSH_HOME/freemodel/state.json` (catalogue cache, probe results, daily counters and the six-field manual-probe records; never a key); `state.example.json` is a valid sample both test suites read |
+| `manual.schema.json` | tier-2 manual registration: the dsh plugin's `manual[]` and Python's `manual_providers`; rejects secret-bearing keys and key-shaped values |
+| `conformance/*.json` | golden cases: input -> expected output, for classification, stream errors, the free rule, rate-limit headers, scores, `capacity`, the non-chat filter, capability parsing, quota normalisation and the manual registry/probe rules |
 
 ## Capabilities and quota
 
@@ -54,6 +55,18 @@ its own consecutive counter (`capacity_streak` / `capacityStreak`), gets the
 `capacity.downgradeAfter` in a row. `quota` means the free allowance is gone
 for the day (Bailian's `AllocationQuota.FreeTierOnly`); the channel stops until
 the next UTC day and the result is not stored as a model failure.
+
+## Manual tier-2 registration
+
+`manual.schema.json` covers both spellings: the plugin's `manual[]` entries
+(`dshProvider`, `model`, `label`, `quotaNote`, `expiresAt`, `probe`) and the
+Python `manual_providers` mapping (`display_name`, `auth`, `dsh_provider`,
+`dsh_plugin`, `models[]`). It rejects `token`/`pat`/`cookie`/`password`/
+`secret`/`key` fields and key-shaped values. The Python side never probes these
+platforms; the plugin may probe through `ctx.llm` only when the global switch
+and the entry opt-in are both on, at most once per model per UTC day. An
+`account` failure stops that platform for the day; `capacity` is recorded but
+does not stop it. `conformance/manual.json` pins these rules for both runners.
 
 ## Changing a rule
 

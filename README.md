@@ -185,6 +185,21 @@ targets:
     options: {providers: [openrouter]}   # this bot only has an OpenRouter key
 ```
 
+## Manual tier-2 registration (P9)
+
+Platforms without a public API (ZCode, Qoder, WorkBuddy) can be registered by
+hand in `manual_providers`. A registration contains only a model id, an
+optional label/quota note and an expiry date; the Python side **never requests
+those domains**. `freemodel-sync registry list|check [--json]` shows the
+entries, expiry and expired state using local data only. Manual entries are
+tier 2, shown as `手动，未核实`, and are excluded from automatic selection by
+default; a target must list the registration in `options.providers` to select
+it. Availability probing is not done by Python at all: the dsh plugin does it
+through `ctx.llm`, only when `manualProbe.enabled` and the entry's `probe` are
+both on, at most once per model per day. An account error stops that platform
+for the day; capacity is recorded but does not stop it. See
+[docs/manual-registry.md](https://github.com/ndwlbj/freemodel-sync/blob/main/docs/manual-registry.md).
+
 ## Targets (adapters)
 
 | adapter | file | what it writes |
@@ -290,6 +305,7 @@ Providers are plugins. Subclass `Provider`, implement `discover()` and `test()` 
 ```python
 from freemodel_sync.providers import Provider, register_provider
 
+
 @register_provider
 class MyProvider(Provider):
     name = "myprovider"
@@ -312,7 +328,7 @@ ruff format --check src tests scripts
 pytest
 ```
 
-The dsh plugin (lists free OpenRouter/Groq/SenseNova models in the dsh picker) lives in `plugins/dsh-freemodel/` (TypeScript, pnpm; see its README and
+The dsh plugin (lists free OpenRouter/Groq/SenseNova/Bailian models in the dsh picker, with optional `freemodel-auto` best-model routing and guarded `autoDefaultModel` profile switch, both default off) lives in `plugins/dsh-freemodel/` (TypeScript, pnpm; see its README and
 [docs/dsh-plugin-verification.md](https://github.com/ndwlbj/freemodel-sync/blob/main/docs/dsh-plugin-verification.md)).
 
 Tests never touch the network (HTTP is mocked with `httpx.MockTransport`). See

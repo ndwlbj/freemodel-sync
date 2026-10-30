@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ndwlbj/freemodel-sync/spec/manual.schema.json",
+  "title": "Manual tier-2 registration (ZCode / Qoder / WorkBuddy, ...)",
+  "description": "Public, non-sensitive facts about a platform whose dsh plugin owns the login. Two accepted shapes: the dsh plugin's `manual[]` array (camelCase) or the Python `manual_providers` mapping (snake_case). Never contains a token, PAT, cookie, password, secret or key; no key-shaped value is allowed either. Probing is done only through dsh (`ctx.llm`) and is opt-in.",
+  "oneOf": [
+    {
+      "type": "array",
+      "description": "dsh plugin `manual[]` entries.",
+      "items": { "$ref": "#/$defs/pluginEntry" }
+    },
+    {
+      "type": "object",
+      "description": "Python `manual_providers` section, keyed by provider name.",
+      "propertyNames": { "$ref": "#/$defs/providerName" },
+      "additionalProperties": { "$ref": "#/$defs/pythonProvider" }
+    }
+  ],
+  "$defs": {
+    "forbiddenKey": {
+      "description": "Secret-bearing key names, case-insensitive (portable character-class form so Python and JavaScript schemas agree).",
+      "pattern": "^(?:[Tt][Oo][Kk][Ee][Nn]|[Pp][Aa][Tt]|[Cc][Oo][Oo][Kk][Ii][Ee]|[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]|[Ss][Ee][Cc][Rr][Ee][Tt]|[Kk][Ee][Yy]|[Aa][Pp][Ii][_-]?[Kk][Ee][Yy](?:_[Ee][Nn][Vv])?|[Aa][Cc][Cc][Ee][Ss][Ss][_-]?[Tt][Oo][Kk][Ee][Nn]|[Rr][Ee][Ff][Rr][Ee][Ss][Hh][_-]?[Tt][Oo][Kk][Ee][Nn]|[Cc][Ll][Ii][Ee][Nn][Tt][_-]?[Ss][Ee][Cc][Rr][Ee][Tt])$"
+    },
+    "keyLikeValue": {
+      "description": "Values that look like an API key or bearer token, e.g. a long `sk-...` string.",
+      "pattern": "(?:^|[^A-Za-z0-9])(?:sk-|gsk_|sk-or-|sk-ws-|sk-sp-|pat_|ghp_)[A-Za-z0-9._-]{12,}"
+    },
+    "safeString": {
+      "type": "string",
+      "not": { "$ref": "#/$defs/keyLikeValue" }
+    },
+    "date": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "providerName": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$"
+    },
+    "pluginEntry": {
+      "type": "object",
+      "required": ["dshProvider", "model"],
+      "additionalProperties": false,
+      "propertyNames": { "not": { "$ref": "#/$defs/forbiddenKey" } },
+      "properties": {
+        "dshProvider": {
+          "type": "string",
+          "minLength": 1,
+          "description": "dsh route id registered by the third-party plugin, e.g. dsh-zcode or qoder-global."
+        },
+        "model": { "type": "string", "minLength": 1, "description": "Model id as that route knows it." },
+        "label": { "allOf": [{ "$ref": "#/$defs/safeString" }], "description": "Optional display label." },
+        "quotaNote": {
+          "allOf": [{ "$ref": "#/$defs/safeString" }],
+          "description": "Optional hand-written quota note; shown as manual/unverified."
+        },
+        "expiresAt": {
+          "allOf": [{ "$ref": "#/$defs/date" }],
+          "description": "Optional YYYY-MM-DD after which the entry is expired and is not probed."
+        },
+        "probe": {
+          "type": "boolean",
+          "default": false,
+          "description": "Opt this entry in to the dsh probe (the global manualProbe.enabled switch must also be on)."
+        }
+      }
+    },
+    "pythonProvider": {
+      "type": "object",
+      "required": ["auth", "models"],
+      "additionalProperties": false,
+      "propertyNames": { "not": { "$ref": "#/$defs/forbiddenKey" } },
+      "properties": {
+        "display_name": { "allOf": [{ "$ref": "#/$defs/safeString" }] },
+        "auth": {
+          "enum": ["none", "api_key", "pat", "oauth_manual"],
+          "description": "How the third-party dsh plugin logs in. freemodel-sync never holds this credential."
+        },
+        "dsh_provider": { "type": "string", "description": "dsh route id; defaults to the manual_providers key." },
+        "dsh_plugin": { "allOf": [{ "$ref": "#/$defs/safeString" }], "description": "Optional package name of the third-party plugin." },
+        "models": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/pythonModel" }
+        }
+      }
+    },
+    "pythonModel": {
+      "type": "object",
+      "required": ["id"],
+      "additionalProperties": false,
+      "propertyNames": { "not": { "$ref": "#/$defs/forbiddenKey" } },
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "allOf": [{ "$ref": "#/$defs/safeString" }] },
+        "tools": { "type": "boolean" },
+        "quota": { "$ref": "#/$defs/quota" },
+        "expires_at": { "$ref": "#/$defs/date" }
+      }
+    },
+    "quota": {
+      "type": "object",
+      "additionalProperties": false,
+      "propertyNames": { "not": { "$ref": "#/$defs/forbiddenKey" } },
+      "properties": {
+        "unit": { "enum": ["requests", "tokens", "credits", "unknown"] },
+        "period": { "enum": ["rolling_5h", "week", "day", "total", "beta", "unknown"] },
+        "limit": { "type": ["number", "null"] },
+        "used": { "type": ["number", "null"] },
+        "remaining": { "type": ["number", "null"] },
+        "resets_at": { "type": ["string", "null"] },
+        "expires_at": { "type": ["string", "null"] },
+        "source": { "enum": ["manual"] },
+        "scope": { "enum": ["account", "model"] }
+      }
+    }
+  }
+}

@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <linearGradient id="cyan-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#0284c7"/>
+    </linearGradient>
+    <linearGradient id="emerald-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#34d399"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+  </defs>
+  <!-- Background rounded card -->
+  <rect x="4" y="4" width="120" height="120" rx="26" fill="url(#bg)" stroke="#38bdf8" stroke-width="3" stroke-opacity="0.4"/>
+  <!-- Stylized F / M nodes & connections -->
+  <circle cx="36" cy="38" r="9" fill="url(#cyan-grad)"/>
+  <circle cx="36" cy="64" r="8" fill="url(#cyan-grad)"/>
+  <circle cx="36" cy="90" r="8" fill="url(#cyan-grad)"/>
+  <circle cx="64" cy="46" r="8" fill="url(#emerald-grad)"/>
+  <circle cx="92" cy="38" r="9" fill="url(#cyan-grad)"/>
+  <circle cx="92" cy="74" r="8" fill="url(#cyan-grad)"/>
+  <circle cx="92" cy="90" r="8" fill="url(#cyan-grad)"/>
+  <!-- Connecting lines -->
+  <path d="M36 38 L36 90 M36 38 L64 46 L92 38 M92 38 L92 90 M36 64 L64 46" stroke="#38bdf8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/>
+  <!-- Spark badge -->
+  <polygon points="64,18 68,30 80,34 68,38 64,50 60,38 48,34 60,30" fill="#facc15" opacity="0.9"/>
+  <!-- Text 'FREE' -->
+  <text x="64" y="112" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="bold" fill="#38bdf8" text-anchor="middle" letter-spacing="2">FREE</text>
+</svg>

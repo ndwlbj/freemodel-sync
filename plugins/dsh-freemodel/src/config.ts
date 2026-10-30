@@ -1,26 +1,33 @@
 /**
  * Plugin settings (plan section 6.3): channel switches and key references,
- * which models are listed, and the refresh cadence. Manual registration and
- * the default-model switch follow in later steps.
+ * which models are listed, the refresh cadence and opt-in tier-2 manual
+ * registration. The default-model switch follows in a later step.
  *
  * `apiKeyEnv` fields carry the `credential-ref` role: the settings page stores
  * only the environment-variable NAME here and saves the key itself through
  * dsh's credential service (`ctx.credentials`), so no key ever lands in the
- * plugin configuration.
+ * plugin configuration. Manual entries are checked one more time by
+ * `validateManualConfig`, which rejects secret-bearing keys/values.
  */
 import z from "@deepseek-ai/schemastery";
 import {
   CHANNEL_LABELS,
+  defaultAutoRoute,
+  defaultManualProbe,
   defaultProviders,
   defaultRanking,
   defaultRefresh,
+  type AutoRouteConfig,
   type BailianChannelConfig,
   type FreemodelConfig,
   type FreemodelConfigInput,
   type GroqChannelConfig,
+  type ManualEntryConfig,
+  type ManualProbeConfig,
   type OpenRouterChannelConfig,
   type SenseNovaChannelConfig,
 } from "./channels.ts";
+import { validateManualConfig } from "./manual.ts";
 import type { ChannelId } from "./spec.ts";
 
 /** A credential reference: an environment-variable name, never a value. */
@@ -176,9 +183,98 @@ const refreshSchema = z
   .description("Refresh")
   .volatile();
 
-export const Config: z<FreemodelConfigInput, FreemodelConfig> = z.object({
+const MANUAL_PROBE = defaultManualProbe();
+
+const manualEntrySchema = z
+  .object({
+    dshProvider: z
+      .string()
+      .default("")
+      .description("dsh provider/route id registered by the platform's own plugin, e.g. dsh-zcode or qoder-global."),
+    model: z.string().default("").description("Model id exactly as that dsh route knows it."),
+    label: z.string().default("").description("Optional display label; public information only."),
+    quotaNote: z
+      .string()
+      .default("")
+      .description("Optional hand-written quota note. Always shown as manual/unverified; never deducted locally."),
+    expiresAt: z
+      .string()
+      .pattern(/^$|^\d{4}-\d{2}-\d{2}$/)
+      .default("")
+      .description("Optional YYYY-MM-DD after which the entry is expired and is not probed."),
+    probe: z
+      .boolean()
+      .default(false)
+      .description(
+        "Opt this entry in to the dsh probe. manualProbe.enabled must also be on, and each model is still probed at most once per day.",
+      ),
+  })
+  .description("One tier-2 manual registration (public facts only; no token/PAT/cookie).");
+
+const manualSchema = z
+  .array(manualEntrySchema)
+  .default([])
+  .description("Tier-2 platforms whose login is owned by their own dsh plugin. Never auto-selected; no probe by default.");
+
+const manualProbeSchema = z
+  .object({
+    enabled: z
+      .boolean()
+      .default(MANUAL_PROBE.enabled)
+      .description(
+        "Global switch for manual availability probes. Off by default; when on, only entries with probe=true are probed, at most once per model per day. Account errors stop that platform for the day.",
+      ),
+  })
+  .default({})
+  .description("Manual availability probing (through dsh only)")
+  .volatile();
+
+const AUTO_ROUTE = defaultAutoRoute();
+
+const autoRouteSchema = z
+  .object({
+    enabled: z
+      .boolean()
+      .default(AUTO_ROUTE.enabled)
+      .description(
+        "Register the freemodel-auto route that always targets the current #1 available free model and fails over in-process to the next by rank on the same request. Off by default.",
+      ),
+  })
+  .default({})
+  .description("Automatic best-model route")
+  .volatile();
+
+const autoDefaultModelSchema = z
+  .boolean()
+  .default(false)
+  .description(
+    "When on, ask dsh to point THIS profile's agent-default-model at freemodel-auto/best (or the current #1 listed model if autoRoute is off). Never touches other profiles, never QQ/bot profiles, never $DSH_HOME/cordis.patch.yml home layer. Off by default.",
+  );
+
+const baseConfig = z.object({
   providers: providersSchema,
   ranking: rankingSchema,
   refresh: refreshSchema,
-}) as unknown as z<FreemodelConfigInput, FreemodelConfig>;
+  manual: manualSchema,
+  manualProbe: manualProbeSchema,
+  autoRoute: autoRouteSchema,
+  autoDefaultModel: autoDefaultModelSchema,
+});
+
+type BaseConfig = typeof baseConfig;
+
+/**
+ * The same form schema, with one extra guard: dsh's schemastery objects keep
+ * unknown keys, so a pasted `token`/`pat`/`cookie` or a `sk-...` value would
+ * otherwise pass through. `validateManualConfig` rejects those before the
+ * normal schema runs; the form fields themselves still come from `baseConfig`.
+ */
+function guardedConfig(value: unknown, options?: unknown): FreemodelConfig {
+  validateManualConfig(value);
+  return (baseConfig as unknown as (input: unknown, opts?: unknown) => FreemodelConfig)(value, options);
+}
+
+export const Config = Object.assign(guardedConfig, baseConfig) as unknown as z<FreemodelConfigInput, FreemodelConfig>;
+Object.setPrototypeOf(Config as unknown as object, Object.getPrototypeOf(baseConfig));
+Object.defineProperty(Config, "uid", { value: (baseConfig as unknown as { uid: number }).uid });
 
