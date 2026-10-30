@@ -34,8 +34,12 @@ describe("package.json", () => {
     expect(manifest.exports["./locale/*.json"]).toBe("./locale/*.json");
     expect(manifest.bin["dsh-freemodel"]).toBe("lib/bin.js");
     expect(manifest.files).toEqual(
-      expect.arrayContaining(["lib", "locale", "cordis.patch.yml", "icons", "screenshots.json", "README.zh-CN.md"]),
+      expect.arrayContaining(["lib", "locale", "cordis.patch.yml", "icons", "README.zh-CN.md"]),
     );
+    expect(manifest.files).toContain("icons");
+    expect(manifest.files).toContain("README.zh-CN.md");
+    expect(manifest.files).not.toContain("screenshots.json");
+    expect(manifest.files).not.toContain("docs/assets");
   });
 
   it("cannot be published by accident", () => {

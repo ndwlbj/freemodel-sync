@@ -22,9 +22,10 @@ plugin is versioned separately from the Python `freemodel-sync` package.
   `would-write`). Notes that the profile patch path layout `$DSH_HOME/profiles/<id>/cordis.patch.yml`
   is assumed and not verified on a real dsh.
 - **Assets and icons (P10).** Added icon assets (`icons/dsh-freemodel-128.png`, `-64.png`,
-  and `dsh-freemodel.svg`) and declared `icon` in `package.json`. Shipped `screenshots.json`
-  referencing `docs/assets/dsh-freemodel-settings-card-placeholder.png` with honest placeholder
-  disclaimers.
+  and `dsh-freemodel.svg`) and declared `icon` in `package.json`. The settings-card
+  screenshot is a placeholder kept in the repo only and not part of the npm package yet
+  (referenced in `screenshots.json` at `docs/assets/dsh-freemodel-settings-card-placeholder.png`
+  with honest placeholder disclaimers).
 - **Documentation polish & Chinese translation (P10).** Complete polish of `README.md`
   and new full-length Chinese equivalent `README.zh-CN.md` covering channels, settings,
   safety guardrails, tier-2 registry, troubleshooting, and explicit notices that Windows/macOS

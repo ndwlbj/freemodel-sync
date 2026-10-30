@@ -150,7 +150,7 @@ The browser extension (`lib/client.js`) attaches a comprehensive management card
 5. **Diagnostics**: Schema versions, local API endpoint prefix, error logs, and troubleshooting guidance.
 
 > [!NOTE]
-> **Screenshots**: Placeholders; real ones pending real-device UI capture. The reference image is located at `docs/assets/dsh-freemodel-settings-card-placeholder.png` and declared in `screenshots.json`.
+> **Screenshots**: The settings-card screenshot is a placeholder kept in the repo only and not part of the npm package yet (real ones pending real-device UI capture). The reference image is located at `docs/assets/dsh-freemodel-settings-card-placeholder.png` and declared in `screenshots.json`.
 
 ---
 

@@ -150,7 +150,7 @@ dsh plugin --profile <测试profile名> exec dsh-freemodel doctor
 5. **诊断（Diagnostics）**：数据格式版本号、本地 API 前缀、目录加载错误、提前中止记录以及 `dsh-freemodel doctor` 建议。
 
 > [!NOTE]
-> **关于截图**：目前提供的截图文件为清晰注明的占位图（位于 `docs/assets/dsh-freemodel-settings-card-placeholder.png` 并登记在 `screenshots.json`），真机环境捕获的实际 UI 截图将在后续实机验证完成后更新。
+> **关于截图**：设置卡片截图为仅保留在仓库中的占位图，尚未包含在 npm 包内（The settings-card screenshot is a placeholder kept in the repo only and not part of the npm package yet；参考图片位于 `docs/assets/dsh-freemodel-settings-card-placeholder.png` 并登记在 `screenshots.json`），真机环境捕获的实际 UI 截图将在后续实机验证完成后更新。
 
 ---
 
