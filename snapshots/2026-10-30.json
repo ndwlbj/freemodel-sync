@@ -1,0 +1,362 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-30",
+  "generated_at": "2026-10-30T07:05:04Z",
+  "tool_version": "0.3.3",
+  "mode": "probe",
+  "max_probes": 15,
+  "reserve": 10,
+  "providers": {
+    "openrouter": {
+      "status": "ok",
+      "discovered": 15,
+      "probes_sent": 15,
+      "quota": {
+        "daily_free_limit": 50,
+        "daily_free_used": 0,
+        "daily_free_remaining": 50,
+        "read": "before probing",
+        "note": "read once before probing, so this run's probes are not included; the provider's counter can also lag behind recent requests",
+        "remaining_estimate": 35
+      }
+    },
+    "groq": {
+      "status": "ok",
+      "discovered": 4,
+      "probes_sent": 4
+    }
+  },
+  "summary": {
+    "models": 19,
+    "ok": 12,
+    "failed": 7,
+    "not_probed": 0
+  },
+  "models": [
+    {
+      "key": "openrouter|nvidia/nemotron-3-ultra-550b-a55b:free",
+      "provider": "openrouter",
+      "id": "nvidia/nemotron-3-ultra-550b-a55b:free",
+      "name": "NVIDIA: Nemotron 3 Ultra (free)",
+      "context_length": 1000000,
+      "supports_tools": true,
+      "expiration_date": null,
+      "days_until_expiry": null,
+      "status": "ok",
+      "failure_kind": null,
+      "ttft_ms": 2826,
+      "total_ms": 2944,
+      "error": null
+    },
+    {
+      "key": "openrouter|nvidia/nemotron-3.5-lightning:free",
+      "provider": "openrouter",
+      "id": "nvidia/nemotron-3.5-lightning:free",
+      "name": "NVIDIA: Nemotron 3.5 Lightning (free)",
+      "context_length": 1000000,
+      "supports_tools": true,
+      "expiration_date": null,
+      "days_until_expiry": null,
+      "status": "ok",
+      "failure_kind": null,
+      "ttft_ms": 220,
+      "total_ms": 782,
+      "error": null
+    },
+    {
+      "key": "openrouter|nvidia/nemotron-3.5-super-vl:free",
+      "provider": "openrouter",
+      "id": "nvidia/nemotron-3.5-super-vl:free",
+      "name": "NVIDIA: Nemotron 3.5 Super VL (free)",
+      "context_length": 1000000,
+      "supports_tools": true,
+      "expiration_date": null,
+      "days_until_expiry": null,
+      "status": "ok",
+      "failure_kind": null,
+      "ttft_ms": 251,
+      "total_ms": 357,
+      "error": null
+    },
+    {
+      "key": "openrouter|thinkingmachines/inkling-small:free",
+      "provider": "openrouter",
+      "id": "thinkingmachines/inkling-small:free",
+      "name": "Thinking Machines: Inkling Small (free)",
+      "context_length": 1048576,
+      "supports_tools": true,
+      "expiration_date": null,
+      "days_until_expiry": null,
+      "status": "403",
+      "failure_kind": "model",
+      "ttft_ms": null,
+      "total_ms": 19,
+      "error": "thinkingmachines/inkling-small:free is only available on agentic harnesses. Try plugging it into a coding agent or productivity app listed on https://openrouter.ai/apps"
+    },
+    {
+      "key": "openrouter|thinkingmachines/inkling:free",
+      "provider": "openrouter",
+      "id": "thinkingmachines/inkling:free",
+      "name": "Thinking Machines: Inkling (free)",
+      "context_length": 1048576,
+      "supports_tools": true,
+      "expiration_date": null,
+      "days_until_expiry": null,
+      "status": "403",
+      "failure_kind": "model",
+      "ttft_ms": null,
+      "total_ms": 54,
+      "error": "thinkingmachines/inkling:free is only available on agentic harnesses. Try plugging it into a coding agent or productivity app listed on https://openrouter.ai/apps"
+    },
+    {
+      "key": "openrouter|dots-studio/dots-3-note-preview:free",
+      "provider": "openrouter",
+      "id": "dots-studio/dots-3-note-preview:free",
+      "name": "Dots Studio: Dots3-Note Preview (free)",
+      "context_length": 512000,
+      "supports_tools": true,
+      "expiration_date": "2026-12-31",
+      "days_until_expiry": 62,
+      "status": "ok",
+      "failure_kind": null,
+      "ttft_ms": 396,
+      "total_ms": 979,
+      "error": null
+    },
+    {
+      "key": "openrouter|google/gemma-4-26b-a4b-it:free",
+      "provider": "openrouter",
+      "id": "google/gemma-4-26b-a4b-it:free",
+      "name": "Google: Gemma 4 26B A4B  (free)",
+      "context_length": 262144,
+      "supports_tools": true,
+      "expiration_date": null,
+      "days_until_expiry": null,
+      "status": "429",
+      "failure_kind": "transient",
+      "ttft_ms": null,
+      "total_ms": 129,
+      "error": "Provider returned error"
+    },
+    {
+      "key": "openrouter|google/gemma-4-31b-it:free",
+      "provider": "openrouter",
+      "id": "google/gemma-4-31b-it:free",
+      "name": "Google: Gemma 4 31B (free)",
+      "context_length": 262144,
+      "supports_tools": true,
+      "expiration_date": null,
+      "days_until_expiry": null,
+      "status": "ok",
+      "failure_kind": null,
+      "ttft_ms": 662,
+      "total_ms": 684,
+      "error": null
+    },
+    {
+      "key": "openrouter|recursive/flint-v1.0:free",
+      "provider": "openrouter",
+      "id": "recursive/flint-v1.0:free",
+      "name": "Recursive: Flint (free)",
+      "context_length": 262144,
+      "supports_tools": true,
+      "expiration_date": null,
+      "days_until_expiry": null,
+      "status": "503",
+      "failure_kind": "transient",
+      "ttft_ms": null,
+      "total_ms": 260,
+      "error": "Provider returned error"
+    },
+    {
+      "key": "openrouter|xingchen-agi/xing4.0-29b-a4b:free",
+      "provider": "openrouter",
+      "id": "xingchen-agi/xing4.0-29b-a4b:free",
+      "name": "XingChen: Xing4.0 29B A4B (free)",
+      "context_length": 262144,
+      "supports_tools": true,
+      "expiration_date": null,
+      "days_until_expiry": null,
+      "status": "429",
+      "failure_kind": "transient",
+      "ttft_ms": null,
+      "total_ms": 636,
+      "error": "Provider returned error"
+    },
+    {
+      "key": "openrouter|cohere/north-mini-code:free",
+      "provider": "openrouter",
+      "id": "cohere/north-mini-code:free",
+      "name": "Cohere: North Mini Code (free)",
+      "context_length": 256000,
+      "supports_tools": true,
+      "expiration_date": null,
+      "days_until_expiry": null,
+      "status": "ok",
+      "failure_kind": null,
+      "ttft_ms": 216,
+      "total_ms": 306,
+      "error": null
+    },
+    {
+      "key": "openrouter|nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "provider": "openrouter",
+      "id": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+      "name": "NVIDIA: Nemotron 3 Nano Omni (free)",
+      "context_length": 256000,
+      "supports_tools": true,
+      "expiration_date": null,
+      "days_until_expiry": null,
+      "status": "ok",
+      "failure_kind": null,
+      "ttft_ms": 193,
+      "total_ms": 325,
+      "error": null
+    },
+    {
+      "key": "openrouter|liquid/lfm-2.5-2.6b:free",
+      "provider": "openrouter",
+      "id": "liquid/lfm-2.5-2.6b:free",
+      "name": "LiquidAI: LFM2.5-2.6B (free)",
+      "context_length": 65536,
+      "supports_tools": true,
+      "expiration_date": null,
+      "days_until_expiry": null,
+      "status": "429",
+      "failure_kind": "transient",
+      "ttft_ms": null,
+      "total_ms": 106,
+      "error": "Provider returned error"
+    },
+    {
+      "key": "openrouter|poolside/laguna-s-2.1:free",
+      "provider": "openrouter",
+      "id": "poolside/laguna-s-2.1:free",
+      "name": "Poolside: Laguna S 2.1 (free)",
+      "context_length": 262144,
+      "supports_tools": true,
+      "expiration_date": "2026-10-31",
+      "days_until_expiry": 1,
+      "status": "ok",
+      "failure_kind": null,
+      "ttft_ms": 513,
+      "total_ms": 572,
+      "error": null
+    },
+    {
+      "key": "openrouter|poolside/laguna-xs-2.1:free",
+      "provider": "openrouter",
+      "id": "poolside/laguna-xs-2.1:free",
+      "name": "Poolside: Laguna XS 2.1 (free)",
+      "context_length": 262144,
+      "supports_tools": true,
+      "expiration_date": "2026-10-31",
+      "days_until_expiry": 1,
+      "status": "429",
+      "failure_kind": "transient",
+      "ttft_ms": null,
+      "total_ms": 96,
+      "error": "Provider returned error"
+    },
+    {
+      "key": "groq|openai/gpt-oss-120b",
+      "provider": "groq",
+      "id": "openai/gpt-oss-120b",
+      "name": "openai/gpt-oss-120b",
+      "context_length": 131072,
+      "supports_tools": false,
+      "expiration_date": null,
+      "days_until_expiry": null,
+      "status": "ok",
+      "failure_kind": null,
+      "ttft_ms": 235,
+      "total_ms": 262,
+      "error": null
+    },
+    {
+      "key": "groq|openai/gpt-oss-20b",
+      "provider": "groq",
+      "id": "openai/gpt-oss-20b",
+      "name": "openai/gpt-oss-20b",
+      "context_length": 131072,
+      "supports_tools": false,
+      "expiration_date": null,
+      "days_until_expiry": null,
+      "status": "ok",
+      "failure_kind": null,
+      "ttft_ms": 320,
+      "total_ms": 334,
+      "error": null
+    },
+    {
+      "key": "groq|qwen/qwen3.8-27b",
+      "provider": "groq",
+      "id": "qwen/qwen3.8-27b",
+      "name": "qwen/qwen3.8-27b",
+      "context_length": 131072,
+      "supports_tools": false,
+      "expiration_date": null,
+      "days_until_expiry": null,
+      "status": "ok",
+      "failure_kind": null,
+      "ttft_ms": 67,
+      "total_ms": 67,
+      "error": null
+    },
+    {
+      "key": "groq|allam-2-7b",
+      "provider": "groq",
+      "id": "allam-2-7b",
+      "name": "allam-2-7b",
+      "context_length": 4096,
+      "supports_tools": false,
+      "expiration_date": null,
+      "days_until_expiry": null,
+      "status": "ok",
+      "failure_kind": null,
+      "ttft_ms": 293,
+      "total_ms": 302,
+      "error": null
+    }
+  ],
+  "diff": {
+    "previous_date": "2026-10-29",
+    "added": [],
+    "removed": [],
+    "status_changed": [
+      {
+        "key": "openrouter|google/gemma-4-26b-a4b-it:free",
+        "from": "ok",
+        "to": "429"
+      },
+      {
+        "key": "openrouter|google/gemma-4-31b-it:free",
+        "from": "429",
+        "to": "ok"
+      },
+      {
+        "key": "openrouter|liquid/lfm-2.5-2.6b:free",
+        "from": "ok",
+        "to": "429"
+      },
+      {
+        "key": "openrouter|recursive/flint-v1.0:free",
+        "from": "ok",
+        "to": "503"
+      }
+    ],
+    "expiring_within_days": 14,
+    "expiring_soon": [
+      {
+        "key": "openrouter|poolside/laguna-s-2.1:free",
+        "expiration_date": "2026-10-31",
+        "days_until_expiry": 1
+      },
+      {
+        "key": "openrouter|poolside/laguna-xs-2.1:free",
+        "expiration_date": "2026-10-31",
+        "days_until_expiry": 1
+      }
+    ]
+  }
+}
