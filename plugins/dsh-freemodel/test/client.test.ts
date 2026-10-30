@@ -264,7 +264,7 @@ describe("client module", () => {
   it("loads as a browser module and exports the loader contract", async () => {
     const loaded = await import("../src/client/index.ts");
     expect(loaded.name).toBe("dsh-freemodel-client");
-    expect(loaded.inject).toEqual(["slots"]);
+    expect(loaded.inject).toEqual(["slots", "locale"]);
     expect(typeof loaded.apply).toBe("function");
   });
 

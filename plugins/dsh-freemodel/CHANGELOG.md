@@ -19,13 +19,14 @@ plugin is versioned separately from the Python `freemodel-sync` package.
   Enforces strict safety rules: refuses QQ and bot-looking profiles (deny regex), never
   modifies the home layer `$DSH_HOME/cordis.patch.yml`, and requires the environment
   variable `DSH_FREEMODEL_APPLY_DEFAULT=1` to write disk changes (otherwise logs
-  `would-write`). Notes that the profile patch path layout `$DSH_HOME/profiles/<id>/cordis.patch.yml`
-  is assumed and not verified on a real dsh.
+  `would-write`). The profile patch path layout `$DSH_HOME/profiles/<id>/cordis.patch.yml`
+  was checked on a real dsh 0.2.1-rc.3 home (profile directory and `profileContext.patchPath`);
+  the disk write itself was not exercised on a real profile.
 - **Assets and icons (P10).** Added icon assets (`icons/dsh-freemodel-128.png`, `-64.png`,
-  and `dsh-freemodel.svg`) and declared `icon` in `package.json`. The settings-card
-  screenshot is a placeholder kept in the repo only and not part of the npm package yet
-  (referenced in `screenshots.json` at `docs/assets/dsh-freemodel-settings-card-placeholder.png`
-  with honest placeholder disclaimers).
+  and `dsh-freemodel.svg`) and declared `icon` in `package.json`. Real settings-card
+  screenshots (five tabs, English and Chinese, taken with headless Chrome on a fresh
+  dsh 0.2.1-rc.3 profile) are kept in the repo only under `docs/assets/`, listed in
+  `screenshots.json`, and are not part of the npm package.
 - **Documentation polish & Chinese translation (P10).** Complete polish of `README.md`
   and new full-length Chinese equivalent `README.zh-CN.md` covering channels, settings,
   safety guardrails, tier-2 registry, troubleshooting, and explicit notices that Windows/macOS

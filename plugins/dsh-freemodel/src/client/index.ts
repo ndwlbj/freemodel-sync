@@ -16,7 +16,7 @@ import { installStyles } from "./styles.ts";
 export const name = "dsh-freemodel-client";
 
 /** The host must declare `slots`; `locale` is optional and read through `ctx.get`. */
-export const inject = ["slots"];
+export const inject = ["slots", "locale"];
 
 const PACKAGE_NAME = "dsh-freemodel";
 const BUNDLE_SLOT = "plugins.bundle.config";

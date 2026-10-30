@@ -6,9 +6,9 @@
 
 > [!NOTE]
 > - **发布状态**：版本 1.0.0（私有包；**未发布到 npm**）。
-> - **界面截图**：当前为清晰标注的占位图；真机 UI 截图待后续实测补充（Screenshots: placeholders; real ones pending）。
+> - **界面截图**：真实截图（新建 dsh profile 上用 headless Chrome 截取，断网、未手动填写任何 key，详见[设置卡片](#设置卡片与管理界面)一节）。
 > - **真机测试状态**：已在 Linux（dsh 0.2.1-rc.3）环境下验证；**未在 Windows / macOS 真实设备上运行测试**。
-> - **Profile 文件布局声明**：当前 profile patch 路径假定为 `$DSH_HOME/profiles/<id>/cordis.patch.yml`，该目录结构属于推测规范，**尚未在真实 dsh 上核实**。
+> - **Profile 文件布局**：当前 profile 的 patch 路径 `$DSH_HOME/profiles/<id>/cordis.patch.yml` 已在真实 dsh 0.2.1-rc.3 的 home 上核对（profile 目录及 `profileContext.patchPath`）；`autoDefaultModel` 的实际写盘流程未在真实 profile 上执行过。
 
 ---
 
@@ -114,7 +114,7 @@ dsh plugin --profile <测试profile名> exec dsh-freemodel doctor
    - **QQ / 机器人 Profile 保护**：严禁修改任何 QQ 或聊天机器人 Profile 的默认模型。凡是名称命中正则 `/qq|bot|astrbot|napcat|onebot/i` 的 Profile，一律拒绝并跳过。
    - **禁止触碰全局 Home 层**：严禁修改全局 `$DSH_HOME/cordis.patch.yml`，插件仅针对具体 profile 的 patch 文件。
    - **环境变量二次确认**：即使设置中开启了该选项，也必须在环境变量中设置 `DSH_FREEMODEL_APPLY_DEFAULT=1` 才会真正写入磁盘；未设置时仅在日志中输出 `would-write`，不做任何磁盘更改。
-   - **Profile 布局声明**：假定 Profile patch 文件位于 `$DSH_HOME/profiles/<id>/cordis.patch.yml`。此路径为标准约定推测，尚未在真实 dsh 安装中全面验证。
+   - **Profile 布局**：Profile patch 文件位于 `$DSH_HOME/profiles/<id>/cordis.patch.yml`（即 profile 目录加 `cordis.patch.yml`，与 `profileContext` 一致）。已在 Linux 上真实 dsh 0.2.1-rc.3 的 home 中核对；其他平台未测试。
 
 3. **自动路由故障转移规则（`freemodel-auto`）**：
    - 自动路由目标始终指向主动探测通过的渠道模型中排名最高的第 1 位模型。
@@ -150,7 +150,15 @@ dsh plugin --profile <测试profile名> exec dsh-freemodel doctor
 5. **诊断（Diagnostics）**：数据格式版本号、本地 API 前缀、目录加载错误、提前中止记录以及 `dsh-freemodel doctor` 建议。
 
 > [!NOTE]
-> **关于截图**：设置卡片截图为仅保留在仓库中的占位图，尚未包含在 npm 包内（The settings-card screenshot is a placeholder kept in the repo only and not part of the npm package yet；参考图片位于 `docs/assets/dsh-freemodel-settings-card-placeholder.png` 并登记在 `screenshots.json`），真机环境捕获的实际 UI 截图将在后续实机验证完成后更新。
+**界面截图**（中文界面，按栏目顺序）：在新建的 dsh profile 上安装插件后，用 headless Chrome **断网**截取，且没有手动填写任何 key。"已配置"仅表示环境变量或 dsh 凭据库里已有对应 key；因为没有网络，目录为空并显示目录获取失败。图片只保留在仓库里，不在 npm 包内（`screenshots.json` 登记了英文和中文共 10 张）。
+
+| 概览 | 渠道 |
+| --- | --- |
+| ![概览](https://raw.githubusercontent.com/ndwlbj/freemodel-sync/main/plugins/dsh-freemodel/docs/assets/dsh-freemodel-card-zh-overview.png) | ![渠道](https://raw.githubusercontent.com/ndwlbj/freemodel-sync/main/plugins/dsh-freemodel/docs/assets/dsh-freemodel-card-zh-channels.png) |
+
+| 模型 | 手动登记 | 诊断 |
+| --- | --- | --- |
+| ![模型](https://raw.githubusercontent.com/ndwlbj/freemodel-sync/main/plugins/dsh-freemodel/docs/assets/dsh-freemodel-card-zh-models.png) | ![手动登记](https://raw.githubusercontent.com/ndwlbj/freemodel-sync/main/plugins/dsh-freemodel/docs/assets/dsh-freemodel-card-zh-manual.png) | ![诊断](https://raw.githubusercontent.com/ndwlbj/freemodel-sync/main/plugins/dsh-freemodel/docs/assets/dsh-freemodel-card-zh-diagnostics.png) |
 
 ---
 

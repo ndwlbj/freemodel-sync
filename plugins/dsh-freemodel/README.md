@@ -6,9 +6,9 @@ A [dsh](https://www.npmjs.com/package/@deepseek-ai/dsh) plugin for free models f
 
 > [!NOTE]
 > - **Release status**: Version 1.0.0 (private; **not published to npm**).
-> - **Screenshots**: Placeholders; real ones pending real-device UI capture.
+> - **Screenshots**: Real captures of the settings card (headless Chrome on a fresh dsh profile, offline, see [Settings Card & UI](#settings-card--ui)).
 > - **Real-device test status**: Verified on Linux with dsh 0.2.1-rc.3; **not run: Windows/macOS real-device tests**.
-> - **Profile layout disclaimer**: Current-profile patch path is assumed at `$DSH_HOME/profiles/<id>/cordis.patch.yml` — layout not verified on a real dsh.
+> - **Profile layout**: The current-profile patch path `$DSH_HOME/profiles/<id>/cordis.patch.yml` was checked on a real dsh 0.2.1-rc.3 home (the profile directory and `profileContext.patchPath`). The `autoDefaultModel` disk write itself was not exercised on a real profile.
 
 ---
 
@@ -114,7 +114,7 @@ Settings can be edited in dsh's Settings &rarr; Plugins &rarr; DSH FreeModel con
    - **QQ / Bot Profile Protection**: Modifying default models on QQ or chat bot profiles is strictly denied. Any profile name matching `/qq|bot|astrbot|napcat|onebot/i` is refused and skipped.
    - **Home Layer Protection**: Modifying `$DSH_HOME/cordis.patch.yml` is strictly forbidden. The plugin only targets individual profile patches.
    - **Environment Authorization**: Even when enabled in configuration, write operations require the environment flag `DSH_FREEMODEL_APPLY_DEFAULT=1`. Without this flag, the plugin logs `would-write` and takes no disk action.
-   - **Profile Layout Disclaimer**: Profile patches are assumed to be located at `$DSH_HOME/profiles/<id>/cordis.patch.yml`. This directory structure is based on standard conventions but is not verified across all real dsh installations.
+   - **Profile Layout**: Profile patches are located at `$DSH_HOME/profiles/<id>/cordis.patch.yml` (the profile directory plus `cordis.patch.yml`, as exposed by `profileContext`). Checked on a real dsh 0.2.1-rc.3 home on Linux; other platforms were not tested.
 
 3. **Auto-Route Failover Rules (`freemodel-auto`)**:
    - Targets the current #1 ranked model among probe-verified channel models.
@@ -149,8 +149,15 @@ The browser extension (`lib/client.js`) attaches a comprehensive management card
 4. **Manual**: Shows configured tier-2 entries, detection status of corresponding dsh routes, expiration status, and last probe results.
 5. **Diagnostics**: Schema versions, local API endpoint prefix, error logs, and troubleshooting guidance.
 
-> [!NOTE]
-> **Screenshots**: The settings-card screenshot is a placeholder kept in the repo only and not part of the npm package yet (real ones pending real-device UI capture). The reference image is located at `docs/assets/dsh-freemodel-settings-card-placeholder.png` and declared in `screenshots.json`.
+**Screenshots** (English UI, in the order of the tabs). They were taken with headless Chrome on a freshly created dsh profile with the plugin installed, **offline** and without typing any key: a key shows as "configured" only because it exists in the environment or dsh's credential store, the catalogue is empty and the channel shows a catalogue error because no network was available. The images are kept in the repository only and are not part of the npm package (`screenshots.json` lists them; Chinese versions are in `README.zh-CN.md`).
+
+| Overview | Channels |
+| --- | --- |
+| ![Overview tab](https://raw.githubusercontent.com/ndwlbj/freemodel-sync/main/plugins/dsh-freemodel/docs/assets/dsh-freemodel-card-en-overview.png) | ![Channels tab](https://raw.githubusercontent.com/ndwlbj/freemodel-sync/main/plugins/dsh-freemodel/docs/assets/dsh-freemodel-card-en-channels.png) |
+
+| Models | Manual | Diagnostics |
+| --- | --- | --- |
+| ![Models tab](https://raw.githubusercontent.com/ndwlbj/freemodel-sync/main/plugins/dsh-freemodel/docs/assets/dsh-freemodel-card-en-models.png) | ![Manual tab](https://raw.githubusercontent.com/ndwlbj/freemodel-sync/main/plugins/dsh-freemodel/docs/assets/dsh-freemodel-card-en-manual.png) | ![Diagnostics tab](https://raw.githubusercontent.com/ndwlbj/freemodel-sync/main/plugins/dsh-freemodel/docs/assets/dsh-freemodel-card-en-diagnostics.png) |
 
 ---
 
