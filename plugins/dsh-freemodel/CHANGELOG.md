@@ -5,6 +5,10 @@ plugin is versioned separately from the Python `freemodel-sync` package.
 
 ## [1.0.0] - Unreleased
 
+### Changed
+
+- Unified "catalog" spelling and zh-CN Models tab reasons are now translated.
+
 ### Added
 
 - **Automatic best-model route `freemodel-auto` (P10).** New opt-in `autoRoute.enabled`
@@ -68,20 +72,20 @@ plugin is versioned separately from the Python `freemodel-sync` package.
   `freemodel-sensenova`, `SENSENOVA_API_KEY`), off by default. Nothing is listed or
   probed until `tokenPlanConfirmed` is ticked, because the public beta has no quota API
   and prices can change. An optional `models` allowlist is intersected with the
-  catalogue when it can be read (an empty list means every catalogue model priced the
+  catalog when it can be read (an empty list means every catalog model priced the
   string `"0"`); non-zero pricing is removed and logged. Capabilities are inferred from
   `supported_features` / `businesses` (vision, tools, reasoning), missing hints stay
   unknown. A 403 outside the plan is classified as a model failure; 401 is an account
   failure. SenseNova is not part of the public daily snapshot.
 
-- **Capability and quota badges (P6).** Catalogue parsing now records
-  `capabilities` (`tools`, `vision`, `reasoning`; `null` when the catalogue does
+- **Capability and quota badges (P6).** Catalog parsing now records
+  `capabilities` (`tools`, `vision`, `reasoning`; `null` when the catalog does
   not say) and an optional model-level `quota` using the shared `spec/` periods
   (`rolling_5h`, `week`, `day`, `total`, `beta`, `unknown`). Picker labels and
   descriptions append compact badges such as `工具`, `余 90k tokens · 5小时` or
   `公测期`; missing data shows `能力未知` / `额度未知` instead of a false zero.
   The pi-ai descriptor now passes through image input and reasoning when the
-  catalogue reports them. Old state files without the new fields still load as
+  catalog reports them. Old state files without the new fields still load as
   unknown. The settings card's model rows show the same badges.
 
 - **Settings card (P5).** A browser half (`src/client/`, built to
@@ -121,6 +125,6 @@ plugin is versioned separately from the Python `freemodel-sync` package.
 
 ## [0.1.0] - 2026-10-27
 
-- Initial private plugin skeleton: settings schema, free-model catalogue and
+- Initial private plugin skeleton: settings schema, free-model catalog and
   probe service, `freemodel-openrouter` / `freemodel-groq` routes, state file,
   `status`/`doctor` CLI, bundled spec and host verification.

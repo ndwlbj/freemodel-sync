@@ -16,7 +16,7 @@ const freeText = (id: string, extra: Record<string, unknown> = {}) => ({
   ...extra,
 });
 
-describe("OpenRouter catalogue", () => {
+describe("OpenRouter catalog", () => {
   it("keeps free text models, reads tools, max tokens, image input and expiry, and sends no key", async () => {
     const fetch = fakeFetch(() =>
       json({
@@ -100,7 +100,7 @@ describe("OpenRouter catalogue", () => {
   });
 });
 
-describe("Groq catalogue", () => {
+describe("Groq catalog", () => {
   it("needs the key, skips inactive models, and leaves tool support unknown", async () => {
     const fetch = fakeFetch(() =>
       json({
@@ -230,7 +230,7 @@ describe("streaming probe", () => {
 });
 
 
-describe("SenseNova catalogue", () => {
+describe("SenseNova catalog", () => {
   const sn = (id: string, extra: Record<string, unknown> = {}) => ({
     id,
     pricing: "0",
@@ -267,12 +267,12 @@ describe("SenseNova catalogue", () => {
     expect(warn.mock.calls.flat().join(" ")).toMatch(/sensenova-6.8-pro.*not the string "0"/);
   });
 
-  it("uses every zero-priced catalogue model when the allowlist is empty", async () => {
+  it("uses every zero-priced catalog model when the allowlist is empty", async () => {
     const fetch = fakeFetch(() => json({ data: [sn("a"), sn("b", { pricing: "0.1" }), sn("c", { pricing: 0 })] }));
     expect((await new SenseNovaChannel(fetch).discover(SENSENOVA_KEY, undefined, [])).map((m) => m.id)).toEqual(["a"]);
   });
 
-  it("falls back to a confirmed allowlist when the catalogue is unavailable", async () => {
+  it("falls back to a confirmed allowlist when the catalog is unavailable", async () => {
     const warn = vi.fn();
     const models = await new SenseNovaChannel(fakeFetch(() => json({}, 503)), { warn }).discover(
       SENSENOVA_KEY,

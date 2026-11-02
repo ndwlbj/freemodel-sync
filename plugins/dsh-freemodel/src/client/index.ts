@@ -93,7 +93,7 @@ export function apply(ctx: ClientContextLike): void {
     ctx.effect(() => installStyles(), "dsh-freemodel: card styles");
 
     const api = new FreemodelApiClient();
-    const injectFace = (): Record<string, unknown> => ({ t, api });
+    const injectFace = (): Record<string, unknown> => ({ t, locale: active, api });
 
     const register = (slot: string, key: string): (() => void) | undefined => {
       try {

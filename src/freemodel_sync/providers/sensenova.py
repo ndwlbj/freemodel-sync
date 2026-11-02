@@ -3,7 +3,7 @@
 Why the plan confirmation is required
 -------------------------------------
 SenseNova's Token Plan is a public beta with no public quota endpoint and no
-per-request price the API promises to keep at zero. The catalogue does carry a
+per-request price the API promises to keep at zero. The catalog does carry a
 ``pricing`` field (currently the string ``"0"`` for the beta models), but a
 model can become paid at any time. This provider therefore lists and probes
 nothing until you confirm the plan with ``providers.sensenova.plan:
@@ -14,7 +14,7 @@ Models and quota
 ----------------
 The model allowlist comes from ``providers.sensenova.models`` (default:
 ``deepseek-v4-flash`` and ``sensenova-6.8-flash-lite``). When
-``GET /v1/models`` works, the allowlist is intersected with the catalogue;
+``GET /v1/models`` works, the allowlist is intersected with the catalog;
 when it does not, the configured allowlist is used unchanged. There is no
 quota API; the generic quota is ``period="beta"`` with an unknown amount. An
 optional ``free_until`` value is copied to ``expires_at`` for reminder UIs.
@@ -58,7 +58,7 @@ def _pricing_is_zero(value: Any) -> bool:
 
 
 def _feature_text(value: Any) -> str:
-    """Flatten a catalogue capability field (strings, lists or objects) to lower-case text."""
+    """Flatten a catalog capability field (strings, lists or objects) to lower-case text."""
 
     if isinstance(value, str):
         return value.lower()
@@ -131,10 +131,10 @@ class SenseNovaProvider(OpenAICompatProvider):
             )
 
     def _allowed_models(self) -> Optional[List[str]]:
-        """Configured allowlist, or ``None`` to use every catalogue model priced ``"0"``.
+        """Configured allowlist, or ``None`` to use every catalog model priced ``"0"``.
 
         An absent option means the default list; an explicitly empty list means
-        "use the catalogue" (the plugin uses the same convention).
+        "use the catalog" (the plugin uses the same convention).
         """
 
         if "models" not in self.options:
@@ -148,7 +148,7 @@ class SenseNovaProvider(OpenAICompatProvider):
         return list(seen)
 
     def _catalog(self) -> Optional[Dict[str, Dict[str, Any]]]:
-        """GET /models as ``{id: model}``, or ``None`` when the catalogue is unavailable."""
+        """GET /models as ``{id: model}``, or ``None`` when the catalog is unavailable."""
 
         try:
             response = self._get_client().get(f"{self.base_url}/models", headers=self._auth_headers())
@@ -203,7 +203,7 @@ class SenseNovaProvider(OpenAICompatProvider):
         allowed = self._allowed_models()
         catalog = self._catalog()
         if catalog is None:
-            # The catalogue is supplementary: without it, the confirmed
+            # The catalog is supplementary: without it, the confirmed
             # allowlist is still usable (metadata such as context is unknown).
             return [self._model(None, model_id) for model_id in (allowed or [])]
 

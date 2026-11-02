@@ -84,7 +84,7 @@ def test_discover_intersects_the_allowlist_and_builds_manual_total_quotas() -> N
         models=[
             {"id": "deepseek-v3.2", "quota": {"unit": "tokens", "period": "total", "limit": 1000000}},
             {"id": "qwen3-8b-distill", "quota_tokens": 500000},
-            {"id": "not-in-the-catalogue", "quota": {"limit": 1}},
+            {"id": "not-in-the-catalog", "quota": {"limit": 1}},
         ],
     )
     models = provider.discover()
@@ -121,7 +121,7 @@ def test_distilled_models_have_tools_false_and_string_ids_have_unknown_manual_qu
     assert plain.quota.unit == "unknown" and plain.quota.limit is None
 
 
-def test_catalogue_failure_falls_back_to_the_confirmed_allowlist() -> None:
+def test_catalog_failure_falls_back_to_the_confirmed_allowlist() -> None:
     models = bailian(lambda request: httpx.Response(503, json={}), models=["deepseek-v3.2"]).discover()
     assert [m.id for m in models] == ["deepseek-v3.2"]
     assert models[0].context_length == 0

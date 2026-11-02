@@ -131,7 +131,7 @@ describe("active channels", () => {
 });
 
 describe("refresh", () => {
-  it("reads the catalogue, probes, lists only models that passed, and explains the hidden ones", async () => {
+  it("reads the catalog, probes, lists only models that passed, and explains the hidden ones", async () => {
     const { service, orFetch, statePath, onChange } = setup();
     await service.refresh();
     expect(onChange).toHaveBeenCalled();
@@ -158,7 +158,7 @@ describe("refresh", () => {
     service.dispose();
   });
 
-  it("keeps the old catalogue when a re-read fails, and records a key-free error", async () => {
+  it("keeps the old catalog when a re-read fails, and records a key-free error", async () => {
     const { service, orFetch, logger } = setup();
     await service.refresh();
     const failing = new OpenRouterChannel(fakeFetch(() => json({}, 502)));
@@ -390,7 +390,7 @@ describe("refresh", () => {
 });
 
 describe("discovery for the settings page", () => {
-  it("serves the cached catalogue, else asks the channel; Groq only when confirmed", async () => {
+  it("serves the cached catalog, else asks the channel; Groq only when confirmed", async () => {
     const { service, orFetch } = setup();
     expect((await service.discoverFor("openrouter", undefined)).map((m) => m.id)).toEqual(["good:free", "bad:free"]);
     expect(orFetch.calls).toHaveLength(1);
@@ -406,7 +406,7 @@ describe("discovery for the settings page", () => {
 });
 
 describe("manual single-model test", () => {
-  it("probes the named catalogue model even when its cached result is fresh and stores the new result", async () => {
+  it("probes the named catalog model even when its cached result is fresh and stores the new result", async () => {
     const { service, orFetch, onChange, statePath } = setup();
     await service.refresh();
     const before = service.view("openrouter").probesToday;
@@ -422,7 +422,7 @@ describe("manual single-model test", () => {
     service.dispose();
   });
 
-  it("can test a model the picker hides (under the context minimum) because it is still in the free catalogue", async () => {
+  it("can test a model the picker hides (under the context minimum) because it is still in the free catalog", async () => {
     const { service } = setup();
     await service.refresh();
     const outcome = await service.testModel("openrouter", "small:free");
@@ -464,7 +464,7 @@ describe("manual single-model test", () => {
     sensenova.service.dispose();
 
     const unknown = setup();
-    await expect(unknown.service.testModel("openrouter", "not-in-catalogue")).rejects.toBeInstanceOf(ManualTestError);
+    await expect(unknown.service.testModel("openrouter", "not-in-catalog")).rejects.toBeInstanceOf(ManualTestError);
     expect(unknown.orFetch.calls).toHaveLength(0);
     unknown.service.dispose();
 

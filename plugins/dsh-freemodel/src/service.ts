@@ -1,11 +1,11 @@
 /**
- * The free-model service: keeps each channel's catalogue and probe results
+ * The free-model service: keeps each channel's catalog and probe results
  * (state file), decides which channels are active, which models are listed
  * and why the others are not, and schedules the background refresh.
  *
  * A channel is ACTIVE when it is enabled, its key reference resolves, and
  * (Groq) the free plan is confirmed. Only active channels are read, probed or
- * registered. Listed models are the filtered catalogue entries whose latest
+ * registered. Listed models are the filtered catalog entries whose latest
  * probe succeeded; failed or untested ones are kept in the report with the
  * reason. Keys are resolved per operation and never stored or logged.
  */
@@ -104,7 +104,7 @@ export interface ChannelView {
   /** Why the channel lists nothing, when it does not. */
   blocked: string | null;
   listed: RankedModel[];
-  /** Catalogue models not listed, with the reason (failed probe, not probed yet). */
+  /** Catalog models not listed, with the reason (failed probe, not probed yet). */
   hidden: Array<{ id: string; reason: string }>;
   catalogFetchedAt: number | null;
   catalogError: string | null;
@@ -199,11 +199,11 @@ export class FreemodelService {
   /**
    * Probe one model on demand (settings page / `/freemodel test`), bypassing
    * the cache and the scheduled budget because the user asked for it. The
-   * model must be in the channel's free catalogue; disabled channels, Groq
+   * model must be in the channel's free catalog; disabled channels, Groq
    * without the free-plan confirmation, and missing keys are refused before
    * any request is sent. The result is stored and the counter is incremented.
    * @param id - channel to probe.
-   * @param modelId - exact catalogue model id.
+   * @param modelId - exact catalog model id.
    */
   async testModel(id: ChannelId, modelId: string): Promise<ManualTestOutcome> {
     const providers = providersOf(this.options.config);
@@ -228,7 +228,7 @@ export class FreemodelService {
     }
     const channel = this.state.channels[id];
     const model = (channel.catalog?.models ?? []).find((m) => m.id === modelId);
-    if (model === undefined) throw new ManualTestError("model-not-found", `${modelId} is not in the ${id} free catalogue`);
+    if (model === undefined) throw new ManualTestError("model-not-found", `${modelId} is not in the ${id} free catalog`);
     const apiKey = await this.resolveKey(id);
     if (apiKey === undefined) throw new ManualTestError("no-key", `no key: save one for ${this.ref(id)} in the settings page`);
     let result: ProbeResult;
@@ -269,7 +269,7 @@ export class FreemodelService {
     return { channel: id, model, result };
   }
 
-  /** Catalogue models that pass the listing filters, ranked with their probe results. */
+  /** Catalog models that pass the listing filters, ranked with their probe results. */
   ranked(id: ChannelId): RankedModel[] {
     const channel = this.state.channels[id];
     const ranking = rankingOf(this.options.config);
@@ -380,7 +380,7 @@ export class FreemodelService {
     return next;
   }
 
-  /** Read catalogues and probe what is due on every active channel (one run at a time). */
+  /** Read catalogs and probe what is due on every active channel (one run at a time). */
   refresh(force: { catalog?: boolean; probe?: boolean } = {}): Promise<void> {
     if (this.running !== undefined) return this.running;
     this.running = this.doRefresh(force).finally(() => {
@@ -495,7 +495,7 @@ export class FreemodelService {
           : undefined;
       const models = await this.channels[id].discover(apiKey, this.abort.signal, allowlist, quotas);
       channel.catalog = { fetchedAt: nowS, models, error: null, errorAt: null };
-      this.options.logger.info(`dsh-freemodel: ${id} catalogue: ${models.length} free models`);
+      this.options.logger.info(`dsh-freemodel: ${id} catalog: ${models.length} free models`);
     } catch (error) {
       const message = redact(error instanceof Error ? error.message : String(error), [apiKey]);
       channel.catalog = {
@@ -602,7 +602,7 @@ export class FreemodelService {
     this.abort.abort();
   }
 
-  /** Models a catalogue lists right now for the settings page's discovery (no probe, nothing stored). */
+  /** Models a catalog lists right now for the settings page's discovery (no probe, nothing stored). */
   async discoverFor(id: ChannelId, apiKey: string | undefined, signal?: AbortSignal): Promise<CatalogModel[]> {
     const providers = providersOf(this.options.config);
     if (id === "groq" && !providers.groq.freePlanConfirmed) return [];

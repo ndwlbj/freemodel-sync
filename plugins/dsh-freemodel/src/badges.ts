@@ -1,6 +1,6 @@
 /**
  * Short picker badges for a free model's capabilities and quota. The values
- * come from the catalogue (or a model-level quota) and never contain a key.
+ * come from the catalog (or a model-level quota) and never contain a key.
  * Missing/unknown data is shown explicitly as unknown, not as zero or false.
  */
 import type { Capabilities, CatalogModel, QuotaPeriod, QuotaUnit } from "./providers/types.ts";
@@ -36,7 +36,7 @@ export function compactAmount(value: number): string {
   return scaled(value);
 }
 
-/** Capability badges; `能力未知` when the catalogue says nothing about all three flags. */
+/** Capability badges; `能力未知` when the catalog says nothing about all three flags. */
 export function capabilityBadges(
   capabilities: Pick<Capabilities, "tools" | "vision" | "reasoning"> | null | undefined,
 ): string[] {

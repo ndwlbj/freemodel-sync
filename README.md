@@ -35,7 +35,7 @@ recent probe. It cannot guarantee the model keeps working between runs.
 discover ──► filter ──► probe (tiny, cached, budgeted) ──► rank ──► select ──► write configs ──► notify
 ```
 
-1. **Discover** free models from the public OpenRouter catalogue
+1. **Discover** free models from the public OpenRouter catalog
    (`GET /api/v1/models`, no key needed). A model counts as free only if its id ends in
    `:free`, prompt *and* completion prices are `0`, and it takes and returns text.
    The `openrouter/free` meta-router is excluded.
@@ -148,12 +148,12 @@ them at your own files.
 | --- | --- | --- | --- |
 | `openrouter` (default) | `OPENROUTER_API_KEY` | `:free` id and every price (including `pricing.overrides`) is 0; a zero-priced model without `:free` is not used | public model list, quota from `/api/v1/key` |
 | `groq` | `GROQ_API_KEY` | your Groq organization is on the **Free plan**; confirm with `plan: free` | Groq's API has no prices; the model list needs the key |
-| `sensenova` | `SENSENOVA_API_KEY` | you are in the **SenseNova Token Plan** public beta; confirm with `plan: token-plan`, and the catalogue `pricing` must be the string `"0"` | off by default; no quota API (recorded as `beta`/unknown), 403 outside the plan is a model failure |
+| `sensenova` | `SENSENOVA_API_KEY` | you are in the **SenseNova Token Plan** public beta; confirm with `plan: token-plan`, and the catalog `pricing` must be the string `"0"` | off by default; no quota API (recorded as `beta`/unknown), 403 outside the plan is a model failure |
 | `bailian` | `DASHSCOPE_API_KEY` | you confirm `free_quota_guard: confirmed` (the console's "stop when the free quota is used up" switch) and list the models in `models` with their hand-entered allowances | off by default; Beijing only; per-model quota is manual/unverified; 403 `AllocationQuota.FreeTierOnly` records `quota` and stops the channel for the UTC day |
 
 Groq and multi-provider ranking need freemodel-sync 0.3.0 or newer. SenseNova is new in P7 and
 Bailian in P8; both are off by default. Without `plan: token-plan` SenseNova lists and probes
-nothing, and a model whose catalogue price is no longer the string `"0"` is removed with a warning.
+nothing, and a model whose catalog price is no longer the string `"0"` is removed with a warning.
 Bailian lists and probes nothing until BOTH `free_quota_guard: confirmed` and a non-empty `models`
 allowlist are set; its per-model allowances are entered by hand, labelled "手动，未核实", and never
 used to deduct the local probe budget. Neither SenseNova nor Bailian is part of the public daily
@@ -169,7 +169,7 @@ providers its tool has a key for with `options.providers: [openrouter]`; otherwi
 switch provider. Details and sources are in [docs/providers.md](https://github.com/ndwlbj/freemodel-sync/blob/main/docs/providers.md).
 
 Each discovered model carries `capabilities` (`tools`, `vision`, `reasoning`; `null` means the
-catalogue does not say, never false) and an optional model-level `quota`. The shared quota type
+catalog does not say, never false) and an optional model-level `quota`. The shared quota type
 supports a five-hour rolling window (`rolling_5h`), a weekly window (`week`), a daily reset
 (`day`), a one-off total (`total`) and a public-beta marker (`beta`); missing values stay
 `unknown`. `rank --json` / `output.ranking_json` writes `schema_version: 2` and includes these

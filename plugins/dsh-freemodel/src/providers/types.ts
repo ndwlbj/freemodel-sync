@@ -6,7 +6,7 @@ import { isRecord } from "../util.ts";
 /** Where a capability value came from; `unknown` means nothing reported it. */
 export type CapabilitySource = "catalog" | "config" | "probe" | "manual" | "unknown";
 
-/** What a model can do. `null` means the catalogue does not say; it is never false. */
+/** What a model can do. `null` means the catalog does not say; it is never false. */
 export interface Capabilities {
   tools: boolean | null;
   vision: boolean | null;
@@ -101,7 +101,7 @@ function choice<T extends string>(value: unknown, choices: readonly T[], aliases
 
 /**
  * Read a capability document. Missing fields are unknown (`null`), never false.
- * @param raw - capabilities object from a catalogue or state file.
+ * @param raw - capabilities object from a catalog or state file.
  * @param supportsTools - legacy `supports_tools` flag, used only when `tools` is absent.
  */
 export function parseCapabilities(raw: unknown, supportsTools?: unknown): Capabilities {
@@ -208,18 +208,18 @@ export function isExhausted(quota: Quota, probesSinceRead = 0): boolean {
   return quota.limit !== null && quota.used !== null && quota.used >= quota.limit;
 }
 
-/** One free model from a channel's catalogue. */
+/** One free model from a channel's catalog. */
 export interface CatalogModel {
   provider: ChannelId;
   id: string;
   name: string;
-  /** Context window in tokens; 0 when the catalogue does not say. */
+  /** Context window in tokens; 0 when the catalog does not say. */
   contextLength: number;
-  /** Tool calling: true/false when the catalogue says, null when it does not (Groq). Kept for old state files. */
+  /** Tool calling: true/false when the catalog says, null when it does not (Groq). Kept for old state files. */
   tools: boolean | null;
-  /** Accepted inputs as far as the catalogue says (text is always there). */
+  /** Accepted inputs as far as the catalog says (text is always there). */
   input: Array<"text" | "image">;
-  /** Largest completion the catalogue reports, if any. */
+  /** Largest completion the catalog reports, if any. */
   maxTokens: number | null;
   /** `YYYY-MM-DD` when the free variant goes away, if announced. */
   expirationDate: string | null;
@@ -261,7 +261,7 @@ export function modelKey(model: Pick<CatalogModel, "provider" | "id">): string {
   return `${model.provider}|${model.id}`;
 }
 
-/** Thrown by discovery when the catalogue cannot be read; the message is safe to store. */
+/** Thrown by discovery when the catalog cannot be read; the message is safe to store. */
 export class ChannelError extends Error {
   override name = "ChannelError";
 }

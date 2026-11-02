@@ -85,10 +85,10 @@ def _choice(value: Any, choices: tuple[str, ...], aliases: Mapping[str, str], de
 
 @dataclass
 class Capabilities:
-    """What a model can do; ``None`` means the catalogue does not say (unknown).
+    """What a model can do; ``None`` means the catalog does not say (unknown).
 
     ``source`` says where the flags came from, matching ``capabilities.sources``
-    in ``spec/providers.json``: a catalogue field, local config, a probe, a
+    in ``spec/providers.json``: a catalog field, local config, a probe, a
     manual registry entry, or nowhere (unknown).
     """
 
@@ -364,7 +364,7 @@ class Quota:
 
 @dataclass
 class ModelInfo:
-    """A free model discovered from a provider catalogue."""
+    """A free model discovered from a provider catalog."""
 
     provider: str
     id: str

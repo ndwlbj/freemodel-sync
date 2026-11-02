@@ -47,7 +47,7 @@ export function daysUntilExpiry(model: Pick<CatalogModel, "expirationDate">, tod
 }
 
 export interface FilterOptions {
-  /** Drop models whose catalogue says they have no tool calling (unknown passes). */
+  /** Drop models whose catalog says they have no tool calling (unknown passes). */
   requireTools?: boolean;
   minContext?: number;
   today?: string;

@@ -6,8 +6,9 @@
  */
 import { API_PREFIX } from "../api-paths.ts";
 import { capabilityBadges, quotaBadge } from "./badges.ts";
-import { type Translator } from "./i18n.ts";
+import { type ClientLocale, type Translator } from "./i18n.ts";
 import { getReact, type ReactElementLike } from "./react-runtime.ts";
+import { localizeReason } from "./reasons.ts";
 import type { ChannelId, ChannelModels, ChannelReport, ManualEntryView, ManualTestView, StatusReport } from "./types.ts";
 
 export type Tab = "overview" | "channels" | "models" | "manual" | "diagnostics";
@@ -29,6 +30,7 @@ export interface CardState {
 
 export interface CardProps {
   t: Translator;
+  locale?: ClientLocale;
   tab: Tab;
   onTab: (tab: Tab) => void;
   state: CardState;
@@ -39,6 +41,7 @@ export interface CardProps {
 
 export interface FreemodelCardProps {
   t: Translator;
+  locale?: ClientLocale;
   api: {
     load(): Promise<StatusReport>;
     test(channel: ChannelId, model: string): Promise<ManualTestView>;
@@ -295,7 +298,7 @@ function modelRow(
   );
 }
 
-/** Empty message for hidden models depending on catalogue state. */
+/** Empty message for hidden models depending on catalog state. */
 function emptyHiddenMessage(t: Translator, models: ChannelModels): string {
   if (models.candidates === 0) {
     if (models.catalogError !== null) return t("noCatalogData");
@@ -305,8 +308,16 @@ function emptyHiddenMessage(t: Translator, models: ChannelModels): string {
   return t("noHidden");
 }
 
+function cardLocale(props: { locale?: ClientLocale; t: Translator }): ClientLocale {
+  if (props.locale === "zh" || props.locale === "en") return props.locale;
+  const tLocale = props.t.locale;
+  if (tLocale === "zh" || tLocale === "en") return tLocale;
+  return props.t("reason") === "原因" ? "zh" : "en";
+}
+
 function modelsTab(props: CardProps): ReactElementLike {
   const t = props.t;
+  const locale = cardLocale(props);
   const channels = channelsOf(props.state.status);
   const sections = channels.map((channel) => {
     const model = channel.models;
@@ -322,7 +333,7 @@ function modelsTab(props: CardProps): ReactElementLike {
     const hidden = model.hidden.map((entry) =>
       modelRow(props, channel.id, entry.id, [
         badge(t("hidden"), "warn"),
-        h("span", { className: `${CLASS}-reason` }, `${t("reason")}: ${entry.reason}`),
+        h("span", { className: `${CLASS}-reason` }, `${t("reason")}: ${localizeReason(entry.reason, locale)}`),
       ]),
     );
     return h(
@@ -534,7 +545,7 @@ function message(error: unknown): string {
  * The component the host slot renders. It owns the tab, the status fetch and
  * the manual-test bookkeeping; `renderCard` stays pure.
  */
-export function FreemodelCard({ t, api }: FreemodelCardProps): ReactElementLike {
+export function FreemodelCard({ t, locale, api }: FreemodelCardProps): ReactElementLike {
   const React = getReact();
   const [tab, setTab] = React.useState<Tab>("overview");
   const [state, setState] = React.useState<CardState>({ phase: "loading" });
@@ -581,7 +592,16 @@ export function FreemodelCard({ t, api }: FreemodelCardProps): ReactElementLike 
     [api],
   );
 
-  return renderCard({ t, tab, onTab: setTab, state, testing, onRefresh, onTest });
+  return renderCard({
+    t,
+    ...(locale === undefined ? {} : { locale }),
+    tab,
+    onTab: setTab,
+    state,
+    testing,
+    onRefresh,
+    onTest,
+  });
 }
 
 /** Exported for the client test's error-path check. */

@@ -4,7 +4,7 @@
   "description": "Provider rules shared by the Python package (src/freemodel_sync) and the dsh plugin (plugins/dsh-freemodel). Change a rule here, add a case under spec/conformance/, and both implementations must pass it.",
   "failureKinds": ["model", "transient", "account", "capacity", "quota"],
   "capabilities": {
-    "description": "Capability flags shared by both implementations. null means the catalogue does not say (unknown); it is never treated as false.",
+    "description": "Capability flags shared by both implementations. null means the catalog does not say (unknown); it is never treated as false.",
     "fields": ["tools", "vision", "reasoning"],
     "sources": ["catalog", "config", "probe", "manual", "unknown"]
   },
@@ -157,7 +157,7 @@
       "apiKeyEnv": "SENSENOVA_API_KEY",
       "freeRule": {
         "kind": "plan-confirm",
-        "description": "Free only inside the SenseNova Token Plan public beta, which the API cannot report: nothing is listed or probed until the user confirms the plan. Models whose catalogue price is not the string \"0\" are removed.",
+        "description": "Free only inside the SenseNova Token Plan public beta, which the API cannot report: nothing is listed or probed until the user confirms the plan. Models whose catalog price is not the string \"0\" are removed.",
         "option": "plan",
         "value": "token-plan"
       },

@@ -1,4 +1,4 @@
-"""SenseNova provider: plan gate, allowlist/catalogue intersection, pricing, errors (mocked HTTP)."""
+"""SenseNova provider: plan gate, allowlist/catalog intersection, pricing, errors (mocked HTTP)."""
 
 from __future__ import annotations
 
@@ -40,7 +40,7 @@ MODELS = {
             features=["text", "image", "reasoning"],
             businesses=["vision"],
         ),
-        # Present in the catalogue but not on the default allowlist.
+        # Present in the catalog but not on the default allowlist.
         model("sensenova-6.8-pro", pricing="0.02"),
         {"id": "", "pricing": "0"},
     ],
@@ -64,7 +64,7 @@ def test_registered_with_own_key_env_base_url_and_tier():
     assert cls.base_url == "https://token.sensenova.cn/v1"
     assert cls.auth_kind == "api_key"
     assert cls.tier == 1
-    # The P7 base-class hook defaults to unknown; SenseNova derives it from the catalogue.
+    # The P7 base-class hook defaults to unknown; SenseNova derives it from the catalog.
     assert SenseNovaProvider(api_key=KEY).capabilities_for(ModelInfo("sensenova", "x")).source == "unknown"
 
 
@@ -79,7 +79,7 @@ def test_requires_token_plan_confirmation_and_sends_nothing(plan):
     assert calls == []
 
 
-def test_discover_intersects_default_allowlist_with_catalogue_and_reads_capabilities():
+def test_discover_intersects_default_allowlist_with_catalog_and_reads_capabilities():
     seen: Dict[str, Any] = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -100,15 +100,15 @@ def test_discover_intersects_default_allowlist_with_catalogue_and_reads_capabili
     assert lite.capabilities.source == "catalog"
 
 
-def test_configured_allowlist_is_intersected_with_the_catalogue():
+def test_configured_allowlist_is_intersected_with_the_catalog():
     models = sensenova(
         lambda request: httpx.Response(200, json=MODELS),
-        models=["deepseek-v4-flash", "not-in-the-catalogue", "deepseek-v4-flash"],
+        models=["deepseek-v4-flash", "not-in-the-catalog", "deepseek-v4-flash"],
     ).discover()
     assert [m.id for m in models] == ["deepseek-v4-flash"]
 
 
-def test_empty_configured_allowlist_uses_catalogue_pricing_zero():
+def test_empty_configured_allowlist_uses_catalog_pricing_zero():
     models = sensenova(lambda request: httpx.Response(200, json=MODELS), models=[]).discover()
     assert [m.id for m in models] == ["deepseek-v4-flash", "sensenova-6.8-flash-lite"]
 
@@ -132,7 +132,7 @@ def test_non_zero_or_numeric_pricing_is_removed_with_a_warning(caplog):
     assert "numeric-zero" in warnings
 
 
-def test_catalogue_failure_falls_back_to_the_confirmed_allowlist():
+def test_catalog_failure_falls_back_to_the_confirmed_allowlist():
     models = sensenova(lambda request: httpx.Response(503, json={}), models=["deepseek-v4-flash"]).discover()
     assert [m.id for m in models] == ["deepseek-v4-flash"]
     assert models[0].context_length == 0

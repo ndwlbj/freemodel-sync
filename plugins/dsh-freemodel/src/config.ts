@@ -64,7 +64,7 @@ const groq: z<Partial<GroqChannelConfig>, GroqChannelConfig> = z
       .boolean()
       .default(DEFAULTS.groq.freePlanConfirmed)
       .description(
-        "I confirm this Groq key is on the free plan. Groq's catalogue has no per-model free flag, " +
+        "I confirm this Groq key is on the free plan. Groq's catalog has no per-model free flag, " +
           "so no Groq model is listed until this is ticked (same as `plan: free` in freemodel-sync).",
       ),
   })
@@ -89,8 +89,8 @@ const sensenova: z<Partial<SenseNovaChannelConfig>, SenseNovaChannelConfig> = z
       .array(z.string())
       .default(DEFAULTS.sensenova.models)
       .description(
-        "Model allowlist. Empty means every catalogue model whose pricing is the string \"0\"; " +
-          "the catalogue is intersected with this list when it can be read.",
+        "Model allowlist. Empty means every catalog model whose pricing is the string \"0\"; " +
+          "the catalog is intersected with this list when it can be read.",
       ),
   })
   .description(CHANNEL_LABELS.sensenova);
@@ -141,7 +141,7 @@ const rankingSchema = z
     requireTools: z
       .boolean()
       .default(RANKING.requireTools)
-      .description("Hide models whose catalogue says they cannot call tools (dsh's agent needs tools). Groq does not say; its models stay listed."),
+      .description("Hide models whose catalog says they cannot call tools (dsh's agent needs tools). Groq does not say; its models stay listed."),
     minContext: z.natural().default(RANKING.minContext).description("Hide models with a smaller context window (tokens)."),
     capacityDowngradeAfter: z
       .natural()
@@ -162,7 +162,7 @@ const refreshSchema = z
       .boolean()
       .default(REFRESH.onStartup)
       .description("At startup, list the cached models at once and refresh in the background."),
-    catalogHours: z.number().min(1).max(168).default(REFRESH.catalogHours).description("Read each catalogue every N hours."),
+    catalogHours: z.number().min(1).max(168).default(REFRESH.catalogHours).description("Read each catalog every N hours."),
     probeHours: z
       .number()
       .min(1)

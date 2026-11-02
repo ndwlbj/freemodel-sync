@@ -8,7 +8,7 @@ import type { ListedCapabilities, ListedQuota } from "./types.ts";
 
 export { compactAmount };
 
-/** Capability badges; explicit unknown when the catalogue reports none. */
+/** Capability badges; explicit unknown when the catalog reports none. */
 export function capabilityBadges(
   t: Translator,
   capabilities: Pick<ListedCapabilities, "tools" | "vision" | "reasoning"> | null | undefined,

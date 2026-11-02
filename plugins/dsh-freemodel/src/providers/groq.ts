@@ -1,5 +1,5 @@
 /**
- * Groq channel. Groq's catalogue has no prices: models are free only on a
+ * Groq channel. Groq's catalog has no prices: models are free only on a
  * Free-plan organization, which the API cannot report, so the plugin lists
  * and probes nothing until the user ticks `freePlanConfirmed` (the caller
  * enforces this). Port of `freemodel_sync.providers.groq`.

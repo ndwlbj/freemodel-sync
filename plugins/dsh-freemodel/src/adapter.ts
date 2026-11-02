@@ -69,9 +69,9 @@ function maxTokensField(id: ChannelId): "max_tokens" | "max_completion_tokens" {
 }
 
 /**
- * Picker label: the catalogue name with its own "(free)" replaced by the
+ * Picker label: the catalog name with its own "(free)" replaced by the
  * free badge. When a ranked model is given, capability and quota badges follow
- * (including explicit unknown badges when the catalogue reports neither).
+ * (including explicit unknown badges when the catalog reports neither).
  */
 export function pickerName(name: string, ranked?: RankedModel): string {
   const base = `${name.replace(/\s*\(free\)\s*$/i, "")}${SEPARATOR}${FREE_BADGE}`;

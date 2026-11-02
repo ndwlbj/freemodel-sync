@@ -17,7 +17,7 @@ deduct the local probe budget. A plain string id is accepted too and yields an
 unknown manual allowance.
 
 Free models are the configured allowlist intersected with ``GET /models`` when
-the catalogue can be read (it needs the key). Distilled models (their id
+the catalog can be read (it needs the key). Distilled models (their id
 contains ``distill``) are marked ``tools=False``: the free distilled variants do
 not support tool calling.
 

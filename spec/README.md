@@ -7,10 +7,10 @@ once, as JSON. Code is written twice; rules are written once.
 
 | File | Content |
 |---|---|
-| `providers.json` | per provider: base URL, models path, key variable name, how "free" is decided, catalogue fields, **capabilities** and the generic **quota** vocabulary, probe request, **error classification** (`errorMap`), rate-limit headers, key formats, sources with the date they were checked |
+| `providers.json` | per provider: base URL, models path, key variable name, how "free" is decided, catalog fields, **capabilities** and the generic **quota** vocabulary, probe request, **error classification** (`errorMap`), rate-limit headers, key formats, sources with the date they were checked |
 | `ranking.json` | default ranking weights, score constants, non-chat model globs |
 | `*.schema.json` | JSON Schema (2020-12) of the files above and of the conformance files |
-| `state.schema.json` | format of the dsh plugin's state file `$DSH_HOME/freemodel/state.json` (catalogue cache, probe results, daily counters and the six-field manual-probe records; never a key); `state.example.json` is a valid sample both test suites read |
+| `state.schema.json` | format of the dsh plugin's state file `$DSH_HOME/freemodel/state.json` (catalog cache, probe results, daily counters and the six-field manual-probe records; never a key); `state.example.json` is a valid sample both test suites read |
 | `manual.schema.json` | tier-2 manual registration: the dsh plugin's `manual[]` and Python's `manual_providers`; rejects secret-bearing keys and key-shaped values |
 | `conformance/*.json` | golden cases: input -> expected output, for classification, stream errors, the free rule, rate-limit headers, scores, `capacity`, the non-chat filter, capability parsing, quota normalisation and the manual registry/probe rules |
 
@@ -21,8 +21,8 @@ once, as JSON. Code is written twice; rules are written once.
 - `capabilities.fields` (`tools`, `vision`, `reasoning`) and
   `capabilities.sources` (`catalog`, `config`, `probe`, `manual`, `unknown`).
   A missing or unrecognised flag is `null` (unknown), never `false`.
-  Per-provider `capabilities` entries say which catalogue field supplies each
-  flag, or `null` when the catalogue does not say.
+  Per-provider `capabilities` entries say which catalog field supplies each
+  flag, or `null` when the catalog does not say.
 - `quota.units` (`requests`, `tokens`, `credits`, `unknown`),
   `quota.periods` (`rolling_5h`, `week`, `day`, `total`, `beta`, `unknown`),
   fixed `periodSeconds` for the timed windows, and `quota.sources` /

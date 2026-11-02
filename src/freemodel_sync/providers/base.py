@@ -15,7 +15,7 @@ from ..models import Capabilities, ModelInfo, Quota, QuotaInfo, TestResult
 
 
 class ProviderError(RuntimeError):
-    """Raised when a provider catalogue or API cannot be used."""
+    """Raised when a provider catalog or API cannot be used."""
 
 
 class Provider(abc.ABC):
@@ -45,7 +45,7 @@ class Provider(abc.ABC):
     def capabilities_for(self, model: ModelInfo) -> Capabilities:
         """Return what a model can do, or unknown when the provider cannot tell.
 
-        Providers whose catalogue carries capability fields can override this
+        Providers whose catalog carries capability fields can override this
         (SenseNova and Bailian do); the default is deliberately unknown rather
         than a false negative.
         """

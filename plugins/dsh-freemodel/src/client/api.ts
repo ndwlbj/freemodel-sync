@@ -126,7 +126,7 @@ export class FreemodelApiClient {
   /**
    * Probe one model on demand.
    * @param channel - channel id from the status document.
-   * @param model - exact catalogue model id.
+   * @param model - exact catalog model id.
    */
   async test(channel: ChannelId, model: string): Promise<ManualTestView> {
     if (!isChannelId(channel)) throw new LocalApiError("invalid-channel", `unknown channel: ${String(channel)}`);

@@ -71,7 +71,7 @@ describe("dsh-freemodel CLI", () => {
     expect(result.out).toContain("+ good:free  (TTFT 321 ms)");
     expect(result.out).toContain("- bad:free  failed: No endpoints found");
     expect(result.out).toContain("- new:free  not probed yet");
-    expect(result.out).toMatch(/openrouter: catalogue read .* UTC, 3 candidates, 1 listed/);
+    expect(result.out).toMatch(/openrouter: catalog read .* UTC, 3 candidates, 1 listed/);
   });
 
   it("doctor finds the dsh runtime from a profile directory", async () => {

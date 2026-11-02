@@ -31,7 +31,7 @@ export type DescribeKey = (ref: string) => Promise<KeyPresence>;
 
 /** What the state file says about one channel's models. */
 export interface ModelsReport {
-  /** Unix seconds of the last catalogue read; null before the first. */
+  /** Unix seconds of the last catalog read; null before the first. */
   catalogFetchedAt: number | null;
   catalogError: string | null;
   /** Free models after the listing filters. */

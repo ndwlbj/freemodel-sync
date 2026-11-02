@@ -47,7 +47,7 @@ export interface ManualTestResponse {
 export interface LocalApiDeps {
   /** Build the status report (the CLI's `status --json` shape). */
   status: () => Promise<unknown> | unknown;
-  /** Refresh catalogues and probes now. */
+  /** Refresh catalogs and probes now. */
   refresh: () => Promise<void>;
   /** Probe one model of one channel and persist the result. */
   testModel: (channel: ChannelId, model: string) => Promise<ManualTestResponse>;

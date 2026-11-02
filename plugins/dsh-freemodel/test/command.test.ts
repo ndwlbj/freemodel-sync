@@ -181,9 +181,9 @@ describe("/freemodel command", () => {
     const refused = await createFreemodelCommand(d).handler({ rawInput: "test openrouter x" });
     expect(refused).toEqual({ kind: "error", text: "test failed — no-key: no key: save one for OPENROUTER_API_KEY" });
 
-    d.refresh.mockRejectedValueOnce(new Error("catalogue down"));
+    d.refresh.mockRejectedValueOnce(new Error("catalog down"));
     const failed = await createFreemodelCommand(d).handler({ rawInput: "refresh" });
-    expect(failed).toEqual({ kind: "error", text: "refresh failed — catalogue down" });
+    expect(failed).toEqual({ kind: "error", text: "refresh failed — catalog down" });
   });
 
   it("exposes the formatter for the same output without the command", () => {

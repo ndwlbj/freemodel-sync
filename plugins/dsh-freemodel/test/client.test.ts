@@ -319,7 +319,13 @@ describe("client module", () => {
     const text = textOf(tree);
     expect(text).toContain("模型与探测状态");
     expect(text).toContain("手动测试");
-    expect(text).toContain("原因: untested");
+    expect(text).toContain("原因: 未测试");
+    expect(text).toContain("原因: 暂时不可用 429：rate limited（稍后重试）");
+
+    const enTree = renderCard(props("models"));
+    const enText = textOf(enTree);
+    expect(enText).toContain("Reason: untested");
+    expect(enText).toContain("Reason: temporarily unavailable 429: rate limited (retried later)");
   });
 
   it("invokes the manual test callback with the exact channel and model", () => {
@@ -458,31 +464,31 @@ describe("client module", () => {
       {
         name: "not fetched yet",
         models: { catalogFetchedAt: null, catalogError: null, candidates: 0 },
-        en: "Catalogue not fetched yet.",
+        en: "Catalog not fetched yet.",
         zh: "还没有获取目录。",
       },
       {
         name: "fetch failed with timestamp",
         models: { catalogFetchedAt: NOW, catalogError: "network error", candidates: 0 },
-        en: "No catalogue data: the last catalogue fetch failed.",
+        en: "No catalog data: the last catalog fetch failed.",
         zh: "没有目录数据：上次获取目录失败。",
       },
       {
         name: "fetch failed without timestamp",
         models: { catalogFetchedAt: null, catalogError: "network error", candidates: 0 },
-        en: "No catalogue data: the last catalogue fetch failed.",
+        en: "No catalog data: the last catalog fetch failed.",
         zh: "没有目录数据：上次获取目录失败。",
       },
       {
         name: "no free models after filtering",
         models: { catalogFetchedAt: NOW, catalogError: null, candidates: 0 },
-        en: "The catalogue has no free models after filtering.",
+        en: "The catalog has no free models after filtering.",
         zh: "目录里没有符合过滤条件的免费模型。",
       },
       {
         name: "every model listed",
         models: { catalogFetchedAt: NOW, catalogError: null, candidates: 2 },
-        en: "Every catalogue model is listed.",
+        en: "Every catalog model is listed.",
         zh: "目录里的模型均已列出。",
       },
     ];
@@ -528,13 +534,13 @@ describe("client module", () => {
       expect(zhText, testCase.name).toContain(testCase.zh);
 
       if (testCase.models.candidates === 0) {
-        expect(enText, testCase.name).not.toContain("Every catalogue model is listed.");
+        expect(enText, testCase.name).not.toContain("Every catalog model is listed.");
         expect(zhText, testCase.name).not.toContain("目录里的模型均已列出。");
       }
     }
   });
 
-  it("renders catalogue free models count and listed badge on the channels card", () => {
+  it("renders catalog free models count and listed badge on the channels card", () => {
     setReact(fakeReact());
     const channelStatus: StatusReport = {
       ...STATUS,
@@ -571,7 +577,7 @@ describe("client module", () => {
     );
     const enText = textOf(enTree);
 
-    expect(enText).toContain("15 free models in catalogue");
+    expect(enText).toContain("15 free models in catalog");
     expect(enText).toContain("3 Listed");
     expect(enText).not.toContain("15 Listed");
 

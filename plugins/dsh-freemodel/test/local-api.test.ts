@@ -146,7 +146,7 @@ describe("local API", () => {
   it("maps service refusals to 404/409 instead of a generic 500", async () => {
     const d = deps();
     const testModel = d.testModel as unknown as ReturnType<typeof vi.fn>;
-    testModel.mockRejectedValueOnce(Object.assign(new Error("not in catalogue"), { code: "model-not-found" }));
+    testModel.mockRejectedValueOnce(Object.assign(new Error("not in catalog"), { code: "model-not-found" }));
     testModel.mockRejectedValueOnce(Object.assign(new Error("no key"), { code: "no-key" }));
     await serve(createLocalApiHandler(d), async (base) => {
       const call = (): Promise<Response> =>

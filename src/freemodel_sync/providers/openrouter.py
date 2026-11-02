@@ -1,6 +1,6 @@
 """OpenRouter provider: discover free models, probe one model, report quota.
 
-OpenRouter's catalogue endpoint is public, so :meth:`OpenRouterProvider.discover`
+OpenRouter's catalog endpoint is public, so :meth:`OpenRouterProvider.discover`
 works without an API key.  Testing a model and reading quota require
 ``OPENROUTER_API_KEY`` (or an explicitly supplied ``api_key``).
 """
@@ -122,7 +122,7 @@ def _supports_text(architecture: Any) -> bool:
 
 
 def _supports_image(architecture: Any) -> bool:
-    """Return ``True`` when the catalogue says the model accepts image input."""
+    """Return ``True`` when the catalog says the model accepts image input."""
 
     if not isinstance(architecture, dict):
         return False
@@ -202,7 +202,7 @@ class OpenRouterProvider(OpenAICompatProvider):
 
     # -- Provider API ----------------------------------------------------
     def discover(self) -> List[ModelInfo]:
-        """Return the currently free text models from OpenRouter's catalogue."""
+        """Return the currently free text models from OpenRouter's catalog."""
 
         url = f"{self.base_url}/models"
         try:

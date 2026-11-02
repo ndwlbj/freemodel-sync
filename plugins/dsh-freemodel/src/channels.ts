@@ -29,7 +29,7 @@ export interface SenseNovaChannelConfig {
   apiKeyEnv: string;
   /** Confirm the key is inside the SenseNova Token Plan public beta. */
   tokenPlanConfirmed: boolean;
-  /** Allowlist; an empty list means every catalogue model priced "0". */
+  /** Allowlist; an empty list means every catalog model priced "0". */
   models: string[];
 }
 
@@ -66,7 +66,7 @@ export interface Live<T> {
 
 /** Which models are listed (plan 6.3). */
 export interface RankingConfig {
-  /** Hide models whose catalogue says they cannot call tools (unknown, e.g. Groq, still passes). */
+  /** Hide models whose catalog says they cannot call tools (unknown, e.g. Groq, still passes). */
   requireTools: boolean;
   /** Hide models with a smaller context window (tokens). */
   minContext: number;
@@ -74,7 +74,7 @@ export interface RankingConfig {
   capacityDowngradeAfter: number;
 }
 
-/** When the catalogue is read and models are probed (plan 6.3). */
+/** When the catalog is read and models are probed (plan 6.3). */
 export interface RefreshConfig {
   /** Register from the cached state at startup, then refresh in the background. */
   onStartup: boolean;

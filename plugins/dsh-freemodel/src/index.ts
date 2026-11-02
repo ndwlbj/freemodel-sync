@@ -3,7 +3,7 @@
  *
  * Registers the model routes `freemodel-openrouter` and `freemodel-groq` for
  * the channels that are active (enabled, key saved, Groq: free plan
- * confirmed). Their models are the free catalogue entries that passed a tiny
+ * confirmed). Their models are the free catalog entries that passed a tiny
  * probe; the others stay out of the picker and the reason is kept in the
  * state file and `dsh-freemodel status`. The profile's default model is
  * never changed.

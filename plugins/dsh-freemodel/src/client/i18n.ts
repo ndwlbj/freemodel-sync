@@ -41,10 +41,10 @@ const EN = {
   keyUnknown: "unknown",
   keySource: "source {source}",
   route: "Route",
-  catalog: "Catalogue",
-  catalogFree: "free models in catalogue",
+  catalog: "Catalog",
+  catalogFree: "free models in catalog",
   never: "never",
-  catalogError: "Catalogue error",
+  catalogError: "Catalog error",
   blocked: "Blocked",
   probesToday: "Probes today",
   lastRound: "Last round",
@@ -55,10 +55,10 @@ const EN = {
   listed: "Listed",
   hidden: "Not listed",
   noListed: "No model has passed a probe yet.",
-  noHidden: "Every catalogue model is listed.",
-  noCatalogYet: "Catalogue not fetched yet.",
-  noCatalogData: "No catalogue data: the last catalogue fetch failed.",
-  noCatalogFree: "The catalogue has no free models after filtering.",
+  noHidden: "Every catalog model is listed.",
+  noCatalogYet: "Catalog not fetched yet.",
+  noCatalogData: "No catalog data: the last catalog fetch failed.",
+  noCatalogFree: "The catalog has no free models after filtering.",
   ttft: "TTFT {ms} ms",
   testedAt: "tested {when}",
   reason: "Reason",
@@ -248,7 +248,9 @@ const ZH: Record<MessageKey, string> = {
 
 const MESSAGES: Record<ClientLocale, Record<MessageKey, string>> = { en: EN, zh: ZH };
 
-export type Translator = (key: MessageKey, vars?: Record<string, string | number>) => string;
+export type Translator = ((key: MessageKey, vars?: Record<string, string | number>) => string) & {
+  readonly locale?: ClientLocale;
+};
 
 /** Pick Chinese only for a `zh`-prefixed active locale; English otherwise. */
 export function resolveLocale(active: string | undefined): ClientLocale {
@@ -258,11 +260,13 @@ export function resolveLocale(active: string | undefined): ClientLocale {
 /** Build a translator for one language. */
 export function createTranslator(locale: ClientLocale): Translator {
   const messages = MESSAGES[locale];
-  return (key, vars) => {
+  const t = ((key: MessageKey, vars?: Record<string, string | number>) => {
     const template = messages[key] ?? EN[key];
     if (vars === undefined) return template;
     return template.replace(/\{(\w+)\}/g, (_match, name: string) => (name in vars ? String(vars[name]) : `{${name}}`));
-  };
+  }) as Translator;
+  Object.defineProperty(t, "locale", { value: locale, writable: false });
+  return t;
 }
 
 /** The two dictionaries, exported for tests and for the host locale registration. */

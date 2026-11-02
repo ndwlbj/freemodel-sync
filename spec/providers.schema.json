@@ -114,7 +114,7 @@
     },
     "capabilityHint": {
       "oneOf": [
-        { "type": "null", "description": "the catalogue does not say (unknown)" },
+        { "type": "null", "description": "the catalog does not say (unknown)" },
         { "type": "boolean" },
         {
           "type": "object",

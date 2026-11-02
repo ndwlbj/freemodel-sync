@@ -8,7 +8,7 @@
 #
 # Live mode: FMS_VERIFY_LIVE=1 with OPENROUTER_API_KEY set passes that key
 # (and only it) into the throwaway host. The plugin then reads the public
-# catalogue, probes at most FMS_VERIFY_PROBES (default 2) free models, and the
+# catalog, probes at most FMS_VERIFY_PROBES (default 2) free models, and the
 # probe sends one short chat request through the freemodel-openrouter route.
 #
 # Result: $WORK/home/fm-verify-report.json, plus the composed config and host

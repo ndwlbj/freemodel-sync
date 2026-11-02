@@ -97,7 +97,7 @@ Endpoints and fields:
 ## SenseNova Token Plan (`sensenova`)
 
 SenseNova's Token Plan is a **public beta**. It has no public quota API, the
-beta end date is not announced, and the catalogue's price is the only free
+beta end date is not announced, and the catalog's price is the only free
 signal. freemodel-sync therefore lists or probes nothing until you confirm
 with `providers.sensenova.plan: token-plan`; without that line the provider
 is skipped. It is off by default.
@@ -115,7 +115,7 @@ Endpoints and fields:
   `deepseek-v4-flash` and `sensenova-6.8-flash-lite`. When the model list can
   be read, the allowlist is intersected with it; when it cannot (HTTP error or
   invalid payload), the confirmed allowlist is used unchanged with unknown
-  metadata. An explicitly empty list means "every catalogue model priced
+  metadata. An explicitly empty list means "every catalog model priced
   `"0"`".
 - Probe: `POST /v1/chat/completions` streaming, with `max_tokens`.
 - Quota: there is no quota endpoint. The account quota is recorded as
@@ -179,7 +179,7 @@ Endpoints and fields:
   the hand-entered `quota.limit` (a plain string id gets an unknown manual
   allowance). Manual values are labelled "手动，未核实" and are **never**
   deducted from the local probe budget. They are model-level, not account-level.
-- Capabilities: the catalogue has no reliable tool flag, so capabilities are
+- Capabilities: the catalog has no reliable tool flag, so capabilities are
   unknown. A distilled model (its id contains `distill`) is marked
   `tools=false`, because the free distilled variants do not call tools.
 - Errors: 401 is an account problem. 403 with the error code
@@ -213,7 +213,7 @@ which ones are free:
   returns only `id`, `object`, `created` and `owned_by`, filtered by `type`
   and `sub_type`. There are no price fields.
 - Free status and per-model rate limits are shown only on the web model
-  catalogue (<https://cloud.siliconflow.cn/models>). The rate-limit guide says
+  catalog (<https://cloud.siliconflow.cn/models>). The rate-limit guide says
   "the Rate Limits for free models are fixed" without listing them in the API.
 - Account balance is available from `GET /v1/user/info`, but a non-zero
   balance would be spent by a paid model, so it cannot prove a call is free.

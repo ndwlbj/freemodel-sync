@@ -68,7 +68,7 @@ Headless dsh profile templates often omit or disable the local credentials servi
 
 | Channel | Route | Default | Required Confirmation / Guards | Key Reference |
 | --- | --- | --- | --- | --- |
-| **OpenRouter** | `freemodel-openrouter` | **Enabled** (if key set) | Only lists `:free` models from catalogue. | `OPENROUTER_API_KEY` |
+| **OpenRouter** | `freemodel-openrouter` | **Enabled** (if key set) | Only lists `:free` models from catalog. | `OPENROUTER_API_KEY` |
 | **Groq** | `freemodel-groq` | Disabled | Requires `freePlanConfirmed: true`. Account-level free tier. | `GROQ_API_KEY` |
 | **SenseNova** | `freemodel-sensenova` | Disabled | Requires `tokenPlanConfirmed: true` (Token Plan public beta). Price must be `"0"`. Optional `models` allowlist. | `SENSENOVA_API_KEY` |
 | **Bailian** | `freemodel-bailian` | Disabled | Requires `freeQuotaGuardConfirmed: true` (console guard) and non-empty `models` allowlist. Beijing region only. Quota is manual/unverified. 403 `FreeTierOnly` halts channel for the day. | `DASHSCOPE_API_KEY` |
@@ -93,7 +93,7 @@ Settings can be edited in dsh's Settings &rarr; Plugins &rarr; DSH FreeModel con
 | `ranking.weights.*` | `number` | Spec defaults | Scoring weights for TTFT, context length, tools, vision, and reasoning. |
 | `ranking.capacityPenalty` | `number` | `20` | Score deduction per consecutive capacity failure streak. |
 | `ranking.capacityDowngradeAfter` | `number` | `3` | Streak threshold after which a capacity-failing model is excluded. |
-| `refresh.intervalM` | `number` | `60` | Background probe and catalogue refresh interval in minutes. |
+| `refresh.intervalM` | `number` | `60` | Background probe and catalog refresh interval in minutes. |
 | `refresh.maxTestsPerRound` | `number` | `5` | Maximum active probes performed per channel refresh cycle. |
 | `refresh.dailyReserve` | `number` | `10` | Daily request reserve kept untouched to avoid hitting hard limits. |
 | `manual[]` | `array` | `[]` | Tier-2 manual registry entries (ZCode, Qoder, WorkBuddy). |
@@ -144,12 +144,12 @@ The `manual[]` configuration allows users to document models made available by t
 The browser extension (`lib/client.js`) attaches a comprehensive management card to the DSH FreeModel settings page with five functional tabs:
 
 1. **Overview**: Displays plugin version (`1.0.0`), spec version, state file path, active channels, model counts, and probe budget consumption.
-2. **Channels**: Channel activation states, credential source (`file`, `env`), endpoint URLs, catalogue refresh timestamps, and rate-limit backoffs.
+2. **Channels**: Channel activation states, credential source (`file`, `env`), endpoint URLs, catalog refresh timestamps, and rate-limit backoffs.
 3. **Models**: Lists all verified models with badges (tools, vision, reasoning, quota) and TTFT latency. Shows unlisted/hidden models with exact failure reasons. Features a **Test now** button for each model.
 4. **Manual**: Shows configured tier-2 entries, detection status of corresponding dsh routes, expiration status, and last probe results.
 5. **Diagnostics**: Schema versions, local API endpoint prefix, error logs, and troubleshooting guidance.
 
-**Screenshots** (English UI, in the order of the tabs). Captured with headless Chrome on a fresh, networked dsh profile with the plugin installed, without typing any key; the OpenRouter catalogue lists 15 free models; 4 passed probing and are listed; 11 are not listed (5 not yet probed, 3 returned 429, 1 returned 503, 2 only available on agentic harnesses); "configured" only means the matching key exists in an environment variable or the dsh credential store. The images are kept in the repository only and are not part of the npm package (`screenshots.json` lists them; Chinese versions are in `README.zh-CN.md`).
+**Screenshots** (English UI, in the order of the tabs). Captured with headless Chrome on a fresh, networked dsh profile with the plugin installed, without typing any key; the OpenRouter catalog lists 15 free models; 4 passed probing and are listed; 11 are not listed (5 not yet probed, 3 returned 429, 1 returned 503, 2 only available on agentic harnesses); "configured" only means the matching key exists in an environment variable or the dsh credential store. The images are kept in the repository only and are not part of the npm package (`screenshots.json` lists them; Chinese versions are in `README.zh-CN.md`).
 
 | Overview | Channels |
 | --- | --- |
@@ -183,7 +183,7 @@ dsh plugin --profile <profile> exec dsh-freemodel doctor
 Inside any dsh conversation:
 
 - `/freemodel`: Display current status summary.
-- `/freemodel refresh`: Force an immediate catalogue reload and probe pass.
+- `/freemodel refresh`: Force an immediate catalog reload and probe pass.
 - `/freemodel test <channel> <model>`: Run a single probe on a specific model.
 
 ---
@@ -192,7 +192,7 @@ Inside any dsh conversation:
 
 - **Models not appearing in picker**:
   - Run `dsh-freemodel status` to check if the channel key is detected.
-  - Check the **Models** tab in the settings card for rejection reasons (e.g. probe timeout, catalogue error, capacity downgrade).
+  - Check the **Models** tab in the settings card for rejection reasons (e.g. probe timeout, catalog error, capacity downgrade).
   - For Groq, ensure `freePlanConfirmed` is checked.
   - For SenseNova, ensure `tokenPlanConfirmed` is checked.
   - For Bailian, ensure `freeQuotaGuardConfirmed` is checked and `models` has at least one entry.

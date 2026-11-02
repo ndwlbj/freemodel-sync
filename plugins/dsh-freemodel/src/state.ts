@@ -1,6 +1,6 @@
 /**
  * The plugin's state file, `$DSH_HOME/freemodel/state.json` (mode 0600,
- * format: spec/state.schema.json). It caches each channel's catalogue and
+ * format: spec/state.schema.json). It caches each channel's catalog and
  * probe results plus the daily probe counter, so a restart registers models
  * at once and does not spend the free-request budget again. It never holds a
  * key: error texts are redacted before they are stored.
@@ -16,7 +16,7 @@ import { isRecord, utcToday } from "./util.ts";
 export const STATE_SCHEMA_VERSION = 1;
 
 export interface CatalogState {
-  /** Unix seconds of the last successful catalogue read. */
+  /** Unix seconds of the last successful catalog read. */
   fetchedAt: number;
   models: CatalogModel[];
   /** Last failed read (redacted); the previous models stay in use. */

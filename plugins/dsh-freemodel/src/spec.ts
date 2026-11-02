@@ -19,7 +19,7 @@ export interface CapabilityHint {
   contains: string;
 }
 
-/** One provider's catalogue hints for the capability flags; null means unknown. */
+/** One provider's catalog hints for the capability flags; null means unknown. */
 export interface ProviderCapabilities {
   tools: boolean | null | CapabilityHint;
   vision: boolean | null | CapabilityHint;

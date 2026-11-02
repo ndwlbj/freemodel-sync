@@ -28,7 +28,7 @@ export function manualQuota(limit: number | undefined): Quota {
   return { unit: "tokens", period: "total", limit, used: null, remaining: null, resetsAt: null, expiresAt: null, source: "manual", scope: "model" };
 }
 
-/** Distilled variants do not call tools; everything else the catalogue does not say. */
+/** Distilled variants do not call tools; everything else the catalog does not say. */
 export function bailianCapabilities(id: string): Capabilities {
   return id.toLowerCase().includes("distill")
     ? { tools: false, vision: null, reasoning: null, source: "config" }
@@ -64,8 +64,8 @@ export class BailianChannel extends OpenAICompatChannel {
   }
 
   /**
-   * Read the catalogue and keep the configured allowlist order. Without a
-   * non-empty allowlist nothing is listed, even if the catalogue is readable.
+   * Read the catalog and keep the configured allowlist order. Without a
+   * non-empty allowlist nothing is listed, even if the catalog is readable.
    */
   async discover(
     apiKey: string | undefined,

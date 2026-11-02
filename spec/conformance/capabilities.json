@@ -4,7 +4,7 @@
   "description": "Capability parsing: a missing field is unknown (null), never false; old supports_tools data keeps its meaning.",
   "cases": [
     {
-      "name": "complete catalogue flags",
+      "name": "complete catalog flags",
       "input": { "tools": true, "vision": true, "reasoning": false, "source": "catalog" },
       "expected": { "tools": true, "vision": true, "reasoning": false, "source": "catalog" }
     },

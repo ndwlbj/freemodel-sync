@@ -68,7 +68,7 @@ All notable changes to this project are documented here. The format follows
   `providers.sensenova.plan: token-plan` confirms the plan (same pattern as Groq's
   `plan: free`). Models come from `providers.sensenova.models` (default
   `deepseek-v4-flash` / `sensenova-6.8-flash-lite`) intersected with `GET /models` when
-  available; a catalogue `pricing` other than the string `"0"` removes the model with a
+  available; a catalog `pricing` other than the string `"0"` removes the model with a
   warning. Quota is reported as `period="beta", unit="unknown", source="none"`, with an
   optional `free_until` copied to `expires_at`. 401/402 are account failures, 403 (a model
   outside the plan) is a model failure, and 408/429/5xx are transient. The dsh plugin gets
@@ -105,7 +105,7 @@ All notable changes to this project are documented here. The format follows
   outputs.
 
 - **dsh plugin lists free models (P4).** With a key, `dsh-freemodel` reads the OpenRouter (and,
-  once `freePlanConfirmed`, Groq) catalogue, applies the `spec/` rules, ranks and probes the top
+  once `freePlanConfirmed`, Groq) catalog, applies the `spec/` rules, ranks and probes the top
   candidates within the daily limit, and registers the routes `freemodel-openrouter` /
   `freemodel-groq` through `@deepseek-ai/dsh-llm-pi-ai`, so the models that answered appear in the
   picker labelled `· 免费`. Failed models are hidden with their reason (`dsh-freemodel status`, the
@@ -125,7 +125,7 @@ All notable changes to this project are documented here. The format follows
   22.19 and 24. `scripts/verify-host/verify-host.sh` loads it into a real dsh in a throwaway home;
   results for dsh 0.2.1-rc.3 are in `docs/dsh-plugin-verification.md`.
 - **Shared rules in `spec/` (spec_version 1):** `providers.json` (OpenRouter and Groq: base URL,
-  key variable, free rule, catalogue fields, probe request, error classification, rate-limit
+  key variable, free rule, catalog fields, probe request, error classification, rate-limit
   headers, key formats, sources), `ranking.json` (default weights, score constants, non-chat
   globs), JSON Schemas for both and for the golden cases in `spec/conformance/` (classification,
   stream errors, OpenRouter's free rule, rate-limit headers, scores and rank order, non-chat

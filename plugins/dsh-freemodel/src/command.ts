@@ -49,9 +49,9 @@ export function formatStatus(report: StatusReport): string {
         ? "never"
         : `${new Date(models.catalogFetchedAt * 1000).toISOString().slice(0, 16).replace("T", " ")} UTC`;
     lines.push(
-      `  catalogue ${when}, ${models.candidates} candidates, ${models.listed.length} listed, ${models.probesToday} probe(s) today`,
+      `  catalog ${when}, ${models.candidates} candidates, ${models.listed.length} listed, ${models.probesToday} probe(s) today`,
     );
-    if (models.catalogError !== null) lines.push(`  catalogue error: ${models.catalogError}`);
+    if (models.catalogError !== null) lines.push(`  catalog error: ${models.catalogError}`);
     for (const model of models.listed) {
       lines.push(`  + ${model.id}${model.ttftMs === null ? "" : `  (TTFT ${Math.round(model.ttftMs)} ms)`}`);
     }
@@ -90,7 +90,7 @@ function testText(outcome: ManualTestOutcome): string {
 export function createFreemodelCommand(deps: FreemodelCommandDeps): FreemodelCommand {
   return {
     name: "freemodel",
-    description: "Show free-model status, refresh catalogues/probes, or test one model.",
+    description: "Show free-model status, refresh catalogs/probes, or test one model.",
     input: { hint: "status | refresh | test <channel> <model>" },
     async handler(invocation) {
       const input = invocation.rawInput.trim();

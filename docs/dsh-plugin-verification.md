@@ -84,7 +84,7 @@ FMS_VERIFY_LIVE=1 FMS_VERIFY_PROBES=2 OPENROUTER_API_KEY=... scripts/verify-host
 ```
 
 Only `OPENROUTER_API_KEY` is passed through `env -i`; the profile gets
-`refresh.probeTopN: 2`. Calls made: one catalogue read (`/models`, no key), one
+`refresh.probeTopN: 2`. Calls made: one catalog read (`/models`, no key), one
 `/key` check, `FMS_VERIFY_PROBES` probes and one chat of at most 256 tokens to
 the top-ranked model, all `:free`. The report is checked for the key value
 before it is written; a match replaces it with a verdict.
@@ -95,7 +95,7 @@ environment, prefix `sk-or-v1-`):
 | Step | Result |
 | --- | --- |
 | `llm-routes` | key `configured: true`, source `env`; registered `["freemodel-openrouter"]` |
-| `live-listing` | catalogue 16 free candidates, no error; round: 2 probes, no stop reason; both passed (HTTP 200, TTFT 291 ms and 3061 ms) |
+| `live-listing` | catalog 16 free candidates, no error; round: 2 probes, no stop reason; both passed (HTTP 200, TTFT 291 ms and 3061 ms) |
 | Picker (`llm.listModels("freemodel-openrouter")`) | `NVIDIA: Nemotron 3.5 Lightning · 免费` (OpenRouter free · TTFT 291 ms · tools), `NVIDIA: Nemotron 3 Ultra · 免费` (TTFT 3061 ms) |
 | `live-chat` | `nvidia/nemotron-3.5-lightning:free` answered `OK` in 2.2 s, finish `stop` |
 | State file | `$DSH_HOME/freemodel/state.json`, mode `600`, no key |

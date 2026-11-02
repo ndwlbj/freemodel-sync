@@ -1,6 +1,6 @@
 /**
  * Small value helpers that mirror the Python package's parsing exactly, so
- * both implementations read the same catalogue and header values the same way
+ * both implementations read the same catalog and header values the same way
  * (the golden cases in spec/conformance/ check this).
  */
 

@@ -82,7 +82,7 @@ export abstract class OpenAICompatChannel {
   }
 
   /**
-   * The channel's free models; throws `ChannelError` when the catalogue cannot be read.
+   * The channel's free models; throws `ChannelError` when the catalog cannot be read.
    * `allowlist` is only used by channels with an optional configured model list.
    */
   abstract discover(

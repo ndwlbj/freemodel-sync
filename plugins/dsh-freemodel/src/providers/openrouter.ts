@@ -1,5 +1,5 @@
 /**
- * OpenRouter channel: free (`:free`) models from the public catalogue, the
+ * OpenRouter channel: free (`:free`) models from the public catalog, the
  * probe with OpenRouter's error and rate-limit rules, and the free-request
  * quota of the key. Port of `freemodel_sync.providers.openrouter`.
  */
@@ -139,7 +139,7 @@ export class OpenRouterChannel extends OpenAICompatChannel {
     return { Authorization: `Bearer ${apiKey}`, "X-Title": "dsh-freemodel" };
   }
 
-  /** The catalogue is public: no key is sent. */
+  /** The catalog is public: no key is sent. */
   async discover(_apiKey: string | undefined, signal?: AbortSignal): Promise<CatalogModel[]> {
     let payload: unknown;
     try {

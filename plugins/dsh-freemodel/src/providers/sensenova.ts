@@ -3,7 +3,7 @@
  *
  * The public beta has no quota API and prices can change, so the caller lists
  * nothing until `tokenPlanConfirmed` is ticked (same as Python's
- * `plan: token-plan`). The catalogue is intersected with an optional allowlist;
+ * `plan: token-plan`). The catalog is intersected with an optional allowlist;
  * only models whose `pricing` is the literal string "0" are free. Port of
  * `freemodel_sync.providers.sensenova`.
  */
@@ -90,9 +90,9 @@ export class SenseNovaChannel extends OpenAICompatChannel {
   }
 
   /**
-   * Read the catalogue, keep the intersection with `allowlist` and drop models
+   * Read the catalog, keep the intersection with `allowlist` and drop models
    * whose `pricing` is not "0". Without an allowlist, every zero-priced
-   * catalogue model is used.
+   * catalog model is used.
    */
   async discover(
     apiKey: string | undefined,
