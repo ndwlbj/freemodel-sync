@@ -25,7 +25,7 @@ recent probe. It cannot guarantee the model keeps working between runs.
   picker, with capability and quota badges, a settings card, a `/freemodel` command and
   `dsh-freemodel status` / `doctor`. Keys stay in dsh's credential store or your environment. Optional
   `freemodel-auto` best-model routing and the guarded default-model switch are both off by default.
-  Version 1.0.0, not yet published to npm (build it from this repo).
+  Version 0.9.0, not yet published to npm (build it from this repo).
 
 ![dsh-freemodel settings card, Models tab](https://raw.githubusercontent.com/ndwlbj/freemodel-sync/main/plugins/dsh-freemodel/docs/assets/dsh-freemodel-card-en-models.png)
 

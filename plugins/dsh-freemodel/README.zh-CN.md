@@ -5,7 +5,7 @@
 用于 [dsh](https://www.npmjs.com/package/@deepseek-ai/dsh) 的多渠道免费模型插件，支持 OpenRouter（`:free` 免费模型）、Groq（需开启免费计划确认）、商汤日日新 SenseNova（Token Plan 公测）以及阿里云百炼（DashScope 北京地域）。本项目是 [freemodel-sync](https://github.com/ndwlbj/freemodel-sync) 在 dsh 运行时侧的原生 TypeScript 插件实现，构建时直接打包本仓库 `spec/` 目录的共享规则。
 
 > [!NOTE]
-> - **发布状态**：版本 1.0.0（私有包；**未发布到 npm**）。
+> - **发布状态**：版本 0.9.0（私有包；**未发布到 npm**）。
 > - **界面截图**：真实截图（新建 dsh profile 上用 headless Chrome 截取，已联网、未手动填写任何 key，详见[设置卡片](#设置卡片与管理界面)一节）。
 > - **真机测试状态**：已在 Linux（dsh 0.2.1-rc.3）环境下验证；**未在 Windows / macOS 真实设备上运行测试**。
 > - **Profile 文件布局**：当前 profile 的 patch 路径 `$DSH_HOME/profiles/<id>/cordis.patch.yml` 已在真实 dsh 0.2.1-rc.3 的 home 上核对（profile 目录及 `profileContext.patchPath`）；`autoDefaultModel` 的实际写盘流程未在真实 profile 上执行过。
@@ -43,7 +43,7 @@ pnpm run check            # 类型检查 + 单元测试 + 构建
 pnpm run build && pnpm pack
 
 # 安装到 dsh 测试 profile 中
-dsh plugin --profile <测试profile名> add ./dsh-freemodel-1.0.0.tgz
+dsh plugin --profile <测试profile名> add ./dsh-freemodel-0.9.0.tgz
 dsh plugin --profile <测试profile名> exec dsh-freemodel doctor
 ```
 
@@ -143,7 +143,7 @@ dsh plugin --profile <测试profile名> exec dsh-freemodel doctor
 
 插件附带的浏览器卡片扩展（`lib/client.js`）在 dsh 设置面板的 FreeModel 页面上挂载包含五个标签栏的可视化卡片：
 
-1. **概览（Overview）**：展示插件版本号（`1.0.0`）、规则版本、状态文件路径、各渠道启用数、已列出/隐藏模型数及今日已消耗探测次数。
+1. **概览（Overview）**：展示插件版本号（`0.9.0`）、规则版本、状态文件路径、各渠道启用数、已列出/隐藏模型数及今日已消耗探测次数。
 2. **渠道（Channels）**：各渠道开启状态、密钥来源（`file`、`env` 等，绝不显示密钥）、接口地址、目录同步时间及限流暂停倒计时。
 3. **模型（Models）**：已列出的可用模型及其能力徽标、额度信息与响应延迟；未列出的隐藏模型及其具体失败原因；每个模型右侧均有「立即测试」按钮。
 4. **手动登记（Manual）**：展示已配置的手动条目、对应 dsh 路由是否已检测到、到期状态以及最近一次六字段探测结果。
@@ -206,7 +206,7 @@ dsh plugin --profile <profile> exec dsh-freemodel doctor
 - **真实设备测试情况**：
   - 已在 Linux (dsh 0.2.1-rc.3) 上验证；未在 Windows / macOS 真实设备上运行测试。
 - **发布状态**：
-  - 当前版本 1.0.0 处于内部测试阶段，未发布至 npm 仓库。
+  - 当前版本 0.9.0 处于内部测试阶段，未发布至 npm 仓库。
 
 ---
 

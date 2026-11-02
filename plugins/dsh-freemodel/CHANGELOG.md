@@ -3,7 +3,7 @@
 All notable changes to the `dsh-freemodel` plugin are documented here. The
 plugin is versioned separately from the Python `freemodel-sync` package.
 
-## [1.0.0] - Unreleased
+## [0.9.0] - Unreleased
 
 ### Changed
 
@@ -117,7 +117,7 @@ plugin is versioned separately from the Python `freemodel-sync` package.
 
 ### Changed
 
-- Bumped plugin version to `1.0.0` (remains `"private": true`, not published to npm).
+- Bumped plugin version to `0.9.0` (remains `"private": true`, not published to npm).
 - `LocalApiDeps` accepts an optional `clientKey` for the browser card. The
   existing header/bearer secret keeps working for CLI and API callers.
 - The plugin README (English and Chinese) documents the card, the four tabs,

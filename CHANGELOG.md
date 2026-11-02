@@ -6,9 +6,11 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-02
+
 ### Added
 
-- **dsh-freemodel plugin v1.0.0 (P10).** Native TypeScript plugin version 1.0.0
+- **dsh-freemodel plugin v0.9.0 (P10).** Native TypeScript plugin version 0.9.0
   (private, not published to npm). Added opt-in `autoRoute.enabled` (default `false`)
   registering `freemodel-auto` (`best`) with pre-output in-process failover, opt-in
   `autoDefaultModel` (default `false`, refuses QQ/bot profiles, refuses home patch layer,
@@ -199,6 +201,12 @@ All notable changes to this project are documented here. The format follows
   `GroqProvider` both subclass it now; Groq no longer inherits from OpenRouter. No change in
   behaviour: requests, classification rules and results are the same. This is groundwork for
   further OpenAI-compatible providers.
+
+- **Catalog spelling and zh-CN Models tab reasons (#37).** Spelling is unified to "catalog" across
+  the code, docs and the plugin. In the zh-CN Models tab, the reason strings (not probed yet,
+  untested, failed, no capacity, temporarily unavailable, expired/expires in N days) are now
+  localized through the new `localizeReason`. Provider error text inside a reason is kept verbatim,
+  unknown reasons fall back to the original text, and English output is unchanged.
 
 ### Removed
 
@@ -498,7 +506,8 @@ Never tagged or published to PyPI; 0.2.0 is the first published release.
 - Initial version: OpenRouter discovery, budget-aware probing, ranking, and the
   `openai-env`, `openai-yaml`, `dsh` and `astrbot` adapters, plus Telegram/webhook notifications.
 
-[Unreleased]: https://github.com/ndwlbj/freemodel-sync/compare/v0.3.3...HEAD
+[Unreleased]: https://github.com/ndwlbj/freemodel-sync/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/ndwlbj/freemodel-sync/compare/v0.3.3...v0.4.0
 [0.3.3]: https://github.com/ndwlbj/freemodel-sync/compare/v0.3.2...v0.3.3
 [0.3.2]: https://github.com/ndwlbj/freemodel-sync/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/ndwlbj/freemodel-sync/compare/v0.3.0...v0.3.1

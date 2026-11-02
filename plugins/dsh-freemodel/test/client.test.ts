@@ -59,7 +59,7 @@ const NOW = 1_700_000_000;
 const STATUS: StatusReport = {
   schemaVersion: 2,
   plugin: "dsh-freemodel",
-  version: "1.0.0",
+  version: "0.9.0",
   specVersion: 1,
   statePath: "/tmp/dsh/freemodel/state.json",
   stateExists: true,
@@ -623,7 +623,7 @@ describe("FreemodelApiClient", () => {
     });
     const api = new FreemodelApiClient(fetchImpl);
     const status = await api.load();
-    expect(status.version).toBe("1.0.0");
+    expect(status.version).toBe("0.9.0");
     expect(api.hasWriteToken()).toBe(true);
     expect(JSON.stringify(api)).not.toContain("write-token");
     await expect(api.test("openrouter", "vendor/working:free")).resolves.toEqual(TEST_RESULT);

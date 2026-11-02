@@ -2,7 +2,7 @@
   "name": "dsh-freemodel",
   "displayName": "DSH FreeModel",
   "description": "Free models for DeepSeek Harness: finds currently free models on OpenRouter, Groq and SenseNova, probes them, and lists the ones that work. Keys stay in dsh's credential store.",
-  "version": "1.0.0",
+  "version": "0.9.0",
   "private": true,
   "license": "MIT",
   "keywords": [

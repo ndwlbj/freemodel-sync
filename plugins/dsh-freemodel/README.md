@@ -5,7 +5,7 @@
 A [dsh](https://www.npmjs.com/package/@deepseek-ai/dsh) plugin for free models from OpenRouter (`:free` models) and, opt-in, Groq's free plan, the SenseNova Token Plan public beta, and Alibaba Cloud Bailian. It is the dsh runtime component of [freemodel-sync](https://github.com/ndwlbj/freemodel-sync) and shares rules directly from the repository's `spec/` directory (bundled at build time).
 
 > [!NOTE]
-> - **Release status**: Version 1.0.0 (private; **not published to npm**).
+> - **Release status**: Version 0.9.0 (private; **not published to npm**).
 > - **Screenshots**: Real captures of the settings card (headless Chrome on a fresh, networked dsh profile, see [Settings Card & UI](#settings-card--ui)).
 > - **Real-device test status**: Verified on Linux with dsh 0.2.1-rc.3; **not run: Windows/macOS real-device tests**.
 > - **Profile layout**: The current-profile patch path `$DSH_HOME/profiles/<id>/cordis.patch.yml` was checked on a real dsh 0.2.1-rc.3 home (the profile directory and `profileContext.patchPath`). The `autoDefaultModel` disk write itself was not exercised on a real profile.
@@ -43,7 +43,7 @@ pnpm run check            # typecheck + unit tests + build
 pnpm run build && pnpm pack
 
 # Install into a dsh test profile
-dsh plugin --profile <test-profile> add ./dsh-freemodel-1.0.0.tgz
+dsh plugin --profile <test-profile> add ./dsh-freemodel-0.9.0.tgz
 dsh plugin --profile <test-profile> exec dsh-freemodel doctor
 ```
 
@@ -143,7 +143,7 @@ The `manual[]` configuration allows users to document models made available by t
 
 The browser extension (`lib/client.js`) attaches a comprehensive management card to the DSH FreeModel settings page with five functional tabs:
 
-1. **Overview**: Displays plugin version (`1.0.0`), spec version, state file path, active channels, model counts, and probe budget consumption.
+1. **Overview**: Displays plugin version (`0.9.0`), spec version, state file path, active channels, model counts, and probe budget consumption.
 2. **Channels**: Channel activation states, credential source (`file`, `env`), endpoint URLs, catalog refresh timestamps, and rate-limit backoffs.
 3. **Models**: Lists all verified models with badges (tools, vision, reasoning, quota) and TTFT latency. Shows unlisted/hidden models with exact failure reasons. Features a **Test now** button for each model.
 4. **Manual**: Shows configured tier-2 entries, detection status of corresponding dsh routes, expiration status, and last probe results.

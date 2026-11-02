@@ -9,7 +9,7 @@ function report(): StatusReport {
   return {
     schemaVersion: 2,
     plugin: "dsh-freemodel",
-    version: "1.0.0",
+    version: "0.9.0",
     specVersion: 1,
     statePath: "/tmp/fm/state.json",
     stateExists: true,
@@ -95,7 +95,7 @@ describe("/freemodel command", () => {
 
     const result = await command.handler({ rawInput: "" });
     expect(result.kind).toBe("success");
-    expect(result.text).toContain("dsh-freemodel 1.0.0 (spec v1)");
+    expect(result.text).toContain("dsh-freemodel 0.9.0 (spec v1)");
     expect(result.text).toContain("openrouter on ");
     expect(result.text).toContain("key OPENROUTER_API_KEY: configured (file)");
     expect(result.text).toContain("+ vendor/model:free  (TTFT 123 ms)");
@@ -188,7 +188,7 @@ describe("/freemodel command", () => {
 
   it("exposes the formatter for the same output without the command", () => {
     const text = formatStatus(report());
-    expect(text.split("\n")[0]).toBe("dsh-freemodel 1.0.0 (spec v1)");
+    expect(text.split("\n")[0]).toBe("dsh-freemodel 0.9.0 (spec v1)");
     expect(text).toContain("state: /tmp/fm/state.json");
   });
 });
