@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "date": "2026-11-03",
-  "generated_at": "2026-11-03T07:55:03Z",
+  "date": "2026-11-04",
+  "generated_at": "2026-11-04T07:29:20Z",
   "tool_version": "0.4.0",
   "mode": "probe",
   "max_probes": 15,
@@ -28,8 +28,8 @@
   },
   "summary": {
     "models": 17,
-    "ok": 10,
-    "failed": 7,
+    "ok": 12,
+    "failed": 5,
     "not_probed": 0
   },
   "models": [
@@ -44,8 +44,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 490,
-      "total_ms": 1285,
+      "ttft_ms": 1264,
+      "total_ms": 2720,
       "error": null
     },
     {
@@ -59,8 +59,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 181,
-      "total_ms": 309,
+      "ttft_ms": 127,
+      "total_ms": 247,
       "error": null
     },
     {
@@ -74,8 +74,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 306,
-      "total_ms": 433,
+      "ttft_ms": 348,
+      "total_ms": 503,
       "error": null
     },
     {
@@ -86,11 +86,11 @@
       "context_length": 512000,
       "supports_tools": true,
       "expiration_date": "2026-12-31",
-      "days_until_expiry": 58,
+      "days_until_expiry": 57,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 1354,
-      "total_ms": 1894,
+      "ttft_ms": 494,
+      "total_ms": 1002,
       "error": null
     },
     {
@@ -105,7 +105,7 @@
       "status": "429",
       "failure_kind": "transient",
       "ttft_ms": null,
-      "total_ms": 74,
+      "total_ms": 104,
       "error": "Provider returned error"
     },
     {
@@ -120,7 +120,7 @@
       "status": "429",
       "failure_kind": "transient",
       "ttft_ms": null,
-      "total_ms": 91,
+      "total_ms": 106,
       "error": "Provider returned error"
     },
     {
@@ -132,11 +132,11 @@
       "supports_tools": true,
       "expiration_date": null,
       "days_until_expiry": null,
-      "status": "503",
-      "failure_kind": "transient",
-      "ttft_ms": null,
-      "total_ms": 120,
-      "error": "Provider returned error"
+      "status": "ok",
+      "failure_kind": null,
+      "ttft_ms": 470,
+      "total_ms": 637,
+      "error": null
     },
     {
       "key": "openrouter|xingchen-agi/xing4.0-29b-a4b:free",
@@ -150,7 +150,7 @@
       "status": "429",
       "failure_kind": "transient",
       "ttft_ms": null,
-      "total_ms": 1221,
+      "total_ms": 467,
       "error": "Provider returned error"
     },
     {
@@ -164,8 +164,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 157,
-      "total_ms": 216,
+      "ttft_ms": 250,
+      "total_ms": 365,
       "error": null
     },
     {
@@ -179,8 +179,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 310,
-      "total_ms": 428,
+      "ttft_ms": 553,
+      "total_ms": 997,
       "error": null
     },
     {
@@ -194,8 +194,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 143,
-      "total_ms": 332,
+      "ttft_ms": 155,
+      "total_ms": 182,
       "error": null
     },
     {
@@ -206,11 +206,11 @@
       "context_length": 1048576,
       "supports_tools": true,
       "expiration_date": "2026-11-04",
-      "days_until_expiry": 1,
+      "days_until_expiry": 0,
       "status": "403",
       "failure_kind": "model",
       "ttft_ms": null,
-      "total_ms": 23,
+      "total_ms": 60,
       "error": "thinkingmachines/inkling-small:free is only available on agentic harnesses. Try plugging it into a coding agent or productivity app listed on https://openrouter.ai/apps"
     },
     {
@@ -221,11 +221,11 @@
       "context_length": 1048576,
       "supports_tools": true,
       "expiration_date": "2026-11-04",
-      "days_until_expiry": 1,
+      "days_until_expiry": 0,
       "status": "403",
       "failure_kind": "model",
       "ttft_ms": null,
-      "total_ms": 31,
+      "total_ms": 38,
       "error": "thinkingmachines/inkling:free is only available on agentic harnesses. Try plugging it into a coding agent or productivity app listed on https://openrouter.ai/apps"
     },
     {
@@ -239,8 +239,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 374,
-      "total_ms": 399,
+      "ttft_ms": 269,
+      "total_ms": 296,
       "error": null
     },
     {
@@ -254,8 +254,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 231,
-      "total_ms": 244,
+      "ttft_ms": 199,
+      "total_ms": 213,
       "error": null
     },
     {
@@ -267,11 +267,11 @@
       "supports_tools": false,
       "expiration_date": null,
       "days_until_expiry": null,
-      "status": "timeout",
-      "failure_kind": "transient",
-      "ttft_ms": null,
-      "total_ms": 30021,
-      "error": "ReadTimeout: The read operation timed out"
+      "status": "ok",
+      "failure_kind": null,
+      "ttft_ms": 107,
+      "total_ms": 108,
+      "error": null
     },
     {
       "key": "groq|allam-2-7b",
@@ -284,20 +284,25 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 268,
-      "total_ms": 278,
+      "ttft_ms": 331,
+      "total_ms": 340,
       "error": null
     }
   ],
   "diff": {
-    "previous_date": "2026-11-02",
+    "previous_date": "2026-11-03",
     "added": [],
     "removed": [],
     "status_changed": [
       {
         "key": "groq|qwen/qwen3.8-27b",
-        "from": "ok",
-        "to": "timeout"
+        "from": "timeout",
+        "to": "ok"
+      },
+      {
+        "key": "openrouter|recursive/flint-v1.0:free",
+        "from": "503",
+        "to": "ok"
       }
     ],
     "expiring_within_days": 14,
@@ -305,12 +310,12 @@
       {
         "key": "openrouter|thinkingmachines/inkling-small:free",
         "expiration_date": "2026-11-04",
-        "days_until_expiry": 1
+        "days_until_expiry": 0
       },
       {
         "key": "openrouter|thinkingmachines/inkling:free",
         "expiration_date": "2026-11-04",
-        "days_until_expiry": 1
+        "days_until_expiry": 0
       }
     ]
   }
