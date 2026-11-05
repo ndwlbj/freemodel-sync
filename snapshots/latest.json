@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "date": "2026-11-04",
-  "generated_at": "2026-11-04T07:29:20Z",
+  "date": "2026-11-05",
+  "generated_at": "2026-11-05T07:55:00Z",
   "tool_version": "0.4.0",
   "mode": "probe",
   "max_probes": 15,
@@ -9,15 +9,15 @@
   "providers": {
     "openrouter": {
       "status": "ok",
-      "discovered": 13,
-      "probes_sent": 13,
+      "discovered": 11,
+      "probes_sent": 11,
       "quota": {
         "daily_free_limit": 50,
         "daily_free_used": 0,
         "daily_free_remaining": 50,
         "read": "before probing",
         "note": "read once before probing, so this run's probes are not included; the provider's counter can also lag behind recent requests",
-        "remaining_estimate": 37
+        "remaining_estimate": 39
       }
     },
     "groq": {
@@ -27,9 +27,9 @@
     }
   },
   "summary": {
-    "models": 17,
-    "ok": 12,
-    "failed": 5,
+    "models": 15,
+    "ok": 11,
+    "failed": 4,
     "not_probed": 0
   },
   "models": [
@@ -44,8 +44,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 1264,
-      "total_ms": 2720,
+      "ttft_ms": 417,
+      "total_ms": 598,
       "error": null
     },
     {
@@ -59,8 +59,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 127,
-      "total_ms": 247,
+      "ttft_ms": 93,
+      "total_ms": 194,
       "error": null
     },
     {
@@ -74,8 +74,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 348,
-      "total_ms": 503,
+      "ttft_ms": 302,
+      "total_ms": 377,
       "error": null
     },
     {
@@ -86,11 +86,11 @@
       "context_length": 512000,
       "supports_tools": true,
       "expiration_date": "2026-12-31",
-      "days_until_expiry": 57,
+      "days_until_expiry": 56,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 494,
-      "total_ms": 1002,
+      "ttft_ms": 479,
+      "total_ms": 1053,
       "error": null
     },
     {
@@ -105,7 +105,7 @@
       "status": "429",
       "failure_kind": "transient",
       "ttft_ms": null,
-      "total_ms": 104,
+      "total_ms": 154,
       "error": "Provider returned error"
     },
     {
@@ -120,7 +120,7 @@
       "status": "429",
       "failure_kind": "transient",
       "ttft_ms": null,
-      "total_ms": 106,
+      "total_ms": 140,
       "error": "Provider returned error"
     },
     {
@@ -134,8 +134,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 470,
-      "total_ms": 637,
+      "ttft_ms": 274,
+      "total_ms": 385,
       "error": null
     },
     {
@@ -150,7 +150,7 @@
       "status": "429",
       "failure_kind": "transient",
       "ttft_ms": null,
-      "total_ms": 467,
+      "total_ms": 2442,
       "error": "Provider returned error"
     },
     {
@@ -164,8 +164,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 250,
-      "total_ms": 365,
+      "ttft_ms": 170,
+      "total_ms": 298,
       "error": null
     },
     {
@@ -179,8 +179,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 553,
-      "total_ms": 997,
+      "ttft_ms": 96,
+      "total_ms": 184,
       "error": null
     },
     {
@@ -192,41 +192,11 @@
       "supports_tools": true,
       "expiration_date": null,
       "days_until_expiry": null,
-      "status": "ok",
-      "failure_kind": null,
-      "ttft_ms": 155,
-      "total_ms": 182,
-      "error": null
-    },
-    {
-      "key": "openrouter|thinkingmachines/inkling-small:free",
-      "provider": "openrouter",
-      "id": "thinkingmachines/inkling-small:free",
-      "name": "Thinking Machines: Inkling Small (free)",
-      "context_length": 1048576,
-      "supports_tools": true,
-      "expiration_date": "2026-11-04",
-      "days_until_expiry": 0,
-      "status": "403",
-      "failure_kind": "model",
+      "status": "429",
+      "failure_kind": "transient",
       "ttft_ms": null,
-      "total_ms": 60,
-      "error": "thinkingmachines/inkling-small:free is only available on agentic harnesses. Try plugging it into a coding agent or productivity app listed on https://openrouter.ai/apps"
-    },
-    {
-      "key": "openrouter|thinkingmachines/inkling:free",
-      "provider": "openrouter",
-      "id": "thinkingmachines/inkling:free",
-      "name": "Thinking Machines: Inkling (free)",
-      "context_length": 1048576,
-      "supports_tools": true,
-      "expiration_date": "2026-11-04",
-      "days_until_expiry": 0,
-      "status": "403",
-      "failure_kind": "model",
-      "ttft_ms": null,
-      "total_ms": 38,
-      "error": "thinkingmachines/inkling:free is only available on agentic harnesses. Try plugging it into a coding agent or productivity app listed on https://openrouter.ai/apps"
+      "total_ms": 40,
+      "error": "Provider returned error"
     },
     {
       "key": "groq|openai/gpt-oss-120b",
@@ -239,8 +209,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 269,
-      "total_ms": 296,
+      "ttft_ms": 130,
+      "total_ms": 155,
       "error": null
     },
     {
@@ -254,8 +224,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 199,
-      "total_ms": 213,
+      "ttft_ms": 328,
+      "total_ms": 340,
       "error": null
     },
     {
@@ -269,8 +239,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 107,
-      "total_ms": 108,
+      "ttft_ms": 172,
+      "total_ms": 174,
       "error": null
     },
     {
@@ -284,39 +254,26 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 331,
-      "total_ms": 340,
+      "ttft_ms": 237,
+      "total_ms": 247,
       "error": null
     }
   ],
   "diff": {
-    "previous_date": "2026-11-03",
+    "previous_date": "2026-11-04",
     "added": [],
-    "removed": [],
+    "removed": [
+      "openrouter|thinkingmachines/inkling-small:free",
+      "openrouter|thinkingmachines/inkling:free"
+    ],
     "status_changed": [
       {
-        "key": "groq|qwen/qwen3.8-27b",
-        "from": "timeout",
-        "to": "ok"
-      },
-      {
-        "key": "openrouter|recursive/flint-v1.0:free",
-        "from": "503",
-        "to": "ok"
+        "key": "openrouter|liquid/lfm-2.5-2.6b:free",
+        "from": "ok",
+        "to": "429"
       }
     ],
     "expiring_within_days": 14,
-    "expiring_soon": [
-      {
-        "key": "openrouter|thinkingmachines/inkling-small:free",
-        "expiration_date": "2026-11-04",
-        "days_until_expiry": 0
-      },
-      {
-        "key": "openrouter|thinkingmachines/inkling:free",
-        "expiration_date": "2026-11-04",
-        "days_until_expiry": 0
-      }
-    ]
+    "expiring_soon": []
   }
 }
