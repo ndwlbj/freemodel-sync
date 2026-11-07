@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "date": "2026-11-06",
-  "generated_at": "2026-11-06T07:55:04Z",
+  "date": "2026-11-07",
+  "generated_at": "2026-11-07T07:08:10Z",
   "tool_version": "0.4.0",
   "mode": "probe",
   "max_probes": 15,
@@ -9,15 +9,15 @@
   "providers": {
     "openrouter": {
       "status": "ok",
-      "discovered": 11,
-      "probes_sent": 11,
+      "discovered": 12,
+      "probes_sent": 12,
       "quota": {
         "daily_free_limit": 50,
         "daily_free_used": 0,
         "daily_free_remaining": 50,
         "read": "before probing",
         "note": "read once before probing, so this run's probes are not included; the provider's counter can also lag behind recent requests",
-        "remaining_estimate": 39
+        "remaining_estimate": 38
       }
     },
     "groq": {
@@ -27,8 +27,8 @@
     }
   },
   "summary": {
-    "models": 15,
-    "ok": 12,
+    "models": 16,
+    "ok": 13,
     "failed": 3,
     "not_probed": 0
   },
@@ -44,8 +44,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 489,
-      "total_ms": 583,
+      "ttft_ms": 385,
+      "total_ms": 509,
       "error": null
     },
     {
@@ -59,8 +59,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 139,
-      "total_ms": 477,
+      "ttft_ms": 95,
+      "total_ms": 216,
       "error": null
     },
     {
@@ -74,8 +74,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 398,
-      "total_ms": 517,
+      "ttft_ms": 2992,
+      "total_ms": 3362,
       "error": null
     },
     {
@@ -86,11 +86,11 @@
       "context_length": 512000,
       "supports_tools": true,
       "expiration_date": "2026-12-31",
-      "days_until_expiry": 55,
+      "days_until_expiry": 54,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 1071,
-      "total_ms": 1768,
+      "ttft_ms": 480,
+      "total_ms": 933,
       "error": null
     },
     {
@@ -105,7 +105,7 @@
       "status": "429",
       "failure_kind": "transient",
       "ttft_ms": null,
-      "total_ms": 106,
+      "total_ms": 157,
       "error": "Provider returned error"
     },
     {
@@ -120,8 +120,23 @@
       "status": "429",
       "failure_kind": "transient",
       "ttft_ms": null,
-      "total_ms": 117,
+      "total_ms": 148,
       "error": "Provider returned error"
+    },
+    {
+      "key": "openrouter|liquid/lfm-3-1.7b:free",
+      "provider": "openrouter",
+      "id": "liquid/lfm-3-1.7b:free",
+      "name": "LiquidAI: LFM3-1.7B (free)",
+      "context_length": 262144,
+      "supports_tools": true,
+      "expiration_date": null,
+      "days_until_expiry": null,
+      "status": "ok",
+      "failure_kind": null,
+      "ttft_ms": 120,
+      "total_ms": 183,
+      "error": null
     },
     {
       "key": "openrouter|recursive/flint-v1.0:free",
@@ -134,8 +149,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 707,
-      "total_ms": 829,
+      "ttft_ms": 420,
+      "total_ms": 530,
       "error": null
     },
     {
@@ -147,11 +162,11 @@
       "supports_tools": true,
       "expiration_date": null,
       "days_until_expiry": null,
-      "status": "ok",
-      "failure_kind": null,
-      "ttft_ms": 570,
-      "total_ms": 1027,
-      "error": null
+      "status": "429",
+      "failure_kind": "transient",
+      "ttft_ms": null,
+      "total_ms": 668,
+      "error": "Provider returned error"
     },
     {
       "key": "openrouter|cohere/north-mini-code:free",
@@ -164,8 +179,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 197,
-      "total_ms": 286,
+      "ttft_ms": 143,
+      "total_ms": 237,
       "error": null
     },
     {
@@ -179,8 +194,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 146,
-      "total_ms": 274,
+      "ttft_ms": 91,
+      "total_ms": 191,
       "error": null
     },
     {
@@ -190,13 +205,13 @@
       "name": "LiquidAI: LFM2.5-2.6B (free)",
       "context_length": 65536,
       "supports_tools": true,
-      "expiration_date": null,
-      "days_until_expiry": null,
-      "status": "429",
-      "failure_kind": "transient",
-      "ttft_ms": null,
-      "total_ms": 158,
-      "error": "Provider returned error"
+      "expiration_date": "2026-11-13",
+      "days_until_expiry": 6,
+      "status": "ok",
+      "failure_kind": null,
+      "ttft_ms": 115,
+      "total_ms": 132,
+      "error": null
     },
     {
       "key": "groq|openai/gpt-oss-120b",
@@ -209,8 +224,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 235,
-      "total_ms": 261,
+      "ttft_ms": 460,
+      "total_ms": 485,
       "error": null
     },
     {
@@ -224,8 +239,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 227,
-      "total_ms": 241,
+      "ttft_ms": 129,
+      "total_ms": 143,
       "error": null
     },
     {
@@ -239,8 +254,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 188,
-      "total_ms": 192,
+      "ttft_ms": 136,
+      "total_ms": 138,
       "error": null
     },
     {
@@ -254,23 +269,36 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 248,
-      "total_ms": 258,
+      "ttft_ms": 238,
+      "total_ms": 248,
       "error": null
     }
   ],
   "diff": {
-    "previous_date": "2026-11-05",
-    "added": [],
+    "previous_date": "2026-11-06",
+    "added": [
+      "openrouter|liquid/lfm-3-1.7b:free"
+    ],
     "removed": [],
     "status_changed": [
       {
-        "key": "openrouter|xingchen-agi/xing4.0-29b-a4b:free",
+        "key": "openrouter|liquid/lfm-2.5-2.6b:free",
         "from": "429",
         "to": "ok"
+      },
+      {
+        "key": "openrouter|xingchen-agi/xing4.0-29b-a4b:free",
+        "from": "ok",
+        "to": "429"
       }
     ],
     "expiring_within_days": 14,
-    "expiring_soon": []
+    "expiring_soon": [
+      {
+        "key": "openrouter|liquid/lfm-2.5-2.6b:free",
+        "expiration_date": "2026-11-13",
+        "days_until_expiry": 6
+      }
+    ]
   }
 }
