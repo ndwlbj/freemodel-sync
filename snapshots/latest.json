@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "date": "2026-11-07",
-  "generated_at": "2026-11-07T07:08:10Z",
+  "date": "2026-11-08",
+  "generated_at": "2026-11-08T07:17:24Z",
   "tool_version": "0.4.0",
   "mode": "probe",
   "max_probes": 15,
@@ -28,8 +28,8 @@
   },
   "summary": {
     "models": 16,
-    "ok": 13,
-    "failed": 3,
+    "ok": 14,
+    "failed": 2,
     "not_probed": 0
   },
   "models": [
@@ -44,8 +44,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 385,
-      "total_ms": 509,
+      "ttft_ms": 425,
+      "total_ms": 543,
       "error": null
     },
     {
@@ -59,8 +59,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 95,
-      "total_ms": 216,
+      "ttft_ms": 126,
+      "total_ms": 236,
       "error": null
     },
     {
@@ -74,8 +74,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 2992,
-      "total_ms": 3362,
+      "ttft_ms": 325,
+      "total_ms": 443,
       "error": null
     },
     {
@@ -86,11 +86,11 @@
       "context_length": 512000,
       "supports_tools": true,
       "expiration_date": "2026-12-31",
-      "days_until_expiry": 54,
+      "days_until_expiry": 53,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 480,
-      "total_ms": 933,
+      "ttft_ms": 839,
+      "total_ms": 1262,
       "error": null
     },
     {
@@ -105,7 +105,7 @@
       "status": "429",
       "failure_kind": "transient",
       "ttft_ms": null,
-      "total_ms": 157,
+      "total_ms": 277,
       "error": "Provider returned error"
     },
     {
@@ -120,7 +120,7 @@
       "status": "429",
       "failure_kind": "transient",
       "ttft_ms": null,
-      "total_ms": 148,
+      "total_ms": 89,
       "error": "Provider returned error"
     },
     {
@@ -134,8 +134,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 120,
-      "total_ms": 183,
+      "ttft_ms": 245,
+      "total_ms": 351,
       "error": null
     },
     {
@@ -149,8 +149,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 420,
-      "total_ms": 530,
+      "ttft_ms": 1275,
+      "total_ms": 1454,
       "error": null
     },
     {
@@ -162,11 +162,11 @@
       "supports_tools": true,
       "expiration_date": null,
       "days_until_expiry": null,
-      "status": "429",
-      "failure_kind": "transient",
-      "ttft_ms": null,
-      "total_ms": 668,
-      "error": "Provider returned error"
+      "status": "ok",
+      "failure_kind": null,
+      "ttft_ms": 3746,
+      "total_ms": 4207,
+      "error": null
     },
     {
       "key": "openrouter|cohere/north-mini-code:free",
@@ -179,8 +179,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 143,
-      "total_ms": 237,
+      "ttft_ms": 301,
+      "total_ms": 368,
       "error": null
     },
     {
@@ -194,8 +194,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 91,
-      "total_ms": 191,
+      "ttft_ms": 195,
+      "total_ms": 280,
       "error": null
     },
     {
@@ -206,11 +206,11 @@
       "context_length": 65536,
       "supports_tools": true,
       "expiration_date": "2026-11-13",
-      "days_until_expiry": 6,
+      "days_until_expiry": 5,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 115,
-      "total_ms": 132,
+      "ttft_ms": 147,
+      "total_ms": 185,
       "error": null
     },
     {
@@ -224,8 +224,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 460,
-      "total_ms": 485,
+      "ttft_ms": 206,
+      "total_ms": 371,
       "error": null
     },
     {
@@ -239,8 +239,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 129,
-      "total_ms": 143,
+      "ttft_ms": 517,
+      "total_ms": 518,
       "error": null
     },
     {
@@ -254,8 +254,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 136,
-      "total_ms": 138,
+      "ttft_ms": 684,
+      "total_ms": 686,
       "error": null
     },
     {
@@ -269,27 +269,20 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 238,
-      "total_ms": 248,
+      "ttft_ms": 457,
+      "total_ms": 458,
       "error": null
     }
   ],
   "diff": {
-    "previous_date": "2026-11-06",
-    "added": [
-      "openrouter|liquid/lfm-3-1.7b:free"
-    ],
+    "previous_date": "2026-11-07",
+    "added": [],
     "removed": [],
     "status_changed": [
       {
-        "key": "openrouter|liquid/lfm-2.5-2.6b:free",
+        "key": "openrouter|xingchen-agi/xing4.0-29b-a4b:free",
         "from": "429",
         "to": "ok"
-      },
-      {
-        "key": "openrouter|xingchen-agi/xing4.0-29b-a4b:free",
-        "from": "ok",
-        "to": "429"
       }
     ],
     "expiring_within_days": 14,
@@ -297,7 +290,7 @@
       {
         "key": "openrouter|liquid/lfm-2.5-2.6b:free",
         "expiration_date": "2026-11-13",
-        "days_until_expiry": 6
+        "days_until_expiry": 5
       }
     ]
   }
