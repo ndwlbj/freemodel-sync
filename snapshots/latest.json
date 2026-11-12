@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "date": "2026-11-11",
-  "generated_at": "2026-11-11T07:44:27Z",
+  "date": "2026-11-12",
+  "generated_at": "2026-11-12T08:18:55Z",
   "tool_version": "0.4.0",
   "mode": "probe",
   "max_probes": 15,
@@ -44,8 +44,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 1023,
-      "total_ms": 1086,
+      "ttft_ms": 753,
+      "total_ms": 762,
       "error": null
     },
     {
@@ -59,8 +59,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 957,
-      "total_ms": 1159,
+      "ttft_ms": 640,
+      "total_ms": 700,
       "error": null
     },
     {
@@ -74,8 +74,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 215,
-      "total_ms": 304,
+      "ttft_ms": 275,
+      "total_ms": 678,
       "error": null
     },
     {
@@ -89,8 +89,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 301,
-      "total_ms": 380,
+      "ttft_ms": 377,
+      "total_ms": 418,
       "error": null
     },
     {
@@ -105,7 +105,7 @@
       "status": "403",
       "failure_kind": "model",
       "ttft_ms": null,
-      "total_ms": 21,
+      "total_ms": 28,
       "error": "thinkingmachines/inkling-2-small:free is only available on agentic harnesses. Try plugging it into a coding agent or productivity app listed on https://openrouter.ai/apps"
     },
     {
@@ -116,11 +116,11 @@
       "context_length": 512000,
       "supports_tools": true,
       "expiration_date": "2026-12-31",
-      "days_until_expiry": 50,
+      "days_until_expiry": 49,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 421,
-      "total_ms": 950,
+      "ttft_ms": 441,
+      "total_ms": 972,
       "error": null
     },
     {
@@ -135,7 +135,7 @@
       "status": "429",
       "failure_kind": "transient",
       "ttft_ms": null,
-      "total_ms": 64,
+      "total_ms": 102,
       "error": "Provider returned error"
     },
     {
@@ -150,7 +150,7 @@
       "status": "429",
       "failure_kind": "transient",
       "ttft_ms": null,
-      "total_ms": 92,
+      "total_ms": 141,
       "error": "Provider returned error"
     },
     {
@@ -164,8 +164,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 2609,
-      "total_ms": 2792,
+      "ttft_ms": 229,
+      "total_ms": 299,
       "error": null
     },
     {
@@ -179,8 +179,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 424,
-      "total_ms": 526,
+      "ttft_ms": 1082,
+      "total_ms": 1286,
       "error": null
     },
     {
@@ -194,8 +194,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 154,
-      "total_ms": 234,
+      "ttft_ms": 160,
+      "total_ms": 238,
       "error": null
     },
     {
@@ -209,8 +209,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 127,
-      "total_ms": 262,
+      "ttft_ms": 258,
+      "total_ms": 377,
       "error": null
     },
     {
@@ -221,11 +221,11 @@
       "context_length": 65536,
       "supports_tools": true,
       "expiration_date": "2026-11-13",
-      "days_until_expiry": 2,
+      "days_until_expiry": 1,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 633,
-      "total_ms": 711,
+      "ttft_ms": 144,
+      "total_ms": 184,
       "error": null
     },
     {
@@ -239,8 +239,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 113,
-      "total_ms": 138,
+      "ttft_ms": 151,
+      "total_ms": 178,
       "error": null
     },
     {
@@ -254,8 +254,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 200,
-      "total_ms": 214,
+      "ttft_ms": 605,
+      "total_ms": 620,
       "error": null
     },
     {
@@ -269,8 +269,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 505,
-      "total_ms": 507,
+      "ttft_ms": 398,
+      "total_ms": 405,
       "error": null
     },
     {
@@ -284,26 +284,22 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 223,
-      "total_ms": 232,
+      "ttft_ms": 279,
+      "total_ms": 290,
       "error": null
     }
   ],
   "diff": {
-    "previous_date": "2026-11-10",
-    "added": [
-      "openrouter|baidu/ernie-5.5-flash-preview:free"
-    ],
-    "removed": [
-      "openrouter|xingchen-agi/xing4.0-29b-a4b:free"
-    ],
+    "previous_date": "2026-11-11",
+    "added": [],
+    "removed": [],
     "status_changed": [],
     "expiring_within_days": 14,
     "expiring_soon": [
       {
         "key": "openrouter|liquid/lfm-2.5-2.6b:free",
         "expiration_date": "2026-11-13",
-        "days_until_expiry": 2
+        "days_until_expiry": 1
       }
     ]
   }

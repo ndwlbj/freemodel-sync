@@ -1,6 +1,6 @@
-# Free-model snapshot 2026-11-11
+# Free-model snapshot 2026-11-12
 
-Automated daily health check by [freemodel-sync](https://github.com/ndwlbj/freemodel-sync) 0.4.0, generated 2026-11-11T07:44:27Z. Results are informational only: one tiny request per model from GitHub Actions, so availability and latency can differ for you.
+Automated daily health check by [freemodel-sync](https://github.com/ndwlbj/freemodel-sync) 0.4.0, generated 2026-11-12T08:18:55Z. Results are informational only: one tiny request per model from GitHub Actions, so availability and latency can differ for you.
 
 ## Providers
 
@@ -15,34 +15,34 @@ Automated daily health check by [freemodel-sync](https://github.com/ndwlbj/freem
 
 | Provider | Model | Status | TTFT ms | Total ms | Context | Tools | Expires |
 |---|---|---|---|---|---|---|---|
-| groq | `openai/gpt-oss-120b` | ok | 113 | 138 | 131072 | no | - |
-| openrouter | `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free` | ok | 127 | 262 | 256000 | yes | - |
-| openrouter | `cohere/north-mini-code:free` | ok | 154 | 234 | 256000 | yes | - |
-| groq | `openai/gpt-oss-20b` | ok | 200 | 214 | 131072 | no | - |
-| openrouter | `nvidia/nemotron-3.5-lightning:free` | ok | 215 | 304 | 1000000 | yes | - |
-| groq | `allam-2-7b` | ok | 223 | 232 | 4096 | no | - |
-| openrouter | `nvidia/nemotron-3.5-super-vl:free` | ok | 301 | 380 | 1000000 | yes | - |
-| openrouter | `dots-studio/dots-3-note-preview:free` | ok | 421 | 950 | 512000 | yes | 2026-12-31 |
-| openrouter | `recursive/flint-v1.0:free` | ok | 424 | 526 | 262144 | yes | - |
-| groq | `qwen/qwen3.8-27b` | ok | 505 | 507 | 131072 | no | - |
-| openrouter | `liquid/lfm-2.5-2.6b:free` | ok | 633 | 711 | 65536 | yes | 2026-11-13 |
-| openrouter | `nvidia/nemotron-3-ultra-550b-a55b:free` | ok | 957 | 1159 | 1000000 | yes | - |
-| openrouter | `baidu/ernie-5.5-flash-preview:free` | ok | 1023 | 1086 | 1024000 | yes | - |
-| openrouter | `liquid/lfm-3-1.7b:free` | ok | 2609 | 2792 | 262144 | yes | - |
-| openrouter | `google/gemma-4-26b-a4b-it:free` | 429 | - | 64 | 262144 | yes | - |
-| openrouter | `google/gemma-4-31b-it:free` | 429 | - | 92 | 262144 | yes | - |
-| openrouter | `thinkingmachines/inkling-2-small:free` | 403 | - | 21 | 1048576 | yes | - |
+| openrouter | `liquid/lfm-2.5-2.6b:free` | ok | 144 | 184 | 65536 | yes | 2026-11-13 |
+| groq | `openai/gpt-oss-120b` | ok | 151 | 178 | 131072 | no | - |
+| openrouter | `cohere/north-mini-code:free` | ok | 160 | 238 | 256000 | yes | - |
+| openrouter | `liquid/lfm-3-1.7b:free` | ok | 229 | 299 | 262144 | yes | - |
+| openrouter | `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free` | ok | 258 | 377 | 256000 | yes | - |
+| openrouter | `nvidia/nemotron-3.5-lightning:free` | ok | 275 | 678 | 1000000 | yes | - |
+| groq | `allam-2-7b` | ok | 279 | 290 | 4096 | no | - |
+| openrouter | `nvidia/nemotron-3.5-super-vl:free` | ok | 377 | 418 | 1000000 | yes | - |
+| groq | `qwen/qwen3.8-27b` | ok | 398 | 405 | 131072 | no | - |
+| openrouter | `dots-studio/dots-3-note-preview:free` | ok | 441 | 972 | 512000 | yes | 2026-12-31 |
+| groq | `openai/gpt-oss-20b` | ok | 605 | 620 | 131072 | no | - |
+| openrouter | `nvidia/nemotron-3-ultra-550b-a55b:free` | ok | 640 | 700 | 1000000 | yes | - |
+| openrouter | `baidu/ernie-5.5-flash-preview:free` | ok | 753 | 762 | 1024000 | yes | - |
+| openrouter | `recursive/flint-v1.0:free` | ok | 1082 | 1286 | 262144 | yes | - |
+| openrouter | `google/gemma-4-26b-a4b-it:free` | 429 | - | 102 | 262144 | yes | - |
+| openrouter | `google/gemma-4-31b-it:free` | 429 | - | 141 | 262144 | yes | - |
+| openrouter | `thinkingmachines/inkling-2-small:free` | 403 | - | 28 | 1048576 | yes | - |
 
 ## Changes
 
-Compared with 2026-11-10:
+Compared with 2026-11-11:
 
-- Added: `openrouter|baidu/ernie-5.5-flash-preview:free`
-- Removed: `openrouter|xingchen-agi/xing4.0-29b-a4b:free`
+- Added: none
+- Removed: none
 - Status changed: none
 
 ### Expiring within 14 days
 
-- `openrouter|liquid/lfm-2.5-2.6b:free`: 2026-11-13 (2 days)
+- `openrouter|liquid/lfm-2.5-2.6b:free`: 2026-11-13 (1 days)
 
 Expiry dates come from OpenRouter's `expiration_date` field. Groq publishes no expiry dates, so Groq models never appear here.
