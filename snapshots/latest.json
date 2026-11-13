@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "date": "2026-11-12",
-  "generated_at": "2026-11-12T08:18:55Z",
+  "date": "2026-11-13",
+  "generated_at": "2026-11-13T07:55:33Z",
   "tool_version": "0.4.0",
   "mode": "probe",
   "max_probes": 15,
@@ -9,15 +9,15 @@
   "providers": {
     "openrouter": {
       "status": "ok",
-      "discovered": 13,
-      "probes_sent": 13,
+      "discovered": 15,
+      "probes_sent": 15,
       "quota": {
         "daily_free_limit": 50,
         "daily_free_used": 0,
         "daily_free_remaining": 50,
         "read": "before probing",
         "note": "read once before probing, so this run's probes are not included; the provider's counter can also lag behind recent requests",
-        "remaining_estimate": 37
+        "remaining_estimate": 35
       }
     },
     "groq": {
@@ -27,8 +27,8 @@
     }
   },
   "summary": {
-    "models": 17,
-    "ok": 14,
+    "models": 19,
+    "ok": 16,
     "failed": 3,
     "not_probed": 0
   },
@@ -44,8 +44,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 753,
-      "total_ms": 762,
+      "ttft_ms": 1355,
+      "total_ms": 1362,
       "error": null
     },
     {
@@ -59,8 +59,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 640,
-      "total_ms": 700,
+      "ttft_ms": 492,
+      "total_ms": 580,
       "error": null
     },
     {
@@ -74,8 +74,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 275,
-      "total_ms": 678,
+      "ttft_ms": 131,
+      "total_ms": 229,
       "error": null
     },
     {
@@ -89,8 +89,23 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 377,
-      "total_ms": 418,
+      "ttft_ms": 293,
+      "total_ms": 362,
+      "error": null
+    },
+    {
+      "key": "openrouter|particle-ai/particle-1:free",
+      "provider": "openrouter",
+      "id": "particle-ai/particle-1:free",
+      "name": "Particle AI: Particle-1 (free)",
+      "context_length": 1048576,
+      "supports_tools": true,
+      "expiration_date": null,
+      "days_until_expiry": null,
+      "status": "ok",
+      "failure_kind": null,
+      "ttft_ms": 475,
+      "total_ms": 532,
       "error": null
     },
     {
@@ -105,7 +120,7 @@
       "status": "403",
       "failure_kind": "model",
       "ttft_ms": null,
-      "total_ms": 28,
+      "total_ms": 22,
       "error": "thinkingmachines/inkling-2-small:free is only available on agentic harnesses. Try plugging it into a coding agent or productivity app listed on https://openrouter.ai/apps"
     },
     {
@@ -116,11 +131,26 @@
       "context_length": 512000,
       "supports_tools": true,
       "expiration_date": "2026-12-31",
-      "days_until_expiry": 49,
+      "days_until_expiry": 48,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 441,
-      "total_ms": 972,
+      "ttft_ms": 486,
+      "total_ms": 1154,
+      "error": null
+    },
+    {
+      "key": "openrouter|apodex/apodex-1.1-mini:free",
+      "provider": "openrouter",
+      "id": "apodex/apodex-1.1-mini:free",
+      "name": "Apodex: Apodex 1.1 Mini (free)",
+      "context_length": 262144,
+      "supports_tools": true,
+      "expiration_date": null,
+      "days_until_expiry": null,
+      "status": "ok",
+      "failure_kind": null,
+      "ttft_ms": 517,
+      "total_ms": 589,
       "error": null
     },
     {
@@ -135,7 +165,7 @@
       "status": "429",
       "failure_kind": "transient",
       "ttft_ms": null,
-      "total_ms": 102,
+      "total_ms": 154,
       "error": "Provider returned error"
     },
     {
@@ -150,7 +180,7 @@
       "status": "429",
       "failure_kind": "transient",
       "ttft_ms": null,
-      "total_ms": 141,
+      "total_ms": 173,
       "error": "Provider returned error"
     },
     {
@@ -164,8 +194,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 229,
-      "total_ms": 299,
+      "ttft_ms": 151,
+      "total_ms": 217,
       "error": null
     },
     {
@@ -179,8 +209,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 1082,
-      "total_ms": 1286,
+      "ttft_ms": 1322,
+      "total_ms": 1538,
       "error": null
     },
     {
@@ -194,8 +224,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 160,
-      "total_ms": 238,
+      "ttft_ms": 147,
+      "total_ms": 203,
       "error": null
     },
     {
@@ -209,8 +239,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 258,
-      "total_ms": 377,
+      "ttft_ms": 30574,
+      "total_ms": 31050,
       "error": null
     },
     {
@@ -221,11 +251,11 @@
       "context_length": 65536,
       "supports_tools": true,
       "expiration_date": "2026-11-13",
-      "days_until_expiry": 1,
+      "days_until_expiry": 0,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 144,
-      "total_ms": 184,
+      "ttft_ms": 712,
+      "total_ms": 774,
       "error": null
     },
     {
@@ -239,8 +269,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 151,
-      "total_ms": 178,
+      "ttft_ms": 297,
+      "total_ms": 323,
       "error": null
     },
     {
@@ -254,8 +284,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 605,
-      "total_ms": 620,
+      "ttft_ms": 143,
+      "total_ms": 157,
       "error": null
     },
     {
@@ -269,8 +299,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 398,
-      "total_ms": 405,
+      "ttft_ms": 55,
+      "total_ms": 60,
       "error": null
     },
     {
@@ -284,14 +314,17 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 279,
-      "total_ms": 290,
+      "ttft_ms": 242,
+      "total_ms": 253,
       "error": null
     }
   ],
   "diff": {
-    "previous_date": "2026-11-11",
-    "added": [],
+    "previous_date": "2026-11-12",
+    "added": [
+      "openrouter|apodex/apodex-1.1-mini:free",
+      "openrouter|particle-ai/particle-1:free"
+    ],
     "removed": [],
     "status_changed": [],
     "expiring_within_days": 14,
@@ -299,7 +332,7 @@
       {
         "key": "openrouter|liquid/lfm-2.5-2.6b:free",
         "expiration_date": "2026-11-13",
-        "days_until_expiry": 1
+        "days_until_expiry": 0
       }
     ]
   }
