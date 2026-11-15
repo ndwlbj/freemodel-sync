@@ -1,6 +1,6 @@
-# Free-model snapshot 2026-11-14
+# Free-model snapshot 2026-11-15
 
-Automated daily health check by [freemodel-sync](https://github.com/ndwlbj/freemodel-sync) 0.4.0, generated 2026-11-14T07:36:08Z. Results are informational only: one tiny request per model from GitHub Actions, so availability and latency can differ for you.
+Automated daily health check by [freemodel-sync](https://github.com/ndwlbj/freemodel-sync) 0.4.0, generated 2026-11-15T07:49:59Z. Results are informational only: one tiny request per model from GitHub Actions, so availability and latency can differ for you.
 
 ## Providers
 
@@ -15,32 +15,32 @@ Automated daily health check by [freemodel-sync](https://github.com/ndwlbj/freem
 
 | Provider | Model | Status | TTFT ms | Total ms | Context | Tools | Expires |
 |---|---|---|---|---|---|---|---|
-| groq | `qwen/qwen3.8-27b` | ok | 47 | 49 | 131072 | no | - |
-| groq | `openai/gpt-oss-20b` | ok | 152 | 165 | 131072 | no | - |
-| openrouter | `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free` | ok | 200 | 332 | 256000 | yes | - |
-| groq | `openai/gpt-oss-120b` | ok | 209 | 236 | 131072 | no | - |
-| openrouter | `nvidia/nemotron-3.5-lightning:free` | ok | 224 | 333 | 1000000 | yes | - |
-| groq | `allam-2-7b` | ok | 242 | 252 | 4096 | no | - |
-| openrouter | `nvidia/nemotron-3.5-super-vl:free` | ok | 244 | 337 | 1000000 | yes | - |
-| openrouter | `cohere/north-mini-code:free` | ok | 273 | 371 | 256000 | yes | - |
-| openrouter | `liquid/lfm-3-1.7b:free` | ok | 302 | 377 | 262144 | yes | - |
-| openrouter | `nvidia/nemotron-3-ultra-550b-a55b:free` | ok | 566 | 711 | 1000000 | yes | - |
-| openrouter | `dots-studio/dots-3-note-preview:free` | ok | 788 | 1632 | 512000 | yes | 2026-12-31 |
-| openrouter | `particle-ai/particle-1:free` | ok | 877 | 1457 | 1048576 | yes | - |
-| openrouter | `baidu/ernie-5.5-flash-preview:free` | ok | 938 | 947 | 1024000 | yes | - |
-| openrouter | `inclusionai/ling-3.2-flash:free` | ok | 993 | 1627 | 1048576 | yes | - |
-| openrouter | `google/gemma-4-26b-a4b-it:free` | 429 | - | 136 | 262144 | yes | - |
-| openrouter | `google/gemma-4-31b-it:free` | 429 | - | 141 | 262144 | yes | - |
-| openrouter | `recursive/flint-v1.0:free` | error | - | 60413 | 262144 | yes | - |
-| openrouter | `thinkingmachines/inkling-2-small:free` | 403 | - | 33 | 1048576 | yes | - |
+| openrouter | `cohere/north-mini-code:free` | ok | 135 | 210 | 256000 | yes | - |
+| groq | `openai/gpt-oss-120b` | ok | 161 | 187 | 131072 | no | - |
+| openrouter | `nvidia/nemotron-3.5-lightning:free` | ok | 190 | 256 | 1000000 | yes | - |
+| groq | `allam-2-7b` | ok | 266 | 276 | 4096 | no | - |
+| openrouter | `nvidia/nemotron-3.5-super-vl:free` | ok | 314 | 436 | 1000000 | yes | - |
+| groq | `openai/gpt-oss-20b` | ok | 316 | 329 | 131072 | no | - |
+| openrouter | `dots-studio/dots-3-note-preview:free` | ok | 494 | 973 | 512000 | yes | 2026-12-31 |
+| openrouter | `particle-ai/particle-1:free` | ok | 584 | 593 | 1048576 | yes | - |
+| openrouter | `recursive/flint-v1.0:free` | ok | 654 | 756 | 262144 | yes | - |
+| groq | `qwen/qwen3.8-27b` | ok | 662 | 668 | 131072 | no | - |
+| openrouter | `nvidia/nemotron-3-ultra-550b-a55b:free` | ok | 707 | 1123 | 1000000 | yes | - |
+| openrouter | `inclusionai/ling-3.2-flash:free` | ok | 899 | 1481 | 1048576 | yes | - |
+| openrouter | `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free` | ok | 2012 | 2347 | 256000 | yes | - |
+| openrouter | `baidu/ernie-5.5-flash-preview:free` | ok | 2146 | 2377 | 1024000 | yes | - |
+| openrouter | `google/gemma-4-26b-a4b-it:free` | 429 | - | 87 | 262144 | yes | - |
+| openrouter | `google/gemma-4-31b-it:free` | 429 | - | 125 | 262144 | yes | - |
+| openrouter | `liquid/lfm-3-1.7b:free` | 429 | - | 82 | 262144 | yes | - |
+| openrouter | `thinkingmachines/inkling-2-small:free` | 403 | - | 31 | 1048576 | yes | - |
 
 ## Changes
 
-Compared with 2026-11-13:
+Compared with 2026-11-14:
 
-- Added: `openrouter|inclusionai/ling-3.2-flash:free`
-- Removed: `openrouter|apodex/apodex-1.1-mini:free`, `openrouter|liquid/lfm-2.5-2.6b:free`
-- Status changed: `openrouter|recursive/flint-v1.0:free` ok -> error
+- Added: none
+- Removed: none
+- Status changed: `openrouter|liquid/lfm-3-1.7b:free` ok -> 429, `openrouter|recursive/flint-v1.0:free` error -> ok
 
 ### Expiring within 14 days
 
