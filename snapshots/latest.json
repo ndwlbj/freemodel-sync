@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "date": "2026-11-16",
-  "generated_at": "2026-11-16T07:58:09Z",
+  "date": "2026-11-17",
+  "generated_at": "2026-11-17T09:12:16Z",
   "tool_version": "0.4.0",
   "mode": "probe",
   "max_probes": 15,
@@ -28,8 +28,8 @@
   },
   "summary": {
     "models": 18,
-    "ok": 14,
-    "failed": 4,
+    "ok": 16,
+    "failed": 2,
     "not_probed": 0
   },
   "models": [
@@ -44,8 +44,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 1424,
-      "total_ms": 1522,
+      "ttft_ms": 1905,
+      "total_ms": 1923,
       "error": null
     },
     {
@@ -57,11 +57,11 @@
       "supports_tools": true,
       "expiration_date": null,
       "days_until_expiry": null,
-      "status": "429",
-      "failure_kind": "transient",
-      "ttft_ms": null,
-      "total_ms": 980,
-      "error": "Provider returned error"
+      "status": "ok",
+      "failure_kind": null,
+      "ttft_ms": 1296,
+      "total_ms": 1924,
+      "error": null
     },
     {
       "key": "openrouter|nvidia/nemotron-3-ultra-550b-a55b:free",
@@ -74,8 +74,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 407,
-      "total_ms": 2437,
+      "ttft_ms": 377,
+      "total_ms": 485,
       "error": null
     },
     {
@@ -89,8 +89,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 117,
-      "total_ms": 192,
+      "ttft_ms": 131,
+      "total_ms": 226,
       "error": null
     },
     {
@@ -104,8 +104,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 315,
-      "total_ms": 415,
+      "ttft_ms": 252,
+      "total_ms": 313,
       "error": null
     },
     {
@@ -119,8 +119,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 477,
-      "total_ms": 492,
+      "ttft_ms": 267,
+      "total_ms": 276,
       "error": null
     },
     {
@@ -135,7 +135,7 @@
       "status": "403",
       "failure_kind": "model",
       "ttft_ms": null,
-      "total_ms": 19,
+      "total_ms": 13,
       "error": "thinkingmachines/inkling-2-small:free is only available on agentic harnesses. Try plugging it into a coding agent or productivity app listed on https://openrouter.ai/apps"
     },
     {
@@ -146,11 +146,11 @@
       "context_length": 512000,
       "supports_tools": true,
       "expiration_date": "2026-12-31",
-      "days_until_expiry": 45,
+      "days_until_expiry": 44,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 7019,
-      "total_ms": 7271,
+      "ttft_ms": 803,
+      "total_ms": 1560,
       "error": null
     },
     {
@@ -162,11 +162,11 @@
       "supports_tools": true,
       "expiration_date": null,
       "days_until_expiry": null,
-      "status": "429",
-      "failure_kind": "transient",
-      "ttft_ms": null,
-      "total_ms": 85,
-      "error": "Provider returned error"
+      "status": "ok",
+      "failure_kind": null,
+      "ttft_ms": 362,
+      "total_ms": 373,
+      "error": null
     },
     {
       "key": "openrouter|google/gemma-4-31b-it:free",
@@ -180,7 +180,7 @@
       "status": "429",
       "failure_kind": "transient",
       "ttft_ms": null,
-      "total_ms": 73,
+      "total_ms": 63,
       "error": "Provider returned error"
     },
     {
@@ -194,8 +194,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 193,
-      "total_ms": 298,
+      "ttft_ms": 138,
+      "total_ms": 223,
       "error": null
     },
     {
@@ -209,8 +209,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 708,
-      "total_ms": 822,
+      "ttft_ms": 187,
+      "total_ms": 405,
       "error": null
     },
     {
@@ -224,8 +224,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 446,
-      "total_ms": 520,
+      "ttft_ms": 987,
+      "total_ms": 1036,
       "error": null
     },
     {
@@ -239,8 +239,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 123,
-      "total_ms": 328,
+      "ttft_ms": 99,
+      "total_ms": 239,
       "error": null
     },
     {
@@ -254,8 +254,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 40,
-      "total_ms": 66,
+      "ttft_ms": 273,
+      "total_ms": 300,
       "error": null
     },
     {
@@ -269,8 +269,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 166,
-      "total_ms": 186,
+      "ttft_ms": 339,
+      "total_ms": 339,
       "error": null
     },
     {
@@ -284,8 +284,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 116,
-      "total_ms": 123,
+      "ttft_ms": 109,
+      "total_ms": 117,
       "error": null
     },
     {
@@ -299,23 +299,23 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 216,
-      "total_ms": 224,
+      "ttft_ms": 239,
+      "total_ms": 249,
       "error": null
     }
   ],
   "diff": {
-    "previous_date": "2026-11-15",
+    "previous_date": "2026-11-16",
     "added": [],
     "removed": [],
     "status_changed": [
       {
-        "key": "openrouter|inclusionai/ling-3.2-flash:free",
-        "from": "ok",
-        "to": "429"
+        "key": "openrouter|google/gemma-4-26b-a4b-it:free",
+        "from": "429",
+        "to": "ok"
       },
       {
-        "key": "openrouter|liquid/lfm-3-1.7b:free",
+        "key": "openrouter|inclusionai/ling-3.2-flash:free",
         "from": "429",
         "to": "ok"
       }
