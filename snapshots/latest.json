@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "date": "2026-11-19",
-  "generated_at": "2026-11-19T08:46:19Z",
+  "date": "2026-11-20",
+  "generated_at": "2026-11-20T08:31:59Z",
   "tool_version": "0.4.0",
   "mode": "probe",
   "max_probes": 15,
@@ -9,15 +9,15 @@
   "providers": {
     "openrouter": {
       "status": "ok",
-      "discovered": 14,
-      "probes_sent": 14,
+      "discovered": 12,
+      "probes_sent": 12,
       "quota": {
         "daily_free_limit": 50,
         "daily_free_used": 0,
         "daily_free_remaining": 50,
         "read": "before probing",
         "note": "read once before probing, so this run's probes are not included; the provider's counter can also lag behind recent requests",
-        "remaining_estimate": 36
+        "remaining_estimate": 38
       }
     },
     "groq": {
@@ -27,9 +27,9 @@
     }
   },
   "summary": {
-    "models": 18,
-    "ok": 15,
-    "failed": 3,
+    "models": 16,
+    "ok": 11,
+    "failed": 5,
     "not_probed": 0
   },
   "models": [
@@ -42,11 +42,11 @@
       "supports_tools": true,
       "expiration_date": null,
       "days_until_expiry": null,
-      "status": "ok",
-      "failure_kind": null,
-      "ttft_ms": 1334,
-      "total_ms": 1342,
-      "error": null
+      "status": "429",
+      "failure_kind": "transient",
+      "ttft_ms": null,
+      "total_ms": 402,
+      "error": "Provider returned error"
     },
     {
       "key": "openrouter|inclusionai/ling-3.2-flash:free",
@@ -57,11 +57,11 @@
       "supports_tools": true,
       "expiration_date": null,
       "days_until_expiry": null,
-      "status": "ok",
-      "failure_kind": null,
-      "ttft_ms": 1576,
-      "total_ms": 2040,
-      "error": null
+      "status": "429",
+      "failure_kind": "transient",
+      "ttft_ms": null,
+      "total_ms": 873,
+      "error": "Provider returned error"
     },
     {
       "key": "openrouter|nvidia/nemotron-3-ultra-550b-a55b:free",
@@ -74,8 +74,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 344,
-      "total_ms": 698,
+      "ttft_ms": 435,
+      "total_ms": 1159,
       "error": null
     },
     {
@@ -89,8 +89,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 116,
-      "total_ms": 363,
+      "ttft_ms": 299,
+      "total_ms": 312,
       "error": null
     },
     {
@@ -104,8 +104,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 599,
-      "total_ms": 653,
+      "ttft_ms": 268,
+      "total_ms": 364,
       "error": null
     },
     {
@@ -117,11 +117,11 @@
       "supports_tools": true,
       "expiration_date": null,
       "days_until_expiry": null,
-      "status": "ok",
-      "failure_kind": null,
-      "ttft_ms": 372,
-      "total_ms": 383,
-      "error": null
+      "status": "429",
+      "failure_kind": "transient",
+      "ttft_ms": null,
+      "total_ms": 321,
+      "error": "Provider returned error"
     },
     {
       "key": "openrouter|dots-studio/dots-3-note-preview:free",
@@ -131,11 +131,11 @@
       "context_length": 512000,
       "supports_tools": true,
       "expiration_date": "2026-12-31",
-      "days_until_expiry": 42,
+      "days_until_expiry": 41,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 792,
-      "total_ms": 1740,
+      "ttft_ms": 6553,
+      "total_ms": 7677,
       "error": null
     },
     {
@@ -147,11 +147,11 @@
       "supports_tools": true,
       "expiration_date": null,
       "days_until_expiry": null,
-      "status": "429",
-      "failure_kind": "transient",
-      "ttft_ms": null,
-      "total_ms": 79,
-      "error": "Provider returned error"
+      "status": "ok",
+      "failure_kind": null,
+      "ttft_ms": 597,
+      "total_ms": 603,
+      "error": null
     },
     {
       "key": "openrouter|google/gemma-4-31b-it:free",
@@ -165,7 +165,7 @@
       "status": "429",
       "failure_kind": "transient",
       "ttft_ms": null,
-      "total_ms": 117,
+      "total_ms": 286,
       "error": "Provider returned error"
     },
     {
@@ -177,11 +177,11 @@
       "supports_tools": true,
       "expiration_date": null,
       "days_until_expiry": null,
-      "status": "ok",
-      "failure_kind": null,
-      "ttft_ms": 106,
-      "total_ms": 167,
-      "error": null
+      "status": "error",
+      "failure_kind": "transient",
+      "ttft_ms": null,
+      "total_ms": 24240,
+      "error": "error code: 504\n"
     },
     {
       "key": "openrouter|recursive/flint-v1.0:free",
@@ -194,23 +194,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 198,
-      "total_ms": 325,
-      "error": null
-    },
-    {
-      "key": "openrouter|cohere/north-mini-code:free",
-      "provider": "openrouter",
-      "id": "cohere/north-mini-code:free",
-      "name": "Cohere: North Mini Code (free)",
-      "context_length": 256000,
-      "supports_tools": true,
-      "expiration_date": null,
-      "days_until_expiry": null,
-      "status": "ok",
-      "failure_kind": null,
-      "ttft_ms": 147,
-      "total_ms": 203,
+      "ttft_ms": 369,
+      "total_ms": 666,
       "error": null
     },
     {
@@ -224,24 +209,9 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 319,
-      "total_ms": 336,
+      "ttft_ms": 161,
+      "total_ms": 259,
       "error": null
-    },
-    {
-      "key": "openrouter|thinkingmachines/inkling-2-small:free",
-      "provider": "openrouter",
-      "id": "thinkingmachines/inkling-2-small:free",
-      "name": "Thinking Machines: Inkling 2 Small (free)",
-      "context_length": 1048576,
-      "supports_tools": true,
-      "expiration_date": "2026-11-19",
-      "days_until_expiry": 0,
-      "status": "403",
-      "failure_kind": "model",
-      "ttft_ms": null,
-      "total_ms": 16,
-      "error": "thinkingmachines/inkling-2-small:free is only available on agentic harnesses. Try plugging it into a coding agent or productivity app listed on https://openrouter.ai/apps"
     },
     {
       "key": "groq|openai/gpt-oss-120b",
@@ -254,8 +224,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 125,
-      "total_ms": 150,
+      "ttft_ms": 216,
+      "total_ms": 243,
       "error": null
     },
     {
@@ -269,8 +239,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 189,
-      "total_ms": 195,
+      "ttft_ms": 153,
+      "total_ms": 166,
       "error": null
     },
     {
@@ -284,8 +254,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 151,
-      "total_ms": 159,
+      "ttft_ms": 54,
+      "total_ms": 56,
       "error": null
     },
     {
@@ -299,29 +269,46 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 235,
-      "total_ms": 244,
+      "ttft_ms": 243,
+      "total_ms": 253,
       "error": null
     }
   ],
   "diff": {
-    "previous_date": "2026-11-18",
+    "previous_date": "2026-11-19",
     "added": [],
-    "removed": [],
+    "removed": [
+      "openrouter|cohere/north-mini-code:free",
+      "openrouter|thinkingmachines/inkling-2-small:free"
+    ],
     "status_changed": [
       {
+        "key": "openrouter|baidu/ernie-5.5-flash-preview:free",
+        "from": "ok",
+        "to": "429"
+      },
+      {
         "key": "openrouter|google/gemma-4-26b-a4b-it:free",
+        "from": "429",
+        "to": "ok"
+      },
+      {
+        "key": "openrouter|inclusionai/ling-3.2-flash:free",
+        "from": "ok",
+        "to": "429"
+      },
+      {
+        "key": "openrouter|liquid/lfm-3-1.7b:free",
+        "from": "ok",
+        "to": "error"
+      },
+      {
+        "key": "openrouter|particle-ai/particle-1:free",
         "from": "ok",
         "to": "429"
       }
     ],
     "expiring_within_days": 14,
-    "expiring_soon": [
-      {
-        "key": "openrouter|thinkingmachines/inkling-2-small:free",
-        "expiration_date": "2026-11-19",
-        "days_until_expiry": 0
-      }
-    ]
+    "expiring_soon": []
   }
 }
