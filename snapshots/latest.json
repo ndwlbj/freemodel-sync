@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "date": "2026-11-20",
-  "generated_at": "2026-11-20T08:31:59Z",
+  "date": "2026-11-21",
+  "generated_at": "2026-11-21T08:16:11Z",
   "tool_version": "0.4.0",
   "mode": "probe",
   "max_probes": 15,
@@ -9,15 +9,15 @@
   "providers": {
     "openrouter": {
       "status": "ok",
-      "discovered": 12,
-      "probes_sent": 12,
+      "discovered": 11,
+      "probes_sent": 11,
       "quota": {
         "daily_free_limit": 50,
         "daily_free_used": 0,
         "daily_free_remaining": 50,
         "read": "before probing",
         "note": "read once before probing, so this run's probes are not included; the provider's counter can also lag behind recent requests",
-        "remaining_estimate": 38
+        "remaining_estimate": 39
       }
     },
     "groq": {
@@ -27,8 +27,8 @@
     }
   },
   "summary": {
-    "models": 16,
-    "ok": 11,
+    "models": 15,
+    "ok": 10,
     "failed": 5,
     "not_probed": 0
   },
@@ -42,11 +42,11 @@
       "supports_tools": true,
       "expiration_date": null,
       "days_until_expiry": null,
-      "status": "429",
-      "failure_kind": "transient",
-      "ttft_ms": null,
-      "total_ms": 402,
-      "error": "Provider returned error"
+      "status": "ok",
+      "failure_kind": null,
+      "ttft_ms": 1462,
+      "total_ms": 1485,
+      "error": null
     },
     {
       "key": "openrouter|inclusionai/ling-3.2-flash:free",
@@ -60,7 +60,7 @@
       "status": "429",
       "failure_kind": "transient",
       "ttft_ms": null,
-      "total_ms": 873,
+      "total_ms": 1039,
       "error": "Provider returned error"
     },
     {
@@ -74,8 +74,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 435,
-      "total_ms": 1159,
+      "ttft_ms": 687,
+      "total_ms": 1479,
       "error": null
     },
     {
@@ -89,8 +89,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 299,
-      "total_ms": 312,
+      "ttft_ms": 182,
+      "total_ms": 235,
       "error": null
     },
     {
@@ -104,8 +104,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 268,
-      "total_ms": 364,
+      "ttft_ms": 238,
+      "total_ms": 322,
       "error": null
     },
     {
@@ -120,23 +120,8 @@
       "status": "429",
       "failure_kind": "transient",
       "ttft_ms": null,
-      "total_ms": 321,
+      "total_ms": 233,
       "error": "Provider returned error"
-    },
-    {
-      "key": "openrouter|dots-studio/dots-3-note-preview:free",
-      "provider": "openrouter",
-      "id": "dots-studio/dots-3-note-preview:free",
-      "name": "Dots Studio: Dots3-Note Preview (free)",
-      "context_length": 512000,
-      "supports_tools": true,
-      "expiration_date": "2026-12-31",
-      "days_until_expiry": 41,
-      "status": "ok",
-      "failure_kind": null,
-      "ttft_ms": 6553,
-      "total_ms": 7677,
-      "error": null
     },
     {
       "key": "openrouter|google/gemma-4-26b-a4b-it:free",
@@ -147,11 +132,11 @@
       "supports_tools": true,
       "expiration_date": null,
       "days_until_expiry": null,
-      "status": "ok",
-      "failure_kind": null,
-      "ttft_ms": 597,
-      "total_ms": 603,
-      "error": null
+      "status": "429",
+      "failure_kind": "transient",
+      "ttft_ms": null,
+      "total_ms": 206,
+      "error": "Provider returned error"
     },
     {
       "key": "openrouter|google/gemma-4-31b-it:free",
@@ -165,7 +150,7 @@
       "status": "429",
       "failure_kind": "transient",
       "ttft_ms": null,
-      "total_ms": 286,
+      "total_ms": 138,
       "error": "Provider returned error"
     },
     {
@@ -177,11 +162,11 @@
       "supports_tools": true,
       "expiration_date": null,
       "days_until_expiry": null,
-      "status": "error",
+      "status": "429",
       "failure_kind": "transient",
       "ttft_ms": null,
-      "total_ms": 24240,
-      "error": "error code: 504\n"
+      "total_ms": 162,
+      "error": "Provider returned error"
     },
     {
       "key": "openrouter|recursive/flint-v1.0:free",
@@ -194,8 +179,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 369,
-      "total_ms": 666,
+      "ttft_ms": 220,
+      "total_ms": 413,
       "error": null
     },
     {
@@ -209,8 +194,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 161,
-      "total_ms": 259,
+      "ttft_ms": 187,
+      "total_ms": 310,
       "error": null
     },
     {
@@ -224,8 +209,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 216,
-      "total_ms": 243,
+      "ttft_ms": 173,
+      "total_ms": 200,
       "error": null
     },
     {
@@ -239,8 +224,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 153,
-      "total_ms": 166,
+      "ttft_ms": 223,
+      "total_ms": 237,
       "error": null
     },
     {
@@ -254,8 +239,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 54,
-      "total_ms": 56,
+      "ttft_ms": 69,
+      "total_ms": 70,
       "error": null
     },
     {
@@ -269,42 +254,31 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 243,
-      "total_ms": 253,
+      "ttft_ms": 258,
+      "total_ms": 267,
       "error": null
     }
   ],
   "diff": {
-    "previous_date": "2026-11-19",
+    "previous_date": "2026-11-20",
     "added": [],
     "removed": [
-      "openrouter|cohere/north-mini-code:free",
-      "openrouter|thinkingmachines/inkling-2-small:free"
+      "openrouter|dots-studio/dots-3-note-preview:free"
     ],
     "status_changed": [
       {
         "key": "openrouter|baidu/ernie-5.5-flash-preview:free",
-        "from": "ok",
-        "to": "429"
-      },
-      {
-        "key": "openrouter|google/gemma-4-26b-a4b-it:free",
         "from": "429",
         "to": "ok"
       },
       {
-        "key": "openrouter|inclusionai/ling-3.2-flash:free",
+        "key": "openrouter|google/gemma-4-26b-a4b-it:free",
         "from": "ok",
         "to": "429"
       },
       {
         "key": "openrouter|liquid/lfm-3-1.7b:free",
-        "from": "ok",
-        "to": "error"
-      },
-      {
-        "key": "openrouter|particle-ai/particle-1:free",
-        "from": "ok",
+        "from": "error",
         "to": "429"
       }
     ],
