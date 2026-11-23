@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "date": "2026-11-22",
-  "generated_at": "2026-11-22T07:58:53Z",
+  "date": "2026-11-23",
+  "generated_at": "2026-11-23T09:00:21Z",
   "tool_version": "0.4.0",
   "mode": "probe",
   "max_probes": 15,
@@ -9,15 +9,15 @@
   "providers": {
     "openrouter": {
       "status": "ok",
-      "discovered": 11,
-      "probes_sent": 11,
+      "discovered": 12,
+      "probes_sent": 12,
       "quota": {
         "daily_free_limit": 50,
         "daily_free_used": 0,
         "daily_free_remaining": 50,
         "read": "before probing",
         "note": "read once before probing, so this run's probes are not included; the provider's counter can also lag behind recent requests",
-        "remaining_estimate": 39
+        "remaining_estimate": 38
       }
     },
     "groq": {
@@ -27,9 +27,9 @@
     }
   },
   "summary": {
-    "models": 15,
-    "ok": 11,
-    "failed": 4,
+    "models": 16,
+    "ok": 13,
+    "failed": 3,
     "not_probed": 0
   },
   "models": [
@@ -42,11 +42,11 @@
       "supports_tools": true,
       "expiration_date": null,
       "days_until_expiry": null,
-      "status": "429",
-      "failure_kind": "transient",
-      "ttft_ms": null,
-      "total_ms": 331,
-      "error": "Provider returned error"
+      "status": "ok",
+      "failure_kind": null,
+      "ttft_ms": 1387,
+      "total_ms": 1397,
+      "error": null
     },
     {
       "key": "openrouter|inclusionai/ling-3.2-flash:free",
@@ -60,7 +60,7 @@
       "status": "429",
       "failure_kind": "transient",
       "ttft_ms": null,
-      "total_ms": 1036,
+      "total_ms": 251,
       "error": "Provider returned error"
     },
     {
@@ -74,8 +74,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 333,
-      "total_ms": 418,
+      "ttft_ms": 528,
+      "total_ms": 586,
       "error": null
     },
     {
@@ -89,8 +89,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 110,
-      "total_ms": 176,
+      "ttft_ms": 190,
+      "total_ms": 271,
       "error": null
     },
     {
@@ -104,8 +104,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 302,
-      "total_ms": 374,
+      "ttft_ms": 274,
+      "total_ms": 372,
       "error": null
     },
     {
@@ -119,8 +119,23 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 431,
-      "total_ms": 512,
+      "ttft_ms": 352,
+      "total_ms": 398,
+      "error": null
+    },
+    {
+      "key": "openrouter|dots-studio/dots-3-note-preview:free",
+      "provider": "openrouter",
+      "id": "dots-studio/dots-3-note-preview:free",
+      "name": "Dots Studio: Dots3-Note Preview (free)",
+      "context_length": 512000,
+      "supports_tools": true,
+      "expiration_date": "2026-12-31",
+      "days_until_expiry": 38,
+      "status": "ok",
+      "failure_kind": null,
+      "ttft_ms": 617,
+      "total_ms": 905,
       "error": null
     },
     {
@@ -135,7 +150,7 @@
       "status": "429",
       "failure_kind": "transient",
       "ttft_ms": null,
-      "total_ms": 83,
+      "total_ms": 378,
       "error": "Provider returned error"
     },
     {
@@ -150,7 +165,7 @@
       "status": "429",
       "failure_kind": "transient",
       "ttft_ms": null,
-      "total_ms": 50,
+      "total_ms": 71,
       "error": "Provider returned error"
     },
     {
@@ -164,8 +179,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 369,
-      "total_ms": 605,
+      "ttft_ms": 147,
+      "total_ms": 759,
       "error": null
     },
     {
@@ -179,8 +194,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 423,
-      "total_ms": 626,
+      "ttft_ms": 441,
+      "total_ms": 683,
       "error": null
     },
     {
@@ -194,8 +209,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 95,
-      "total_ms": 222,
+      "ttft_ms": 181,
+      "total_ms": 307,
       "error": null
     },
     {
@@ -209,8 +224,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 271,
-      "total_ms": 297,
+      "ttft_ms": 220,
+      "total_ms": 246,
       "error": null
     },
     {
@@ -224,8 +239,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 76,
-      "total_ms": 93,
+      "ttft_ms": 152,
+      "total_ms": 166,
       "error": null
     },
     {
@@ -239,8 +254,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 75,
-      "total_ms": 83,
+      "ttft_ms": 51,
+      "total_ms": 59,
       "error": null
     },
     {
@@ -254,28 +269,20 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 236,
-      "total_ms": 247,
+      "ttft_ms": 309,
+      "total_ms": 319,
       "error": null
     }
   ],
   "diff": {
-    "previous_date": "2026-11-21",
-    "added": [],
+    "previous_date": "2026-11-22",
+    "added": [
+      "openrouter|dots-studio/dots-3-note-preview:free"
+    ],
     "removed": [],
     "status_changed": [
       {
         "key": "openrouter|baidu/ernie-5.5-flash-preview:free",
-        "from": "ok",
-        "to": "429"
-      },
-      {
-        "key": "openrouter|liquid/lfm-3-1.7b:free",
-        "from": "429",
-        "to": "ok"
-      },
-      {
-        "key": "openrouter|particle-ai/particle-1:free",
         "from": "429",
         "to": "ok"
       }
