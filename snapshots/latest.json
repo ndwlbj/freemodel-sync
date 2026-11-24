@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "date": "2026-11-23",
-  "generated_at": "2026-11-23T09:00:21Z",
+  "date": "2026-11-24",
+  "generated_at": "2026-11-24T10:54:26Z",
   "tool_version": "0.4.0",
   "mode": "probe",
   "max_probes": 15,
@@ -28,8 +28,8 @@
   },
   "summary": {
     "models": 16,
-    "ok": 13,
-    "failed": 3,
+    "ok": 15,
+    "failed": 1,
     "not_probed": 0
   },
   "models": [
@@ -44,8 +44,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 1387,
-      "total_ms": 1397,
+      "ttft_ms": 737,
+      "total_ms": 856,
       "error": null
     },
     {
@@ -57,11 +57,11 @@
       "supports_tools": true,
       "expiration_date": null,
       "days_until_expiry": null,
-      "status": "429",
-      "failure_kind": "transient",
-      "ttft_ms": null,
-      "total_ms": 251,
-      "error": "Provider returned error"
+      "status": "ok",
+      "failure_kind": null,
+      "ttft_ms": 820,
+      "total_ms": 920,
+      "error": null
     },
     {
       "key": "openrouter|nvidia/nemotron-3-ultra-550b-a55b:free",
@@ -74,8 +74,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 528,
-      "total_ms": 586,
+      "ttft_ms": 453,
+      "total_ms": 575,
       "error": null
     },
     {
@@ -89,8 +89,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 190,
-      "total_ms": 271,
+      "ttft_ms": 196,
+      "total_ms": 252,
       "error": null
     },
     {
@@ -104,8 +104,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 274,
-      "total_ms": 372,
+      "ttft_ms": 7281,
+      "total_ms": 7444,
       "error": null
     },
     {
@@ -119,8 +119,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 352,
-      "total_ms": 398,
+      "ttft_ms": 439,
+      "total_ms": 450,
       "error": null
     },
     {
@@ -131,11 +131,11 @@
       "context_length": 512000,
       "supports_tools": true,
       "expiration_date": "2026-12-31",
-      "days_until_expiry": 38,
+      "days_until_expiry": 37,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 617,
-      "total_ms": 905,
+      "ttft_ms": 452,
+      "total_ms": 965,
       "error": null
     },
     {
@@ -147,11 +147,11 @@
       "supports_tools": true,
       "expiration_date": null,
       "days_until_expiry": null,
-      "status": "429",
-      "failure_kind": "transient",
-      "ttft_ms": null,
-      "total_ms": 378,
-      "error": "Provider returned error"
+      "status": "ok",
+      "failure_kind": null,
+      "ttft_ms": 1337,
+      "total_ms": 1346,
+      "error": null
     },
     {
       "key": "openrouter|google/gemma-4-31b-it:free",
@@ -165,7 +165,7 @@
       "status": "429",
       "failure_kind": "transient",
       "ttft_ms": null,
-      "total_ms": 71,
+      "total_ms": 164,
       "error": "Provider returned error"
     },
     {
@@ -179,8 +179,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 147,
-      "total_ms": 759,
+      "ttft_ms": 159,
+      "total_ms": 235,
       "error": null
     },
     {
@@ -194,8 +194,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 441,
-      "total_ms": 683,
+      "ttft_ms": 486,
+      "total_ms": 949,
       "error": null
     },
     {
@@ -209,8 +209,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 181,
-      "total_ms": 307,
+      "ttft_ms": 177,
+      "total_ms": 357,
       "error": null
     },
     {
@@ -224,8 +224,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 220,
-      "total_ms": 246,
+      "ttft_ms": 238,
+      "total_ms": 262,
       "error": null
     },
     {
@@ -239,8 +239,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 152,
-      "total_ms": 166,
+      "ttft_ms": 212,
+      "total_ms": 227,
       "error": null
     },
     {
@@ -254,8 +254,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 51,
-      "total_ms": 59,
+      "ttft_ms": 52,
+      "total_ms": 53,
       "error": null
     },
     {
@@ -269,20 +269,23 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 309,
-      "total_ms": 319,
+      "ttft_ms": 247,
+      "total_ms": 256,
       "error": null
     }
   ],
   "diff": {
-    "previous_date": "2026-11-22",
-    "added": [
-      "openrouter|dots-studio/dots-3-note-preview:free"
-    ],
+    "previous_date": "2026-11-23",
+    "added": [],
     "removed": [],
     "status_changed": [
       {
-        "key": "openrouter|baidu/ernie-5.5-flash-preview:free",
+        "key": "openrouter|google/gemma-4-26b-a4b-it:free",
+        "from": "429",
+        "to": "ok"
+      },
+      {
+        "key": "openrouter|inclusionai/ling-3.2-flash:free",
         "from": "429",
         "to": "ok"
       }
