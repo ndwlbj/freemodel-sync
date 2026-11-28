@@ -1,43 +1,42 @@
-# Free-model snapshot 2026-11-27
+# Free-model snapshot 2026-11-28
 
-Automated daily health check by [freemodel-sync](https://github.com/ndwlbj/freemodel-sync) 0.4.0, generated 2026-11-27T09:39:49Z. Results are informational only: one tiny request per model from GitHub Actions, so availability and latency can differ for you.
+Automated daily health check by [freemodel-sync](https://github.com/ndwlbj/freemodel-sync) 0.4.0, generated 2026-11-28T08:54:39Z. Results are informational only: one tiny request per model from GitHub Actions, so availability and latency can differ for you.
 
 ## Providers
 
 | Provider | Status | Free models | Probes sent | Notes |
 |---|---|---|---|---|
-| openrouter | ok | 11 | 11 | daily free limit 50; 0 used / 50 left before this run, about 39 left after it (data may lag) |
+| openrouter | ok | 10 | 0 | daily free-request budget reached (keeping 10 in reserve); daily free limit 50; 53 used / 0 left before this run, about 0 left after it (data may lag) |
 | groq | ok | 4 | 4 | - |
 
-**15** free models, **9** ok, 6 failed, 0 not probed (probe cap 15 per provider).
+**14** free models, **4** ok, 0 failed, 10 not probed (probe cap 15 per provider).
 
 ## Models
 
 | Provider | Model | Status | TTFT ms | Total ms | Context | Tools | Expires |
 |---|---|---|---|---|---|---|---|
-| groq | `qwen/qwen3.8-27b` | ok | 78 | 85 | 131072 | no | - |
-| groq | `openai/gpt-oss-120b` | ok | 87 | 114 | 131072 | no | - |
-| groq | `openai/gpt-oss-20b` | ok | 111 | 124 | 131072 | no | - |
-| openrouter | `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free` | ok | 216 | 436 | 256000 | yes | - |
-| openrouter | `nvidia/nemotron-3.5-lightning:free` | ok | 243 | 306 | 1000000 | yes | - |
-| openrouter | `nvidia/nemotron-3.5-super-vl:free` | ok | 252 | 403 | 1000000 | yes | - |
-| groq | `allam-2-7b` | ok | 269 | 279 | 4096 | no | - |
-| openrouter | `recursive/flint-v1.0:free` | ok | 647 | 945 | 262144 | yes | - |
-| openrouter | `nvidia/nemotron-3-ultra-550b-a55b:free` | ok | 790 | 901 | 1000000 | yes | - |
-| openrouter | `baidu/ernie-5.5-flash-preview:free` | 429 | - | 408 | 1024000 | yes | - |
-| openrouter | `google/gemma-4-26b-a4b-it:free` | 429 | - | 116 | 262144 | yes | - |
-| openrouter | `google/gemma-4-31b-it:free` | 429 | - | 99 | 262144 | yes | - |
-| openrouter | `inclusionai/ling-3.2-flash:free` | 429 | - | 658 | 1048576 | yes | - |
-| openrouter | `liquid/lfm-3-1.7b:free` | 429 | - | 104 | 262144 | yes | - |
-| openrouter | `particle-ai/particle-1:free` | 429 | - | 99 | 1048576 | yes | - |
+| groq | `qwen/qwen3.8-27b` | ok | 81 | 88 | 131072 | no | - |
+| groq | `openai/gpt-oss-120b` | ok | 141 | 164 | 131072 | no | - |
+| groq | `allam-2-7b` | ok | 242 | 252 | 4096 | no | - |
+| groq | `openai/gpt-oss-20b` | ok | 269 | 283 | 131072 | no | - |
+| openrouter | `baidu/ernie-5.5-flash-preview:free` | not_probed | - | - | 1024000 | yes | - |
+| openrouter | `google/gemma-4-26b-a4b-it:free` | not_probed | - | - | 262144 | yes | - |
+| openrouter | `google/gemma-4-31b-it:free` | not_probed | - | - | 262144 | yes | - |
+| openrouter | `liquid/lfm-3-1.7b:free` | not_probed | - | - | 262144 | yes | - |
+| openrouter | `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free` | not_probed | - | - | 256000 | yes | - |
+| openrouter | `nvidia/nemotron-3-ultra-550b-a55b:free` | not_probed | - | - | 1000000 | yes | - |
+| openrouter | `nvidia/nemotron-3.5-lightning:free` | not_probed | - | - | 1000000 | yes | - |
+| openrouter | `nvidia/nemotron-3.5-super-vl:free` | not_probed | - | - | 1000000 | yes | - |
+| openrouter | `particle-ai/particle-1:free` | not_probed | - | - | 1048576 | yes | - |
+| openrouter | `recursive/flint-v1.0:free` | not_probed | - | - | 262144 | yes | - |
 
 ## Changes
 
-Compared with 2026-11-26:
+Compared with 2026-11-27:
 
 - Added: none
-- Removed: none
-- Status changed: `openrouter|baidu/ernie-5.5-flash-preview:free` ok -> 429, `openrouter|liquid/lfm-3-1.7b:free` ok -> 429, `openrouter|particle-ai/particle-1:free` ok -> 429
+- Removed: `openrouter|inclusionai/ling-3.2-flash:free`
+- Status changed: none
 
 ### Expiring within 14 days
 

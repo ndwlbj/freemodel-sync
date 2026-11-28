@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "date": "2026-11-27",
-  "generated_at": "2026-11-27T09:39:49Z",
+  "date": "2026-11-28",
+  "generated_at": "2026-11-28T08:54:39Z",
   "tool_version": "0.4.0",
   "mode": "probe",
   "max_probes": 15,
@@ -9,16 +9,17 @@
   "providers": {
     "openrouter": {
       "status": "ok",
-      "discovered": 11,
-      "probes_sent": 11,
+      "discovered": 10,
+      "probes_sent": 0,
       "quota": {
         "daily_free_limit": 50,
-        "daily_free_used": 0,
-        "daily_free_remaining": 50,
+        "daily_free_used": 53,
+        "daily_free_remaining": 0,
         "read": "before probing",
         "note": "read once before probing, so this run's probes are not included; the provider's counter can also lag behind recent requests",
-        "remaining_estimate": 39
-      }
+        "remaining_estimate": 0
+      },
+      "stop_reason": "daily free-request budget reached (keeping 10 in reserve)"
     },
     "groq": {
       "status": "ok",
@@ -27,10 +28,10 @@
     }
   },
   "summary": {
-    "models": 15,
-    "ok": 9,
-    "failed": 6,
-    "not_probed": 0
+    "models": 14,
+    "ok": 4,
+    "failed": 0,
+    "not_probed": 10
   },
   "models": [
     {
@@ -42,26 +43,11 @@
       "supports_tools": true,
       "expiration_date": null,
       "days_until_expiry": null,
-      "status": "429",
-      "failure_kind": "transient",
+      "status": "not_probed",
+      "failure_kind": null,
       "ttft_ms": null,
-      "total_ms": 408,
-      "error": "Provider returned error"
-    },
-    {
-      "key": "openrouter|inclusionai/ling-3.2-flash:free",
-      "provider": "openrouter",
-      "id": "inclusionai/ling-3.2-flash:free",
-      "name": "inclusionAI: Ling 3.2 Flash (free)",
-      "context_length": 1048576,
-      "supports_tools": true,
-      "expiration_date": null,
-      "days_until_expiry": null,
-      "status": "429",
-      "failure_kind": "transient",
-      "ttft_ms": null,
-      "total_ms": 658,
-      "error": "Provider returned error"
+      "total_ms": null,
+      "error": null
     },
     {
       "key": "openrouter|nvidia/nemotron-3-ultra-550b-a55b:free",
@@ -72,10 +58,10 @@
       "supports_tools": true,
       "expiration_date": null,
       "days_until_expiry": null,
-      "status": "ok",
+      "status": "not_probed",
       "failure_kind": null,
-      "ttft_ms": 790,
-      "total_ms": 901,
+      "ttft_ms": null,
+      "total_ms": null,
       "error": null
     },
     {
@@ -87,10 +73,10 @@
       "supports_tools": true,
       "expiration_date": null,
       "days_until_expiry": null,
-      "status": "ok",
+      "status": "not_probed",
       "failure_kind": null,
-      "ttft_ms": 243,
-      "total_ms": 306,
+      "ttft_ms": null,
+      "total_ms": null,
       "error": null
     },
     {
@@ -102,10 +88,10 @@
       "supports_tools": true,
       "expiration_date": null,
       "days_until_expiry": null,
-      "status": "ok",
+      "status": "not_probed",
       "failure_kind": null,
-      "ttft_ms": 252,
-      "total_ms": 403,
+      "ttft_ms": null,
+      "total_ms": null,
       "error": null
     },
     {
@@ -117,11 +103,11 @@
       "supports_tools": true,
       "expiration_date": null,
       "days_until_expiry": null,
-      "status": "429",
-      "failure_kind": "transient",
+      "status": "not_probed",
+      "failure_kind": null,
       "ttft_ms": null,
-      "total_ms": 99,
-      "error": "Provider returned error"
+      "total_ms": null,
+      "error": null
     },
     {
       "key": "openrouter|google/gemma-4-26b-a4b-it:free",
@@ -132,11 +118,11 @@
       "supports_tools": true,
       "expiration_date": null,
       "days_until_expiry": null,
-      "status": "429",
-      "failure_kind": "transient",
+      "status": "not_probed",
+      "failure_kind": null,
       "ttft_ms": null,
-      "total_ms": 116,
-      "error": "Provider returned error"
+      "total_ms": null,
+      "error": null
     },
     {
       "key": "openrouter|google/gemma-4-31b-it:free",
@@ -147,11 +133,11 @@
       "supports_tools": true,
       "expiration_date": null,
       "days_until_expiry": null,
-      "status": "429",
-      "failure_kind": "transient",
+      "status": "not_probed",
+      "failure_kind": null,
       "ttft_ms": null,
-      "total_ms": 99,
-      "error": "Provider returned error"
+      "total_ms": null,
+      "error": null
     },
     {
       "key": "openrouter|liquid/lfm-3-1.7b:free",
@@ -162,11 +148,11 @@
       "supports_tools": true,
       "expiration_date": null,
       "days_until_expiry": null,
-      "status": "429",
-      "failure_kind": "transient",
+      "status": "not_probed",
+      "failure_kind": null,
       "ttft_ms": null,
-      "total_ms": 104,
-      "error": "Provider returned error"
+      "total_ms": null,
+      "error": null
     },
     {
       "key": "openrouter|recursive/flint-v1.0:free",
@@ -177,10 +163,10 @@
       "supports_tools": true,
       "expiration_date": null,
       "days_until_expiry": null,
-      "status": "ok",
+      "status": "not_probed",
       "failure_kind": null,
-      "ttft_ms": 647,
-      "total_ms": 945,
+      "ttft_ms": null,
+      "total_ms": null,
       "error": null
     },
     {
@@ -192,10 +178,10 @@
       "supports_tools": true,
       "expiration_date": null,
       "days_until_expiry": null,
-      "status": "ok",
+      "status": "not_probed",
       "failure_kind": null,
-      "ttft_ms": 216,
-      "total_ms": 436,
+      "ttft_ms": null,
+      "total_ms": null,
       "error": null
     },
     {
@@ -209,8 +195,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 87,
-      "total_ms": 114,
+      "ttft_ms": 141,
+      "total_ms": 164,
       "error": null
     },
     {
@@ -224,8 +210,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 111,
-      "total_ms": 124,
+      "ttft_ms": 269,
+      "total_ms": 283,
       "error": null
     },
     {
@@ -239,8 +225,8 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 78,
-      "total_ms": 85,
+      "ttft_ms": 81,
+      "total_ms": 88,
       "error": null
     },
     {
@@ -254,32 +240,18 @@
       "days_until_expiry": null,
       "status": "ok",
       "failure_kind": null,
-      "ttft_ms": 269,
-      "total_ms": 279,
+      "ttft_ms": 242,
+      "total_ms": 252,
       "error": null
     }
   ],
   "diff": {
-    "previous_date": "2026-11-26",
+    "previous_date": "2026-11-27",
     "added": [],
-    "removed": [],
-    "status_changed": [
-      {
-        "key": "openrouter|baidu/ernie-5.5-flash-preview:free",
-        "from": "ok",
-        "to": "429"
-      },
-      {
-        "key": "openrouter|liquid/lfm-3-1.7b:free",
-        "from": "ok",
-        "to": "429"
-      },
-      {
-        "key": "openrouter|particle-ai/particle-1:free",
-        "from": "ok",
-        "to": "429"
-      }
+    "removed": [
+      "openrouter|inclusionai/ling-3.2-flash:free"
     ],
+    "status_changed": [],
     "expiring_within_days": 14,
     "expiring_soon": []
   }
